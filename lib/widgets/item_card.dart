@@ -22,11 +22,11 @@ class ItemCard extends StatelessWidget {
     
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(AppRadius.container),
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppRadius.container),
           border: Border.all(color: AppColors.gray200),
           boxShadow: [
             BoxShadow(
@@ -134,7 +134,7 @@ class ItemCard extends StatelessWidget {
                 padding: EdgeInsets.all(isMobile ? 10 : 12),
                 decoration: BoxDecoration(
                   color: AppColors.gray50,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.medium),
                 ),
                 child: Text(
                   item.description,
@@ -161,12 +161,12 @@ class ItemCard extends StatelessWidget {
       margin: EdgeInsets.all(margin),
       decoration: BoxDecoration(
         color: AppColors.gray100,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.mediumLarge),
       ),
       child: Stack(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppRadius.mediumLarge),
             child: CachedNetworkImage(
               imageUrl: item.imageUrl,
               width: imageSize,
@@ -185,7 +185,7 @@ class ItemCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: AppColors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppRadius.smallMedium),
               ),
               child: Text(
                 item.categoryIcon,
@@ -210,9 +210,9 @@ class ItemCard extends StatelessWidget {
         borderColor = Colors.green.shade200;
         break;
       case ItemStatus.pendingVerification:
-        bgColor = Colors.orange.shade50;
-        textColor = Colors.orange.shade700;
-        borderColor = Colors.orange.shade200;
+        bgColor = Colors.yellow.shade50;
+        textColor = Colors.yellow.shade700;
+        borderColor = Colors.yellow.shade200;
         break;
       case ItemStatus.resolved:
         bgColor = AppColors.gray50;
@@ -225,7 +225,7 @@ class ItemCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.smallMedium),
         border: Border.all(color: borderColor),
       ),
       child: Text(

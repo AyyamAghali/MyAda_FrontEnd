@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/support_ticket.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
+import '../../widgets/unified_media_picker.dart';
 import 'my_requests.dart';
 
 class NewIssueForm extends StatefulWidget {
@@ -17,11 +18,12 @@ class NewIssueForm extends StatefulWidget {
 class _NewIssueFormState extends State<NewIssueForm> {
   final _formKey = GlobalKey<FormState>();
   final _categoryController = TextEditingController();
+  final _otherCategoryController = TextEditingController();
   final _locationController = TextEditingController();
-  final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  TicketPriority _urgencyLevel = TicketPriority.medium;
+  TicketPriority _urgencyLevel = TicketPriority.low; // Default to "Not Urgent"
   List<String> _attachments = [];
+  bool _isOtherCategorySelected = false;
 
   final List<String> _categories = [
     'Wi-Fi & Network',
@@ -37,8 +39,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
   @override
   void dispose() {
     _categoryController.dispose();
+    _otherCategoryController.dispose();
     _locationController.dispose();
-    _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -61,110 +63,192 @@ class _NewIssueFormState extends State<NewIssueForm> {
                 _buildHeader(context, isIT),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildNumberedField(
                           number: 1,
                           label: 'Issue Category *',
-                          child: TextFormField(
-                            controller: _categoryController,
-                            decoration: InputDecoration(
-                              hintText: 'Select category',
-                              suffixIcon: PopupMenuButton<String>(
-                                icon: const Icon(Icons.arrow_drop_down),
-                                onSelected: (value) {
-                                  setState(() => _categoryController.text = value);
-                                },
-                                itemBuilder: (context) {
-                                  return _categories.map((cat) {
-                                    return PopupMenuItem(
-                                      value: cat,
-                                      child: Text(cat),
-                                    );
-                                  }).toList();
-                                },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextFormField(
+                                controller: _categoryController,
+                                decoration: InputDecoration(
+                                  hintText: 'Select category',
+                                  filled: true,
+                                  fillColor: AppColors.gray50,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: AppColors.gray200),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: AppColors.gray200),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+                                  suffixIcon: PopupMenuButton<String>(
+                                    icon: Icon(Icons.keyboard_arrow_down, color: AppColors.gray400, size: 20),
+                                    onSelected: (value) {
+                                      setState(() {
+                                        _categoryController.text = value;
+                                        _isOtherCategorySelected = value == 'Other';
+                                        if (!_isOtherCategorySelected) {
+                                          _otherCategoryController.clear();
+                                        }
+                                      });
+                                    },
+                                    itemBuilder: (context) {
+                                      return _categories.map((cat) {
+                                        return PopupMenuItem(
+                                          value: cat,
+                                          child: Text(cat),
+                                        );
+                                      }).toList();
+                                    },
+                                  ),
+                                ),
+                                style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+                                validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
                               ),
-                            ),
-                            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                              if (_isOtherCategorySelected) ...[
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: _otherCategoryController,
+                                  decoration: InputDecoration(
+                                    hintText: 'Please specify the category',
+                                    prefixIcon: const Icon(Icons.edit, color: AppColors.primary, size: 20),
+                                    filled: true,
+                                    fillColor: AppColors.gray50,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide(color: AppColors.gray200),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide(color: AppColors.gray200),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+                                  ),
+                                  style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+                                  validator: (value) {
+                                    if (_isOtherCategorySelected && (value == null || value.isEmpty)) {
+                                      return 'Please specify the category';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         _buildNumberedField(
                           number: 2,
                           label: 'Location *',
                           child: TextFormField(
                             controller: _locationController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Enter location',
-                              prefixIcon: Icon(Icons.location_on, color: AppColors.primary),
+                              prefixIcon: const Icon(Icons.location_on, color: AppColors.primary, size: 20),
+                              filled: true,
+                              fillColor: AppColors.gray50,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: AppColors.gray200),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: AppColors.gray200),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
                             ),
+                            style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                             validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         _buildNumberedField(
                           number: 3,
-                          label: 'Issue Title *',
-                          child: TextFormField(
-                            controller: _titleController,
-                            decoration: const InputDecoration(
-                              hintText: 'Brief summary of the issue',
-                            ),
-                            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildNumberedField(
-                          number: 4,
                           label: 'Detailed Description *',
                           child: TextFormField(
                             controller: _descriptionController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Provide as much detail as possible about the issue...',
                               helperText: 'Include error messages, what you were doing when the issue occurred, etc.',
+                              filled: true,
+                              fillColor: AppColors.gray50,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: AppColors.gray200),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: AppColors.gray200),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+                              helperStyle: TextStyle(fontSize: 11, color: AppColors.gray500),
                             ),
+                            style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                             maxLines: 5,
                             validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         _buildNumberedField(
-                          number: 5,
+                          number: 4,
                           label: 'Attachments (Optional)',
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () async {
-                                    final picker = ImagePicker();
-                                    final image = await picker.pickImage(source: ImageSource.camera);
-                                    if (image != null) {
-                                      setState(() => _attachments.add(image.path));
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Photo added (mock)')),
-                                      );
-                                    }
-                                  },
-                                  icon: const Icon(Icons.camera_alt),
-                                  label: const Text('Add Photo'),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    setState(() => _attachments.add('video_${_attachments.length}.mp4'));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Video added (mock)')),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.videocam),
-                                  label: const Text('Add Video'),
-                                ),
-                              ),
-                            ],
+                          child: UnifiedMediaPicker(
+                            label: 'Add Photo or Video',
+                            icon: Icons.add_photo_alternate,
+                            showVideoOption: true,
+                            onCameraSelected: () async {
+                              final picker = ImagePicker();
+                              final image = await picker.pickImage(source: ImageSource.camera);
+                              if (image != null) {
+                                setState(() => _attachments.add(image.path));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Photo added (mock)')),
+                                );
+                              }
+                            },
+                            onPhotoSelected: () async {
+                              final picker = ImagePicker();
+                              final image = await picker.pickImage(source: ImageSource.gallery);
+                              if (image != null) {
+                                setState(() => _attachments.add(image.path));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Photo added (mock)')),
+                                );
+                              }
+                            },
+                            onVideoSelected: () {
+                              setState(() => _attachments.add('video_${_attachments.length}.mp4'));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Video added (mock)')),
+                              );
+                            },
                           ),
                         ),
                         if (_attachments.isNotEmpty) ...[
@@ -182,42 +266,36 @@ class _NewIssueFormState extends State<NewIssueForm> {
                             }).toList(),
                           ),
                         ],
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         _buildNumberedField(
-                          number: 6,
+                          number: 5,
                           label: 'Urgency Level *',
                           child: Column(
                             children: [
                               RadioListTile<TicketPriority>(
-                                title: const Text('Low'),
-                                subtitle: const Text('Can wait 24+ hours'),
+                                title: const Text('Not Urgent', style: TextStyle(fontSize: 14)),
+                                subtitle: const Text('Can wait 24+ hours', style: TextStyle(fontSize: 12)),
                                 value: TicketPriority.low,
                                 groupValue: _urgencyLevel,
                                 onChanged: (value) => setState(() => _urgencyLevel = value!),
                                 contentPadding: EdgeInsets.zero,
+                                dense: true,
                               ),
                               RadioListTile<TicketPriority>(
-                                title: const Text('Medium'),
-                                subtitle: const Text('Needed within today'),
-                                value: TicketPriority.medium,
-                                groupValue: _urgencyLevel,
-                                onChanged: (value) => setState(() => _urgencyLevel = value!),
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              RadioListTile<TicketPriority>(
-                                title: const Text('High'),
-                                subtitle: const Text('Urgent - needed ASAP'),
+                                title: const Text('Urgent', style: TextStyle(fontSize: 14)),
+                                subtitle: const Text('Needed ASAP', style: TextStyle(fontSize: 12)),
                                 value: TicketPriority.high,
                                 groupValue: _urgencyLevel,
                                 onChanged: (value) => setState(() => _urgencyLevel = value!),
                                 contentPadding: EdgeInsets.zero,
+                                dense: true,
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         _buildWhatHappensNext(responseTime),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
@@ -233,26 +311,34 @@ class _NewIssueFormState extends State<NewIssueForm> {
 
   Widget _buildHeader(BuildContext context, bool isIT) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       color: AppColors.white,
+      width: double.infinity,
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
+            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.gray900, size: 18),
             onPressed: () => Navigator.pop(context),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            visualDensity: VisualDensity.compact,
           ),
+          const SizedBox(width: 4),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   isIT ? 'New IT Request' : 'New Technical Request',
                   style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.gray900,
+                    letterSpacing: -0.3,
                   ),
                 ),
+                const SizedBox(height: 2),
                 const Text(
                   'Fill in the details below',
                   style: TextStyle(fontSize: 12, color: AppColors.gray500),
@@ -270,72 +356,85 @@ class _NewIssueFormState extends State<NewIssueForm> {
     required String label,
     required Widget child,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  number.toString(),
-                  style: const TextStyle(
-                    color: AppColors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(
+                    number.toString(),
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppColors.gray900,
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.gray900,
+                  letterSpacing: -0.2,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        child,
-      ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
     );
   }
 
   Widget _buildWhatHappensNext(String responseTime) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border.all(color: Colors.blue.shade200),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.blue.shade50.withOpacity(0.6),
+        border: Border.all(color: Colors.blue.shade200.withOpacity(0.5), width: 1),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.info, color: Colors.blue, size: 24),
-              SizedBox(width: 8),
-              Text(
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.info_outline, color: Colors.blue, size: 16),
+              ),
+              const SizedBox(width: 10),
+              const Text(
                 'What happens next?',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                   color: Colors.blue,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _buildInfoItem('Your request will be reviewed by our support team'),
           _buildInfoItem('You\'ll receive a ticket number for tracking'),
           _buildInfoItem('Support staff will contact you via chat or email'),
@@ -347,18 +446,18 @@ class _NewIssueFormState extends State<NewIssueForm> {
 
   Widget _buildInfoItem(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '• ',
-            style: TextStyle(fontSize: 14, color: Colors.blue.shade700),
+            style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
           ),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+              style: TextStyle(fontSize: 11, color: Colors.blue.shade700, height: 1.3),
             ),
           ),
         ],
@@ -367,21 +466,30 @@ class _NewIssueFormState extends State<NewIssueForm> {
   }
 
   Widget _buildSubmitButton(BuildContext context, Color primaryColor) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.gray200)),
-      ),
-      child: SafeArea(
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             if (_formKey.currentState == null || !_formKey.currentState!.validate())
-              const Padding(
-                padding: EdgeInsets.only(bottom: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
                   'Please fill in all required fields',
-                  style: TextStyle(fontSize: 12, color: Colors.red),
+                  style: TextStyle(fontSize: 11, color: Colors.red.shade700),
                 ),
               ),
             SizedBox(
@@ -397,6 +505,10 @@ class _NewIssueFormState extends State<NewIssueForm> {
                       SnackBar(
                         content: Text('${widget.category} request submitted successfully!'),
                         backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     );
                   }
@@ -404,14 +516,15 @@ class _NewIssueFormState extends State<NewIssueForm> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
+                  elevation: 0,
                 ),
                 child: const Text(
                   'Submit Request',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
                 ),
               ),
             ),

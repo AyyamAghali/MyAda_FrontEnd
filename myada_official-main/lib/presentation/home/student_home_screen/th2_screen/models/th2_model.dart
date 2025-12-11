@@ -1,0 +1,1 @@
+class Th2Model {}

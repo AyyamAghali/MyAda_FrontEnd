@@ -707,7 +707,8 @@ class TicketDetailView extends StatelessWidget {
   Color _getStatusColor(TicketStatus status) {
     switch (status) {
       case TicketStatus.pending:
-        return Colors.orange;
+        // Treat pending as assigned (pending is deprecated for IT/FM requests)
+        return Colors.blue;
       case TicketStatus.assigned:
         return Colors.blue;
       case TicketStatus.inProgress:

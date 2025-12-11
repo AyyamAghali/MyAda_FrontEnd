@@ -292,10 +292,8 @@ class _ClubsHomeState extends State<ClubsHome> {
           child: Column(
             children: [
               _buildHeader(context),
-              _buildQuickActions(context),
               _buildSearchBar(context),
-              _buildCategoryFilter(context),
-              _buildStatusFilter(context),
+              _buildFilters(context),
               Expanded(
                 child: _buildClubsList(context),
               ),
@@ -352,7 +350,12 @@ class _ClubsHomeState extends State<ClubsHome> {
               ),
               IconButton(
                 icon: const Icon(Icons.person, color: AppColors.gray600),
-                onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const MyMemberships()),
+                );
+              },
               ),
             ],
           ),
@@ -361,36 +364,6 @@ class _ClubsHomeState extends State<ClubsHome> {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: AppColors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MyMemberships()),
-                );
-              },
-              icon: const Icon(Icons.groups, size: 18),
-              label: const Text('My Clubs'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildSearchBar(BuildContext context) {
     return Container(
@@ -431,65 +404,93 @@ class _ClubsHomeState extends State<ClubsHome> {
     );
   }
 
-  Widget _buildCategoryFilter(BuildContext context) {
+  Widget _buildFilters(BuildContext context) {
     final categories = ['All', 'Technology', 'Arts', 'Business', 'Academic', 'Social', 'Sports'];
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: AppColors.white,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: categories.map((category) {
-            final isSelected = selectedCategory == category;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(category),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() => selectedCategory = category);
-                },
-                selectedColor: AppColors.primary,
-                labelStyle: TextStyle(
-                  color: isSelected ? AppColors.white : AppColors.gray700,
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusFilter(BuildContext context) {
     final statuses = ['all', 'Open', 'Closed', 'Paused', 'Disabled', 'By Invitation'];
     
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: AppColors.white,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
         child: Row(
-          children: statuses.map((status) {
-            final isSelected = selectedStatus == status;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(status == 'all' ? 'All Status' : status),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() => selectedStatus = status);
-                },
-                selectedColor: AppColors.primary,
-                labelStyle: TextStyle(
-                  color: isSelected ? AppColors.white : AppColors.gray600,
-                  fontSize: 12,
+        children: [
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: selectedCategory,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Category',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.gray200),
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.gray200),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                ),
+                filled: true,
+                fillColor: AppColors.gray50,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+              items: categories.map((category) {
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(
+                    category,
+                    overflow: TextOverflow.ellipsis,
               ),
             );
           }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => selectedCategory = value);
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: selectedStatus,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Status',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.gray200),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.gray200),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                ),
+                filled: true,
+                fillColor: AppColors.gray50,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+              items: statuses.map((status) {
+                return DropdownMenuItem<String>(
+                  value: status,
+                  child: Text(
+                    status == 'all' ? 'All Status' : status,
+                    overflow: TextOverflow.ellipsis,
+              ),
+            );
+          }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => selectedStatus = value);
+                }
+              },
+            ),
         ),
+        ],
       ),
     );
   }

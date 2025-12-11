@@ -76,15 +76,24 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ],
           ),
-          child: const Center(
-            child: Text(
-              'ADA',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-                letterSpacing: 2,
-              ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Image.asset(
+              'assets/images/ada_logo.png',
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Center(
+                  child: Text(
+                    'ADA',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),

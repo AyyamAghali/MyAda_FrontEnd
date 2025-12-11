@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MyADA Official</string>
+    <string name="servicedesc">MyADA Digital ID</string>
+    <string name="aiddescription">MyADA Digital ID Service</string>
+    <string name="service_name">MyADA ID Card</string>
+    <string name="aid_description">MyADA Student ID</string>
+    <string name="service_name_simple">MyADA Simple ID</string>
+    <string name="aid_description_simple">MyADA Simple ID Service</string>
+</resources> 

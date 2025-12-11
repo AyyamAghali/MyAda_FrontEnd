@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
+import '../../widgets/unified_photo_picker.dart';
 import '../../models/lost_item.dart';
 
 class ReportItemForm extends StatefulWidget {
-  const ReportItemForm({super.key});
+  final bool isLostItem;
+  
+  const ReportItemForm({
+    super.key,
+    this.isLostItem = false,
+  });
 
   @override
   State<ReportItemForm> createState() => _ReportItemFormState();
@@ -47,31 +53,37 @@ class _ReportItemFormState extends State<ReportItemForm> {
               Expanded(
                 child: Form(
                   key: _formKey,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                      _buildInfoBanner(),
-                      const SizedBox(height: 24),
-                      _buildBasicInfoSection(),
-                      const SizedBox(height: 24),
-                      _buildLocationSection(),
-                      const SizedBox(height: 24),
-                      _buildDateTimeSection(),
-                      const SizedBox(height: 24),
-                      _buildDescriptionSection(),
-                      const SizedBox(height: 24),
-                      _buildPhotosSection(),
-                      const SizedBox(height: 24),
-                      _buildContactSection(),
-                      const SizedBox(height: 32),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildInfoBanner(),
+                              const SizedBox(height: 16),
+                              _buildBasicInfoSection(),
+                              const SizedBox(height: 12),
+                              _buildLocationSection(),
+                              const SizedBox(height: 12),
+                              _buildDateTimeSection(),
+                              const SizedBox(height: 12),
+                              _buildDescriptionSection(),
+                              const SizedBox(height: 12),
+                              _buildPhotosSection(),
+                              const SizedBox(height: 12),
+                              _buildContactSection(),
+                              const SizedBox(height: 16),
+                            ],
+                          ),
+                        ),
+                      ),
                       _buildSubmitButton(),
                     ],
                   ),
                 ),
               ),
-            ),
             ],
           ),
         ),
@@ -81,30 +93,46 @@ class _ReportItemFormState extends State<ReportItemForm> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       color: AppColors.white,
+      width: double.infinity,
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
+            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.gray900, size: 18),
             onPressed: () => Navigator.pop(context),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            visualDensity: VisualDensity.compact,
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Report Found Item',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+          const SizedBox(width: 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.isLostItem ? 'Report Lost Item' : 'Report Found Item',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.gray900,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-              ),
-              const Text(
-                'Help someone find their lost item',
-                style: TextStyle(fontSize: 12, color: AppColors.gray500),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  widget.isLostItem
+                      ? 'Report your lost item to help others find it'
+                      : 'Help someone find their lost item',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.gray500,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -113,32 +141,46 @@ class _ReportItemFormState extends State<ReportItemForm> {
 
   Widget _buildInfoBanner() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border.all(color: Colors.blue.shade200),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.blue.shade50.withOpacity(0.6),
+        border: Border.all(color: Colors.blue.shade200.withOpacity(0.5), width: 1),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info, color: Colors.blue, size: 24),
-          const SizedBox(width: 12),
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.blue.shade100.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.info_outline, color: Colors.blue, size: 16),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
                   'Verification Required',
                   style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     color: Colors.blue,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 1),
                 Text(
                   'All submissions are reviewed by staff before being published.',
-                  style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.blue.shade700,
+                    height: 1.2,
+                  ),
                 ),
               ],
             ),
@@ -154,17 +196,57 @@ class _ReportItemFormState extends State<ReportItemForm> {
       number: 1,
       children: [
         TextFormField(
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Item Name *',
             hintText: 'e.g., Black Leather Wallet',
+            filled: true,
+            fillColor: AppColors.gray50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+            hintStyle: TextStyle(color: AppColors.gray400, fontSize: 14),
           ),
+          style: const TextStyle(fontSize: 15, color: AppColors.gray900),
           onChanged: (value) => setState(() => itemName = value),
           validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<ItemCategory>(
           value: category,
-          decoration: const InputDecoration(labelText: 'Category *'),
+          decoration: InputDecoration(
+            labelText: 'Category *',
+            filled: true,
+            fillColor: AppColors.gray50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+            suffixIcon: Icon(Icons.keyboard_arrow_down, color: AppColors.gray400, size: 20),
+          ),
+          style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+          dropdownColor: AppColors.white,
+          iconSize: 20,
           items: ItemCategory.values.map((cat) {
             return DropdownMenuItem(
               value: cat,
@@ -177,19 +259,61 @@ class _ReportItemFormState extends State<ReportItemForm> {
             }
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: TextFormField(
-                decoration: const InputDecoration(labelText: 'Color'),
+                decoration: InputDecoration(
+                  labelText: 'Color',
+                  hintText: 'e.g., Black',
+                  filled: true,
+                  fillColor: AppColors.gray50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+                  hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+                ),
+                style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                 onChanged: (value) => setState(() => color = value),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
-                decoration: const InputDecoration(labelText: 'Brand'),
+                decoration: InputDecoration(
+                  labelText: 'Brand',
+                  hintText: 'e.g., Apple',
+                  filled: true,
+                  fillColor: AppColors.gray50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+                  hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+                ),
+                style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                 onChanged: (value) => setState(() => brand = value),
               ),
             ),
@@ -206,7 +330,27 @@ class _ReportItemFormState extends State<ReportItemForm> {
       children: [
         DropdownButtonFormField<String>(
           value: building.isEmpty ? null : building,
-          decoration: const InputDecoration(labelText: 'Building *'),
+          decoration: InputDecoration(
+            labelText: 'Building *',
+            filled: true,
+            fillColor: AppColors.gray50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+          ),
+          style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+          dropdownColor: AppColors.white,
           items: buildings.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
           onChanged: (value) => setState(() => building = value ?? ''),
           validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
@@ -216,25 +360,88 @@ class _ReportItemFormState extends State<ReportItemForm> {
           children: [
             Expanded(
               child: TextFormField(
-                decoration: const InputDecoration(labelText: 'Floor'),
+                decoration: InputDecoration(
+                  labelText: 'Floor',
+                  hintText: 'e.g., 2',
+                  filled: true,
+                  fillColor: AppColors.gray50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+                  hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+                ),
+                style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+                keyboardType: TextInputType.number,
                 onChanged: (value) => setState(() => floor = value),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10),
             Expanded(
               child: TextFormField(
-                decoration: const InputDecoration(labelText: 'Room/Area'),
+                decoration: InputDecoration(
+                  labelText: 'Room/Area',
+                  hintText: 'e.g., A120',
+                  filled: true,
+                  fillColor: AppColors.gray50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+                  hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+                ),
+                style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                 onChanged: (value) => setState(() => room = value),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         TextFormField(
-          decoration: const InputDecoration(
-            labelText: 'Specific Location *',
-            hintText: 'e.g., Near the entrance, on table',
+          decoration: InputDecoration(
+            labelText: widget.isLostItem ? 'Last Known Location *' : 'Specific Location *',
+            hintText: widget.isLostItem 
+                ? 'e.g., Library, Cafeteria, Parking Lot'
+                : 'e.g., Near the entrance, on table',
+            filled: true,
+            fillColor: AppColors.gray50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+            hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
           ),
+          style: const TextStyle(fontSize: 15, color: AppColors.gray900),
           onChanged: (value) => setState(() => location = value),
           validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
         ),
@@ -244,7 +451,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
 
   Widget _buildDateTimeSection() {
     return _buildSection(
-      title: 'When was it found?',
+      title: widget.isLostItem ? 'When did you lose it?' : 'When was it found?',
       number: 3,
       children: [
         Row(
@@ -263,12 +470,33 @@ class _ReportItemFormState extends State<ReportItemForm> {
                   }
                 },
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Date'),
-                  child: Text(DateTime.now().toString().split(' ')[0]),
+                  decoration: InputDecoration(
+                    labelText: 'Date',
+                    filled: true,
+                    fillColor: AppColors.gray50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: AppColors.gray200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: AppColors.gray200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+                  ),
+                  child: Text(
+                    '${dateFound.year}-${dateFound.month.toString().padLeft(2, '0')}-${dateFound.day.toString().padLeft(2, '0')}',
+                    style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10),
             Expanded(
               child: InkWell(
                 onTap: () async {
@@ -281,8 +509,29 @@ class _ReportItemFormState extends State<ReportItemForm> {
                   }
                 },
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Time'),
-                  child: Text(timeFound.format(context)),
+                  decoration: InputDecoration(
+                    labelText: 'Time',
+                    filled: true,
+                    fillColor: AppColors.gray50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: AppColors.gray200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: AppColors.gray200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+                  ),
+                  child: Text(
+                    timeFound.format(context),
+                    style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+                  ),
                 ),
               ),
             ),
@@ -298,10 +547,28 @@ class _ReportItemFormState extends State<ReportItemForm> {
       number: 4,
       children: [
         TextFormField(
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Description',
-            hintText: 'Add any distinguishing features...',
+            hintText: 'Add any distinguishing features, condition, or other details...',
+            filled: true,
+            fillColor: AppColors.gray50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+            hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
           ),
+          style: const TextStyle(fontSize: 15, color: AppColors.gray900),
           maxLines: 4,
           maxLength: 500,
           onChanged: (value) => setState(() => description = value),
@@ -316,39 +583,22 @@ class _ReportItemFormState extends State<ReportItemForm> {
       number: 5,
       children: [
         if (imagePreviews.isEmpty)
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    // Mock adding a sample photo
-                    setState(() {
-                      imagePreviews.add('mock_camera');
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Mock photo captured (no real upload in this demo).')),
-                    );
-                  },
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text('Take Photo'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      imagePreviews.add('mock_upload');
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Mock photo uploaded (no real file handling).')),
-                    );
-                  },
-                  icon: const Icon(Icons.upload),
-                  label: const Text('Upload Photo'),
-                ),
-              ),
-            ],
+          UnifiedPhotoPicker(
+            label: 'Add Photo',
+            icon: Icons.add_photo_alternate,
+            backgroundColor: AppColors.gray50,
+            iconColor: AppColors.primary,
+            textColor: AppColors.primary,
+            onCameraSelected: () {
+              setState(() {
+                imagePreviews.add('mock_camera');
+              });
+            },
+            onPhotoSelected: () {
+              setState(() {
+                imagePreviews.add('mock_upload');
+              });
+            },
           )
         else
           Wrap(
@@ -361,21 +611,30 @@ class _ReportItemFormState extends State<ReportItemForm> {
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          color: AppColors.gray200,
-                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.gray100,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.gray200),
                         ),
-                        child: const Icon(Icons.image),
+                        child: const Icon(Icons.image, color: AppColors.gray400, size: 32),
                       ),
                       Positioned(
                         top: 4,
                         right: 4,
-                        child: IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          onPressed: () {
-                            setState(() {
-                              imagePreviews.remove(img);
-                            });
-                          },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.gray900.withOpacity(0.8),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.close, size: 16, color: AppColors.white),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                            onPressed: () {
+                              setState(() {
+                                imagePreviews.remove(img);
+                              });
+                            },
+                          ),
                         ),
                       ),
                     ],
@@ -383,21 +642,133 @@ class _ReportItemFormState extends State<ReportItemForm> {
               if (imagePreviews.length < 5)
                 InkWell(
                   onTap: () {
-                    setState(() {
-                      imagePreviews.add('mock_additional');
-                    });
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      builder: (BuildContext context) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.white,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(20),
+                              topRight: Radius.circular(20),
+                            ),
+                          ),
+                          child: SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.only(top: 12),
+                                  width: 40,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.gray300,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                ListTile(
+                                  leading: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Icon(
+                                      Icons.camera_alt,
+                                      color: AppColors.primary,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  title: const Text(
+                                    'Take Photo',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    setState(() {
+                                      imagePreviews.add('mock_camera');
+                                    });
+                                  },
+                                ),
+                                ListTile(
+                                  leading: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Icon(
+                                      Icons.photo_library,
+                                      color: AppColors.primary,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  title: const Text(
+                                    'Choose from Library',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    setState(() {
+                                      imagePreviews.add('mock_upload');
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
                   },
                   child: Container(
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.gray300, style: BorderStyle.solid),
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppColors.gray50,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.gray300, width: 1.5, style: BorderStyle.solid),
                     ),
-                    child: const Icon(Icons.add),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_circle_outline, color: AppColors.primary, size: 28),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Add More',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
             ],
+          ),
+        if (imagePreviews.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              '${imagePreviews.length} photo${imagePreviews.length > 1 ? 's' : ''} added',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.gray500,
+              ),
+            ),
           ),
       ],
     );
@@ -409,11 +780,53 @@ class _ReportItemFormState extends State<ReportItemForm> {
       number: 6,
       children: [
         TextFormField(
-          decoration: const InputDecoration(labelText: 'Your Name'),
+          decoration: InputDecoration(
+            labelText: 'Your Name',
+            hintText: 'e.g., John Doe',
+            filled: true,
+            fillColor: AppColors.gray50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+            hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+          ),
+          style: const TextStyle(fontSize: 15, color: AppColors.gray900),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         TextFormField(
-          decoration: const InputDecoration(labelText: 'Phone Number'),
+          decoration: InputDecoration(
+            labelText: 'Phone Number',
+            hintText: 'e.g., +994 50 123 45 67',
+            filled: true,
+            fillColor: AppColors.gray50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
+            hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+          ),
+          style: const TextStyle(fontSize: 15, color: AppColors.gray900),
           keyboardType: TextInputType.phone,
         ),
       ],
@@ -426,11 +839,17 @@ class _ReportItemFormState extends State<ReportItemForm> {
     required List<Widget> children,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.gray200),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,19 +857,19 @@ class _ReportItemFormState extends State<ReportItemForm> {
           Row(
             children: [
               Container(
-                width: 24,
-                height: 24,
-                decoration: const BoxDecoration(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
                   color: AppColors.primary,
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
                   child: Text(
                     number.toString(),
                     style: const TextStyle(
                       color: AppColors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -460,12 +879,14 @@ class _ReportItemFormState extends State<ReportItemForm> {
                 title,
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.gray900,
+                  letterSpacing: -0.2,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           ...children,
         ],
       ),
@@ -473,27 +894,56 @@ class _ReportItemFormState extends State<ReportItemForm> {
   }
 
   Widget _buildSubmitButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () {
-          if (_formKey.currentState!.validate()) {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Item submitted for review (mock).')),
-            );
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
         ),
-        child: const Text(
-          'Submit for Review',
-          style: TextStyle(color: AppColors.white, fontSize: 16),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () {
+              if (_formKey.currentState!.validate()) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Item submitted for review'),
+                    backgroundColor: AppColors.primary,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              elevation: 0,
+            ),
+            child: const Text(
+              'Submit for Review',
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ),
         ),
       ),
     );

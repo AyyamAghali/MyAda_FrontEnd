@@ -5,6 +5,7 @@ import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 import '../../utils/responsive.dart';
 import '../../widgets/item_card.dart';
+import '../account_page.dart';
 import 'report_item_form.dart';
 import 'item_detail_view.dart';
 
@@ -22,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedNavIndex = 0;
   bool onlyActive = false;
   String _activeTab = 'home';
+  bool _isSpeedDialOpen = false;
 
   final List<LostItem> mockItems = [
     LostItem(
@@ -42,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
       description: 'Blue iPhone 14 Pro with cracked screen protector. Has a sticker on the back.',
       dateFound: '2025-11-11',
       status: ItemStatus.pendingVerification,
-      imageUrl: 'https://images.unsplash.com/photo-1592286927505-c1f69a8a0b3c?w=400&h=300&fit=crop',
+      imageUrl: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop',
     ),
     LostItem(
       id: '3',
@@ -113,17 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ReportItemForm()),
-          );
-        },
-        backgroundColor: AppColors.secondary,
-        icon: const Icon(Icons.add, color: AppColors.white),
-        label: const Text('Report Item', style: TextStyle(color: AppColors.white)),
-      ),
+      floatingActionButton: _buildSpeedDial(context),
       bottomNavigationBar: _buildBottomNavigation(context),
     );
   }
@@ -208,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: _buildStatCard('Pending', stats['pending']!, Colors.orange),
+            child: _buildStatCard('Pending', stats['pending']!, Colors.yellow),
           ),
         ],
       ),
@@ -216,15 +208,25 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildStatCard(String label, int value, Color color) {
+    // Use semantic colors only for status meaning: green for Active, yellow for Pending
+    Color cardColor;
+    if (label == 'Active') {
+      cardColor = Colors.green.shade600; // Success/Active color
+    } else if (label == 'Pending') {
+      cardColor = Colors.yellow.shade700; // Warning/Pending color (yellow as requested)
+    } else {
+      cardColor = AppColors.primary; // Primary color for Total
+    }
+    
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [color, color.withOpacity(0.8)],
+          colors: [cardColor, cardColor.withOpacity(0.8)],
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,15 +270,15 @@ class _HomeScreenState extends State<HomeScreen> {
           filled: true,
           fillColor: AppColors.gray50,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.medium),
             borderSide: BorderSide(color: AppColors.gray200),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.medium),
             borderSide: BorderSide(color: AppColors.gray200),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.medium),
             borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
         ),
@@ -295,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       color: AppColors.white,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -333,9 +335,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   setState(() => selectedCategory = selected ? category : null);
                 },
                 selectedColor: AppColors.primary,
+                backgroundColor: AppColors.gray50,
+                checkmarkColor: AppColors.white,
+                side: BorderSide(
+                  color: isSelected ? AppColors.primary : AppColors.gray200,
+                  width: 0.5,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.small),
+                ),
                 labelStyle: TextStyle(
                   color: isSelected ? AppColors.white : AppColors.gray700,
+                  fontSize: 12,
                 ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             );
           }).toList(),
@@ -346,97 +360,106 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSortOptions(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
+    final sortOptions = [
+      {'value': 'newest', 'label': 'Newest'},
+      {'value': 'oldest', 'label': 'Oldest'},
+      {'value': 'location', 'label': 'Location'},
+    ];
     
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: isMobile ? 16 : 24,
-        vertical: 12,
+        vertical: 8,
       ),
       color: AppColors.white,
-      child: isMobile
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${filteredItems.length} ${filteredItems.length == 1 ? 'item' : 'items'} found',
-                  style: TextStyle(
-                    fontSize: isMobile ? 12 : 14,
-                    color: AppColors.gray600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildSortButton('newest', 'Newest'),
-                    _buildSortButton('oldest', 'Oldest'),
-                    _buildSortButton('location', 'Location'),
-                  ],
-                ),
-              ],
-            )
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(
-                  child: Text(
-                    '${filteredItems.length} ${filteredItems.length == 1 ? 'item' : 'items'} found',
-                    style: const TextStyle(fontSize: 14, color: AppColors.gray600),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildSortButton('newest', 'Newest'),
-                      const SizedBox(width: 8),
-                      _buildSortButton('oldest', 'Oldest'),
-                      const SizedBox(width: 8),
-                      _buildSortButton('location', 'Location'),
-                    ],
-                  ),
-                ),
-              ],
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '${filteredItems.length} ${filteredItems.length == 1 ? 'item' : 'items'} found',
+            style: TextStyle(
+              fontSize: isMobile ? 12 : 13,
+              color: AppColors.gray600,
             ),
-    );
-  }
-
-  Widget _buildSortButton(String value, String label) {
-    final isSelected = sortBy == value;
-    return InkWell(
-      onTap: () => setState(() => sortBy = value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.gray100,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isSelected ? AppColors.white : AppColors.gray600,
           ),
-        ),
+          SizedBox(
+            width: isMobile ? 120 : 140,
+            child: DropdownButtonFormField<String>(
+              value: sortBy,
+              isExpanded: true,
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                filled: true,
+                fillColor: AppColors.gray50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.small),
+                  borderSide: BorderSide(color: AppColors.gray200),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.small),
+                  borderSide: BorderSide(color: AppColors.gray200),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.small),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.gray700,
+              ),
+              icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.gray600),
+              items: sortOptions.map((option) {
+                return DropdownMenuItem<String>(
+                  value: option['value'],
+                  child: Text(
+                    option['label']!,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => sortBy = value);
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
   void _openFilterSheet(BuildContext context) {
+    final categories = [
+      null,
+      ItemCategory.electronics,
+      ItemCategory.documents,
+      ItemCategory.clothing,
+      ItemCategory.accessories,
+      ItemCategory.other,
+    ];
+    
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.container)),
       ),
       builder: (context) {
+        ItemCategory? tempCategory = selectedCategory;
         bool tempOnlyActive = onlyActive;
         String tempSortBy = sortBy;
+        
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              padding: EdgeInsets.fromLTRB(
+                24,
+                16,
+                24,
+                MediaQuery.of(context).padding.bottom + 24,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,60 +470,159 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Text(
                         'Filters',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
+                          color: AppColors.gray900,
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(Icons.close, color: AppColors.gray600),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Show only active items'),
-                    value: tempOnlyActive,
-                    onChanged: (value) {
-                      setModalState(() => tempOnlyActive = value);
-                    },
+                  const SizedBox(height: 24),
+                  // Category Filter
+                  const Text(
+                    'Category',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.gray900,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: categories.map((category) {
+                      final isSelected = tempCategory == category;
+                      String label;
+                      if (category == null) {
+                        label = 'All Items';
+                      } else {
+                        switch (category) {
+                          case ItemCategory.electronics:
+                            label = 'Electronics';
+                            break;
+                          case ItemCategory.documents:
+                            label = 'Documents';
+                            break;
+                          case ItemCategory.clothing:
+                            label = 'Clothing';
+                            break;
+                          case ItemCategory.accessories:
+                            label = 'Accessories';
+                            break;
+                          case ItemCategory.other:
+                            label = 'Other';
+                            break;
+                        }
+                      }
+                      return ChoiceChip(
+                        label: Text(label),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setModalState(() {
+                            tempCategory = selected ? category : null;
+                          });
+                        },
+                        selectedColor: AppColors.primary,
+                        backgroundColor: AppColors.gray50,
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppColors.white : AppColors.gray700,
+                          fontSize: 13,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.small),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  // Sort Options
                   const Text(
                     'Sort by',
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.gray900,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
                     children: [
                       ChoiceChip(
                         label: const Text('Newest'),
                         selected: tempSortBy == 'newest',
                         onSelected: (_) => setModalState(() => tempSortBy = 'newest'),
+                        selectedColor: AppColors.primary,
+                        backgroundColor: AppColors.gray50,
+                        labelStyle: TextStyle(
+                          color: tempSortBy == 'newest' ? AppColors.white : AppColors.gray700,
+                          fontSize: 13,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.small),
+                        ),
                       ),
                       ChoiceChip(
                         label: const Text('Oldest'),
                         selected: tempSortBy == 'oldest',
                         onSelected: (_) => setModalState(() => tempSortBy = 'oldest'),
+                        selectedColor: AppColors.primary,
+                        backgroundColor: AppColors.gray50,
+                        labelStyle: TextStyle(
+                          color: tempSortBy == 'oldest' ? AppColors.white : AppColors.gray700,
+                          fontSize: 13,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.small),
+                        ),
                       ),
                       ChoiceChip(
                         label: const Text('Location'),
                         selected: tempSortBy == 'location',
                         onSelected: (_) => setModalState(() => tempSortBy = 'location'),
+                        selectedColor: AppColors.primary,
+                        backgroundColor: AppColors.gray50,
+                        labelStyle: TextStyle(
+                          color: tempSortBy == 'location' ? AppColors.white : AppColors.gray700,
+                          fontSize: 13,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.small),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
+                  // Status Filter
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Show only active items',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    value: tempOnlyActive,
+                    onChanged: (value) {
+                      setModalState(() => tempOnlyActive = value);
+                    },
+                    activeColor: AppColors.primary,
+                  ),
+                  const SizedBox(height: 24),
+                  // Apply Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
                         setState(() {
+                          selectedCategory = tempCategory;
                           onlyActive = tempOnlyActive;
                           sortBy = tempSortBy;
                         });
@@ -509,12 +631,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppRadius.medium),
                         ),
                       ),
-                      child: const Text('Apply'),
+                      child: const Text(
+                        'Apply Filters',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -548,9 +676,20 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    // Calculate bottom padding to account for FAB and navigation bar
+    final bottomNavHeight = 80.0; // Approximate nav bar height
+    final fabHeight = 56.0;
+    final spacing = 16.0;
+    final totalBottomPadding = 24 + bottomNavHeight + spacing + fabHeight + spacing;
+    
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: totalBottomPadding,
+      ),
       itemCount: filteredItems.length,
       itemBuilder: (context, index) {
         return Padding(
@@ -576,8 +715,8 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: const BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
+          topLeft: Radius.circular(AppRadius.container),
+          topRight: Radius.circular(AppRadius.container),
         ),
       ),
       child: SafeArea(
@@ -605,11 +744,11 @@ class _HomeScreenState extends State<HomeScreen> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: isActive ? AppColors.secondary : Colors.transparent,
+            color: isActive ? AppColors.primary : Colors.transparent,
             shape: BoxShape.circle,
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppRadius.container),
             onTap: () {
               setState(() => _activeTab = key);
               if (key == 'search') {
@@ -617,8 +756,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SnackBar(content: Text('Search tab is a visual element only in this prototype.')),
                 );
               } else if (key == 'account') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Account tab is a visual element only in this prototype.')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AccountPage()),
                 );
               }
             },
@@ -638,6 +778,200 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSpeedDial(BuildContext context) {
+    const buttonSpacing = 12.0;
+    const buttonSize = 48.0;
+    
+    return Stack(
+      alignment: Alignment.bottomRight,
+      clipBehavior: Clip.none,
+      children: [
+        // Speed dial options - vertical stack
+        if (_isSpeedDialOpen) ...[
+          // Report Lost Item FAB (top)
+          Positioned(
+            bottom: buttonSize + buttonSpacing + buttonSize + buttonSpacing,
+            right: 16,
+            child: _buildSpeedDialButton(
+              context,
+              label: 'Report Lost Item',
+              icon: Icons.search_off,
+              onPressed: () {
+                setState(() => _isSpeedDialOpen = false);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ReportItemForm(isLostItem: true),
+                  ),
+                );
+              },
+            ),
+          ),
+          // Report Found Item FAB (middle)
+          Positioned(
+            bottom: buttonSize + buttonSpacing,
+            right: 16,
+            child: _buildSpeedDialButton(
+              context,
+              label: 'Report Found Item',
+              icon: Icons.add_circle_outline,
+              onPressed: () {
+                setState(() => _isSpeedDialOpen = false);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ReportItemForm(isLostItem: false),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+        // Main FAB - morphs from add to close
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: _buildMainSpeedDialButton(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpeedDialButton(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    const buttonSize = 48.0;
+    
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: _isSpeedDialOpen ? 1.0 : 0.0),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Opacity(
+            opacity: value,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Label
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.gray900,
+                      borderRadius: BorderRadius.circular(AppRadius.small),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  // Button
+                  Material(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(buttonSize / 2),
+                    elevation: 2,
+                    shadowColor: Colors.black.withOpacity(0.15),
+                    child: InkWell(
+                      onTap: onPressed,
+                      borderRadius: BorderRadius.circular(buttonSize / 2),
+                      child: Container(
+                        width: buttonSize,
+                        height: buttonSize,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(buttonSize / 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          icon,
+                          color: AppColors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMainSpeedDialButton(BuildContext context) {
+    const buttonSize = 48.0;
+    
+    return Material(
+      color: AppColors.primary,
+      borderRadius: BorderRadius.circular(buttonSize / 2),
+      elevation: 3,
+      shadowColor: Colors.black.withOpacity(0.2),
+      child: InkWell(
+        onTap: () {
+          setState(() => _isSpeedDialOpen = !_isSpeedDialOpen);
+        },
+        borderRadius: BorderRadius.circular(buttonSize / 2),
+        child: Container(
+          width: buttonSize,
+          height: buttonSize,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(buttonSize / 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) {
+              return ScaleTransition(
+                scale: animation,
+                child: FadeTransition(
+                  opacity: animation,
+                  child: child,
+                ),
+              );
+            },
+            child: Icon(
+              _isSpeedDialOpen ? Icons.close : Icons.add,
+              key: ValueKey<bool>(_isSpeedDialOpen),
+              color: AppColors.white,
+              size: 24,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

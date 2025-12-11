@@ -28,6 +28,23 @@ class AppSizes {
   static const double borderRadiusLarge = 24.0;
 }
 
+class AppRadius {
+  // Major containers (cards, bottom sheets, modals)
+  static const double container = 24.0;
+  static const double containerLarge = 28.0;
+  
+  // Medium elements (stat cards, search bars, buttons)
+  static const double medium = 12.0;
+  static const double mediumLarge = 16.0;
+  
+  // Small elements (chips, filters, badges)
+  static const double small = 6.0;
+  static const double smallMedium = 8.0;
+  
+  // Circular (FABs, avatars)
+  static const double circular = 9999.0; // Use for fully circular elements
+}
+
 class AppTextStyles {
   static const TextStyle heading1 = TextStyle(
     fontSize: 24,
