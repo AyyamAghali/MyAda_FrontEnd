@@ -24,6 +24,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool onlyActive = false;
   String _activeTab = 'home';
   bool _isSpeedDialOpen = false;
+  final ScrollController _scrollController = ScrollController();
+  bool _showStats = true;
+  double _lastScrollOffset = 0.0;
 
   final List<LostItem> mockItems = [
     LostItem(
@@ -92,6 +95,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final currentOffset = _scrollController.offset;
+    
+    // Show stats when scrolling up, hide when scrolling down
+    if (currentOffset > _lastScrollOffset && currentOffset > 50) {
+      // Scrolling down and past threshold
+      if (_showStats) {
+        setState(() => _showStats = false);
+      }
+    } else if (currentOffset < _lastScrollOffset) {
+      // Scrolling up
+      if (!_showStats) {
+        setState(() => _showStats = true);
+      }
+    }
+    
+    _lastScrollOffset = currentOffset;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final stats = {
       'total': mockItems.length,
@@ -104,11 +139,20 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(context),
-            _buildStatsCards(context, stats),
-            _buildSearchBar(context),
-            _buildCategoryFilter(context),
-            _buildSortOptions(context),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: _showStats
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildHeader(context),
+                        _buildStatsCards(context, stats),
+                        _buildSearchBar(context),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
+            ),
             Expanded(
               child: _buildItemsList(context),
             ),
@@ -187,18 +231,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildStatsCards(BuildContext context, Map<String, int> stats) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       color: AppColors.white,
       child: Row(
         children: [
           Expanded(
             child: _buildStatCard('Total', stats['total']!, AppColors.primary),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           Expanded(
             child: _buildStatCard('Active', stats['active']!, Colors.green),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           Expanded(
             child: _buildStatCard('Pending', stats['pending']!, Colors.yellow),
           ),
@@ -219,30 +263,26 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [cardColor, cardColor.withOpacity(0.8)],
-        ),
-        borderRadius: BorderRadius.circular(AppRadius.medium),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(6),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 9,
               color: AppColors.white,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
           Text(
             value.toString(),
             style: const TextStyle(
-              fontSize: 20,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: AppColors.white,
             ),
@@ -281,78 +321,6 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(AppRadius.medium),
             borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryFilter(BuildContext context) {
-    final categories = [
-      null,
-      ItemCategory.electronics,
-      ItemCategory.documents,
-      ItemCategory.clothing,
-      ItemCategory.accessories,
-      ItemCategory.other,
-    ];
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      color: AppColors.white,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: categories.map((category) {
-            final isSelected = selectedCategory == category;
-            String label;
-            if (category == null) {
-              label = 'All Items';
-            } else {
-              switch (category) {
-                case ItemCategory.electronics:
-                  label = 'Electronics';
-                  break;
-                case ItemCategory.documents:
-                  label = 'Documents';
-                  break;
-                case ItemCategory.clothing:
-                  label = 'Clothing';
-                  break;
-                case ItemCategory.accessories:
-                  label = 'Accessories';
-                  break;
-                case ItemCategory.other:
-                  label = 'Other';
-                  break;
-              }
-            }
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(label),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() => selectedCategory = selected ? category : null);
-                },
-                selectedColor: AppColors.primary,
-                backgroundColor: AppColors.gray50,
-                checkmarkColor: AppColors.white,
-                side: BorderSide(
-                  color: isSelected ? AppColors.primary : AppColors.gray200,
-                  width: 0.5,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.small),
-                ),
-                labelStyle: TextStyle(
-                  color: isSelected ? AppColors.white : AppColors.gray700,
-                  fontSize: 12,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            );
-          }).toList(),
         ),
       ),
     );
@@ -683,6 +651,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final totalBottomPadding = 24 + bottomNavHeight + spacing + fabHeight + spacing;
     
     return ListView.builder(
+      controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.only(
         left: 24,
