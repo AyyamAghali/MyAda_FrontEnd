@@ -97,13 +97,21 @@ class ModuleAdminScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 _buildStatsGrid(context, config.stats),
                 const SizedBox(height: 20),
+                _buildSectionHeader('Action Center'),
+                const SizedBox(height: 12),
+                _buildActionGrid(context, config.actions),
+                const SizedBox(height: 20),
+                _buildSectionHeader('Status Breakdown'),
+                const SizedBox(height: 12),
+                _buildMetricList(config.metrics),
+                const SizedBox(height: 20),
                 _buildSectionHeader('Queue'),
                 const SizedBox(height: 12),
-                ...config.queue.map(_buildQueueCard),
+                ...config.queue.map((item) => _buildQueueCard(context, item)),
                 const SizedBox(height: 24),
                 _buildSectionHeader('Recent Activity'),
                 const SizedBox(height: 12),
-                ...config.activity.map(_buildActivityTile),
+                ...config.activity.map((item) => _buildActivityTile(context, item)),
                 const SizedBox(height: 24),
                 _buildLogoutCard(context),
               ],
@@ -191,113 +199,165 @@ class ModuleAdminScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQueueCard(_QueueItem item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(item.icon, color: AppColors.primary, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildQueueCard(BuildContext context, _QueueItem item) {
+    return InkWell(
+      onTap: () {
+        _showSnackBar(context, 'Opened: ${item.title} (mock)');
+      },
+      borderRadius: BorderRadius.circular(AppRadius.medium),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppRadius.medium),
+          border: Border.all(color: AppColors.gray200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.gray900,
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(item.icon, color: AppColors.primary, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.gray900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.subtitle,
+                        style: const TextStyle(fontSize: 12, color: AppColors.gray600),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  item.subtitle,
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray600),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.gray100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    item.tag,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.gray700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.gray100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              item.tag,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.gray700,
-                fontWeight: FontWeight.w600,
+            if (item.primaryAction != null || item.secondaryAction != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  if (item.secondaryAction != null)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          _showSnackBar(context, '${item.secondaryAction} (mock)');
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.gray700,
+                          side: BorderSide(color: AppColors.gray300),
+                        ),
+                        child: Text(item.secondaryAction!),
+                      ),
+                    ),
+                  if (item.secondaryAction != null && item.primaryAction != null)
+                    const SizedBox(width: 12),
+                  if (item.primaryAction != null)
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _showSnackBar(context, '${item.primaryAction} (mock)');
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.white,
+                        ),
+                        child: Text(item.primaryAction!),
+                      ),
+                    ),
+                ],
               ),
-            ),
-          ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildActivityTile(_ActivityItem item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.secondary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+  Widget _buildActivityTile(BuildContext context, _ActivityItem item) {
+    return InkWell(
+      onTap: () {
+        _showSnackBar(context, 'Activity: ${item.title} (mock)');
+      },
+      borderRadius: BorderRadius.circular(AppRadius.medium),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppRadius.medium),
+          border: Border.all(color: AppColors.gray200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.update, color: AppColors.secondary, size: 18),
             ),
-            child: const Icon(Icons.update, color: AppColors.secondary, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.gray900,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.gray900,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item.subtitle,
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    item.subtitle,
+                    style: const TextStyle(fontSize: 12, color: AppColors.gray600),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Text(
-            item.time,
-            style: const TextStyle(fontSize: 11, color: AppColors.gray500),
-          ),
-        ],
+            Text(
+              item.time,
+              style: const TextStyle(fontSize: 11, color: AppColors.gray500),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -342,6 +402,89 @@ class ModuleAdminScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildActionGrid(BuildContext context, List<_ActionItem> actions) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: actions.map((action) {
+        return ActionChip(
+          avatar: Icon(action.icon, size: 18, color: AppColors.primary),
+          label: Text(
+            action.label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.gray700,
+            ),
+          ),
+          backgroundColor: AppColors.white,
+          side: BorderSide(color: AppColors.gray200),
+          onPressed: () {
+            _showSnackBar(context, '${action.label} (mock)');
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildMetricList(List<_Metric> metrics) {
+    return Column(
+      children: metrics.map((metric) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(AppRadius.medium),
+            border: Border.all(color: AppColors.gray200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    metric.label,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.gray700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    metric.valueLabel,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.gray500,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: metric.percent,
+                  minHeight: 8,
+                  backgroundColor: AppColors.gray100,
+                  valueColor: AlwaysStoppedAnimation<Color>(metric.color),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   _ModuleConfig _moduleConfig(AdminModule module) {
     switch (module) {
       case AdminModule.club:
@@ -355,10 +498,43 @@ class ModuleAdminScreen extends StatelessWidget {
             _Stat('Pending Requests', '12', '+2'),
             _Stat('Events', '6', '+1'),
           ],
+          actions: const [
+            _ActionItem(Icons.group_add_outlined, 'Approve Member'),
+            _ActionItem(Icons.event_outlined, 'Create Event'),
+            _ActionItem(Icons.visibility_outlined, 'Review Requests'),
+            _ActionItem(Icons.edit_outlined, 'Edit Club Info'),
+            _ActionItem(Icons.campaign_outlined, 'Post Announcement'),
+          ],
+          metrics: const [
+            _Metric('Membership approvals', '78%', 0.78, Colors.green),
+            _Metric('Event readiness', '62%', 0.62, Colors.orange),
+            _Metric('New club requests', '34%', 0.34, Colors.blue),
+          ],
           queue: const [
-            _QueueItem(Icons.person_add_alt, 'Membership request', 'Data Science Club', 'New'),
-            _QueueItem(Icons.event, 'Event proposal', 'AI Meetup - Hall B', 'Pending'),
-            _QueueItem(Icons.groups, 'New club request', 'Robotics Society', 'Review'),
+            _QueueItem(
+              Icons.person_add_alt,
+              'Membership request',
+              'Data Science Club',
+              'New',
+              primaryAction: 'Approve',
+              secondaryAction: 'Decline',
+            ),
+            _QueueItem(
+              Icons.event,
+              'Event proposal',
+              'AI Meetup - Hall B',
+              'Pending',
+              primaryAction: 'Approve',
+              secondaryAction: 'Request Changes',
+            ),
+            _QueueItem(
+              Icons.groups,
+              'New club request',
+              'Robotics Society',
+              'Review',
+              primaryAction: 'Review',
+              secondaryAction: 'Archive',
+            ),
           ],
           activity: const [
             _ActivityItem('Member approved', 'Leyla Abbasova joined Robotics', '10m ago'),
@@ -377,10 +553,43 @@ class ModuleAdminScreen extends StatelessWidget {
             _Stat('Resolved Today', '12', '+3'),
             _Stat('Avg. SLA', '3h', '-0.5h'),
           ],
+          actions: const [
+            _ActionItem(Icons.assignment_ind_outlined, 'Assign Ticket'),
+            _ActionItem(Icons.priority_high_outlined, 'Escalate'),
+            _ActionItem(Icons.check_circle_outline, 'Resolve Ticket'),
+            _ActionItem(Icons.local_activity_outlined, 'Create Incident'),
+            _ActionItem(Icons.analytics_outlined, 'SLA Report'),
+          ],
+          metrics: const [
+            _Metric('SLA compliance', '91%', 0.91, Colors.green),
+            _Metric('Escalations', '18%', 0.18, Colors.red),
+            _Metric('Resolved today', '60%', 0.6, Colors.blue),
+          ],
           queue: const [
-            _QueueItem(Icons.wifi_off, 'Wi-Fi outage', 'Dorm C - Floor 2', 'High'),
-            _QueueItem(Icons.print, 'Printer issue', 'Library - Desk 4', 'Medium'),
-            _QueueItem(Icons.lightbulb_outline, 'Lighting issue', 'Room A201', 'Low'),
+            _QueueItem(
+              Icons.wifi_off,
+              'Wi-Fi outage',
+              'Dorm C - Floor 2',
+              'High',
+              primaryAction: 'Assign',
+              secondaryAction: 'Escalate',
+            ),
+            _QueueItem(
+              Icons.print,
+              'Printer issue',
+              'Library - Desk 4',
+              'Medium',
+              primaryAction: 'Resolve',
+              secondaryAction: 'Assign',
+            ),
+            _QueueItem(
+              Icons.lightbulb_outline,
+              'Lighting issue',
+              'Room A201',
+              'Low',
+              primaryAction: 'Close',
+              secondaryAction: 'Schedule',
+            ),
           ],
           activity: const [
             _ActivityItem('Ticket resolved', 'Printer issue closed', '20m ago'),
@@ -399,10 +608,43 @@ class ModuleAdminScreen extends StatelessWidget {
             _Stat('Pending Review', '15', '+2'),
             _Stat('Resolved', '120', '+6'),
           ],
+          actions: const [
+            _ActionItem(Icons.add_box_outlined, 'Add Item'),
+            _ActionItem(Icons.verified_outlined, 'Verify Claim'),
+            _ActionItem(Icons.assignment_return_outlined, 'Mark Claimed'),
+            _ActionItem(Icons.photo_library_outlined, 'Attach Photos'),
+            _ActionItem(Icons.filter_alt_outlined, 'Filter Items'),
+          ],
+          metrics: const [
+            _Metric('Claims verified', '56%', 0.56, Colors.green),
+            _Metric('Pending reviews', '36%', 0.36, Colors.orange),
+            _Metric('Resolved items', '74%', 0.74, Colors.blue),
+          ],
           queue: const [
-            _QueueItem(Icons.assignment, 'New report', 'Black wallet - Library', 'New'),
-            _QueueItem(Icons.assignment_ind, 'Claim request', 'iPhone 14 Pro', 'Review'),
-            _QueueItem(Icons.inventory_2, 'Item update', 'ID Card status', 'Pending'),
+            _QueueItem(
+              Icons.assignment,
+              'New report',
+              'Black wallet - Library',
+              'New',
+              primaryAction: 'Review',
+              secondaryAction: 'Contact Finder',
+            ),
+            _QueueItem(
+              Icons.assignment_ind,
+              'Claim request',
+              'iPhone 14 Pro',
+              'Review',
+              primaryAction: 'Verify',
+              secondaryAction: 'Reject',
+            ),
+            _QueueItem(
+              Icons.inventory_2,
+              'Item update',
+              'ID Card status',
+              'Pending',
+              primaryAction: 'Update Status',
+              secondaryAction: 'Archive',
+            ),
           ],
           activity: const [
             _ActivityItem('Item claimed', 'Wallet handed to owner', '30m ago'),
@@ -421,10 +663,43 @@ class ModuleAdminScreen extends StatelessWidget {
             _Stat('Approved', '22', '+4'),
             _Stat('Declined', '3', '+1'),
           ],
+          actions: const [
+            _ActionItem(Icons.check_circle_outline, 'Approve Booking'),
+            _ActionItem(Icons.cancel_outlined, 'Decline Booking'),
+            _ActionItem(Icons.schedule_outlined, 'Reschedule'),
+            _ActionItem(Icons.meeting_room_outlined, 'Block Room'),
+            _ActionItem(Icons.calendar_today_outlined, 'View Calendar'),
+          ],
+          metrics: const [
+            _Metric('Approval rate', '82%', 0.82, Colors.green),
+            _Metric('Conflicts', '12%', 0.12, Colors.red),
+            _Metric('Utilization', '68%', 0.68, Colors.blue),
+          ],
           queue: const [
-            _QueueItem(Icons.meeting_room, 'Room request', 'Room B102 - 14:00', 'New'),
-            _QueueItem(Icons.schedule, 'Schedule change', 'Room A201 - 16:00', 'Review'),
-            _QueueItem(Icons.event_seat, 'Bulk booking', 'Lab C - 3 sessions', 'Pending'),
+            _QueueItem(
+              Icons.meeting_room,
+              'Room request',
+              'Room B102 - 14:00',
+              'New',
+              primaryAction: 'Approve',
+              secondaryAction: 'Decline',
+            ),
+            _QueueItem(
+              Icons.schedule,
+              'Schedule change',
+              'Room A201 - 16:00',
+              'Review',
+              primaryAction: 'Reschedule',
+              secondaryAction: 'Decline',
+            ),
+            _QueueItem(
+              Icons.event_seat,
+              'Bulk booking',
+              'Lab C - 3 sessions',
+              'Pending',
+              primaryAction: 'Review',
+              secondaryAction: 'Request Info',
+            ),
           ],
           activity: const [
             _ActivityItem('Booking approved', 'Room B102 confirmed', '15m ago'),
@@ -443,10 +718,43 @@ class ModuleAdminScreen extends StatelessWidget {
             _Stat('Missing', '16', '-4'),
             _Stat('Late', '9', '+1'),
           ],
+          actions: const [
+            _ActionItem(Icons.how_to_reg_outlined, 'Mark Present'),
+            _ActionItem(Icons.person_off_outlined, 'Mark Absent'),
+            _ActionItem(Icons.timer_outlined, 'Mark Late'),
+            _ActionItem(Icons.sync_outlined, 'Sync Logs'),
+            _ActionItem(Icons.file_download_outlined, 'Export CSV'),
+          ],
+          metrics: const [
+            _Metric('Attendance rate', '88%', 0.88, Colors.green),
+            _Metric('Late arrivals', '14%', 0.14, Colors.orange),
+            _Metric('Missing records', '8%', 0.08, Colors.red),
+          ],
           queue: const [
-            _QueueItem(Icons.assignment_late, 'Missing attendance', 'CS101 - Section A', 'Review'),
-            _QueueItem(Icons.schedule, 'Late check-in', 'Math201 - 09:00', 'New'),
-            _QueueItem(Icons.class_, 'Session update', 'Physics Lab', 'Pending'),
+            _QueueItem(
+              Icons.assignment_late,
+              'Missing attendance',
+              'CS101 - Section A',
+              'Review',
+              primaryAction: 'Mark Present',
+              secondaryAction: 'Mark Absent',
+            ),
+            _QueueItem(
+              Icons.schedule,
+              'Late check-in',
+              'Math201 - 09:00',
+              'New',
+              primaryAction: 'Approve',
+              secondaryAction: 'Reject',
+            ),
+            _QueueItem(
+              Icons.class_,
+              'Session update',
+              'Physics Lab',
+              'Pending',
+              primaryAction: 'Apply Update',
+              secondaryAction: 'Review',
+            ),
           ],
           activity: const [
             _ActivityItem('Attendance synced', 'CS101 updated', '25m ago'),
@@ -464,6 +772,8 @@ class _ModuleConfig {
     required this.subtitle,
     required this.icon,
     required this.stats,
+    required this.actions,
+    required this.metrics,
     required this.queue,
     required this.activity,
   });
@@ -472,6 +782,8 @@ class _ModuleConfig {
   final String subtitle;
   final IconData icon;
   final List<_Stat> stats;
+  final List<_ActionItem> actions;
+  final List<_Metric> metrics;
   final List<_QueueItem> queue;
   final List<_ActivityItem> activity;
 }
@@ -485,12 +797,21 @@ class _Stat {
 }
 
 class _QueueItem {
-  const _QueueItem(this.icon, this.title, this.subtitle, this.tag);
+  const _QueueItem(
+    this.icon,
+    this.title,
+    this.subtitle,
+    this.tag, {
+    this.primaryAction,
+    this.secondaryAction,
+  });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final String tag;
+  final String? primaryAction;
+  final String? secondaryAction;
 }
 
 class _ActivityItem {
@@ -499,4 +820,20 @@ class _ActivityItem {
   final String title;
   final String subtitle;
   final String time;
+}
+
+class _ActionItem {
+  const _ActionItem(this.icon, this.label);
+
+  final IconData icon;
+  final String label;
+}
+
+class _Metric {
+  const _Metric(this.label, this.valueLabel, this.percent, this.color);
+
+  final String label;
+  final String valueLabel;
+  final double percent;
+  final Color color;
 }
