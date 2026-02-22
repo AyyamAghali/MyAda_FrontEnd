@@ -70,7 +70,9 @@ class MasterHomePage extends StatelessWidget {
             children: [
               IconButton(
                 icon: Icon(Icons.settings, color: AppColors.primary, size: iconSize),
-                onPressed: () {},
+                onPressed: () {
+                  _showSnackBar(context, 'Settings are mocked in this prototype.');
+                },
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -79,7 +81,9 @@ class MasterHomePage extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: Icon(Icons.notifications, color: AppColors.secondary, size: iconSize),
-                    onPressed: () {},
+                    onPressed: () {
+                      _showSnackBar(context, 'Notifications are mocked in this prototype.');
+                    },
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -386,6 +390,12 @@ class MasterHomePage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 

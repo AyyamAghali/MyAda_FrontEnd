@@ -200,13 +200,17 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.settings, color: AppColors.gray600),
-                onPressed: () {},
+                onPressed: () {
+                  _showSnackBar('Settings are mocked in this prototype.');
+                },
               ),
               Stack(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.notifications, color: AppColors.gray600),
-                    onPressed: () {},
+                    onPressed: () {
+                      _showSnackBar('Notifications are mocked in this prototype.');
+                    },
                   ),
                   Positioned(
                     right: 8,
@@ -941,6 +945,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

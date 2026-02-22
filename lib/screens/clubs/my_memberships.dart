@@ -419,7 +419,9 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
                 if (membership.status == MembershipStatus.declined)
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: () {
+                        _showSnackBar('Contact request sent (mock).');
+                      },
                       icon: const Icon(Icons.email, size: 18),
                       label: const Text('Contact Club Officers'),
                       style: ElevatedButton.styleFrom(
@@ -435,7 +437,9 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
                 else
                   IconButton(
                     icon: const Icon(Icons.email, color: AppColors.primary),
-                    onPressed: () {},
+                    onPressed: () {
+                      _showSnackBar('Contact request sent (mock).');
+                    },
                   ),
               ],
             ),
@@ -456,6 +460,12 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
       default:
         return '';
     }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 }
 

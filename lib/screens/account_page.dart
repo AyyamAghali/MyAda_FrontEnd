@@ -31,9 +31,9 @@ class AccountPage extends StatelessWidget {
                     const SizedBox(height: 20),
                     _buildPersonalInfoSection(),
                     const SizedBox(height: 16),
-                    _buildSettingsSection(),
+                    _buildSettingsSection(context),
                     const SizedBox(height: 16),
-                    _buildSupportSection(),
+                    _buildSupportSection(context),
                     const SizedBox(height: 16),
                     _buildLogoutButton(context),
                     const SizedBox(height: 20),
@@ -199,7 +199,7 @@ class AccountPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingsSection() {
+  Widget _buildSettingsSection(BuildContext context) {
     return _buildSection(
       title: 'Settings',
       children: [
@@ -208,7 +208,7 @@ class AccountPage extends StatelessWidget {
           title: 'Notifications',
           subtitle: 'Manage notification preferences',
           onTap: () {
-            // TODO: Navigate to notifications settings
+            _showSnackBar(context, 'Notifications settings are mocked.');
           },
         ),
         const Divider(height: 1, thickness: 1),
@@ -217,7 +217,7 @@ class AccountPage extends StatelessWidget {
           title: 'Privacy & Security',
           subtitle: 'Password, privacy settings',
           onTap: () {
-            // TODO: Navigate to privacy settings
+            _showSnackBar(context, 'Privacy settings are mocked.');
           },
         ),
         const Divider(height: 1, thickness: 1),
@@ -226,7 +226,7 @@ class AccountPage extends StatelessWidget {
           title: 'Language',
           subtitle: 'English',
           onTap: () {
-            // TODO: Show language picker
+            _showSnackBar(context, 'Language picker is mocked.');
           },
         ),
         const Divider(height: 1, thickness: 1),
@@ -235,14 +235,14 @@ class AccountPage extends StatelessWidget {
           title: 'Appearance',
           subtitle: 'Light mode',
           onTap: () {
-            // TODO: Show theme picker
+            _showSnackBar(context, 'Theme picker is mocked.');
           },
         ),
       ],
     );
   }
 
-  Widget _buildSupportSection() {
+  Widget _buildSupportSection(BuildContext context) {
     return _buildSection(
       title: 'Help & Support',
       children: [
@@ -251,7 +251,7 @@ class AccountPage extends StatelessWidget {
           title: 'Help Center',
           subtitle: 'FAQs and guides',
           onTap: () {
-            // TODO: Navigate to help center
+            _showSnackBar(context, 'Help Center is mocked.');
           },
         ),
         const Divider(height: 1, thickness: 1),
@@ -260,7 +260,7 @@ class AccountPage extends StatelessWidget {
           title: 'Contact Support',
           subtitle: 'Get help from our team',
           onTap: () {
-            // TODO: Navigate to contact support
+            _showSnackBar(context, 'Contact Support is mocked.');
           },
         ),
         const Divider(height: 1, thickness: 1),
@@ -269,7 +269,12 @@ class AccountPage extends StatelessWidget {
           title: 'About',
           subtitle: 'App version and info',
           onTap: () {
-            // TODO: Show about dialog
+            showAboutDialog(
+              context: context,
+              applicationName: 'ADA University',
+              applicationVersion: '1.0.0 (mock)',
+              applicationLegalese: 'Prototype build',
+            );
           },
         ),
       ],
@@ -509,6 +514,12 @@ class AccountPage extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

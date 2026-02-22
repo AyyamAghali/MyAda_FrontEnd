@@ -67,11 +67,15 @@ class ClubDetails extends StatelessWidget {
       actions: [
         IconButton(
           icon: const Icon(Icons.share, color: AppColors.white),
-          onPressed: () {},
+          onPressed: () {
+            _showSnackBar(context, 'Share is mocked in this prototype.');
+          },
         ),
         IconButton(
           icon: const Icon(Icons.bookmark_border, color: AppColors.white),
-          onPressed: () {},
+          onPressed: () {
+            _showSnackBar(context, 'Bookmark is mocked in this prototype.');
+          },
         ),
       ],
       flexibleSpace: FlexibleSpaceBar(
@@ -583,6 +587,12 @@ class ClubDetails extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

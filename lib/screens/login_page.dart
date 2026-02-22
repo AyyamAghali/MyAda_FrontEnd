@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../widgets/responsive_container.dart';
 import 'master_home_page.dart';
+import 'admin/module_admin_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -278,10 +279,21 @@ class _LoginPageState extends State<LoginPage> {
     return ElevatedButton(
       onPressed: () {
         if (_formKey.currentState!.validate()) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MasterHomePage()),
-          );
+          final email = _emailController.text.trim().toLowerCase();
+          final module = ModuleAdminScreen.resolveModule(email);
+          if (module != null) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ModuleAdminScreen(module: module),
+              ),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MasterHomePage()),
+            );
+          }
         }
       },
       style: ElevatedButton.styleFrom(
@@ -306,7 +318,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildForgotPassword() {
     return TextButton(
       onPressed: () {
-        // TODO: Implement forgot password
+        _showInfoSnackBar('Password reset is mocked in this prototype.');
       },
       child: const Text(
         'Forgot Password?',
@@ -354,7 +366,7 @@ class _LoginPageState extends State<LoginPage> {
       children: [
         OutlinedButton.icon(
           onPressed: () {
-            // TODO: Implement Google login
+            _showInfoSnackBar('Google login is mocked in this prototype.');
           },
           icon: const Icon(Icons.g_mobiledata, size: 24),
           label: const Text('Continue with Google'),
@@ -369,7 +381,7 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: () {
-            // TODO: Implement Microsoft login
+            _showInfoSnackBar('Microsoft login is mocked in this prototype.');
           },
           icon: const Icon(Icons.account_circle_outlined, size: 24),
           label: const Text('Continue with Microsoft'),
@@ -396,6 +408,12 @@ class _LoginPageState extends State<LoginPage> {
           color: AppColors.white.withOpacity(0.8),
         ),
       ),
+    );
+  }
+
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }
