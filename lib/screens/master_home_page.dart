@@ -7,6 +7,7 @@ import 'lost_found/home_screen.dart';
 import 'clubs/clubs_home.dart';
 import 'support/support_module.dart';
 import 'account_page.dart';
+import 'login_page.dart';
 
 class MasterHomePage extends StatelessWidget {
   const MasterHomePage({super.key});
@@ -100,6 +101,19 @@ class MasterHomePage extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+              SizedBox(width: isMobile ? 8 : 16),
+              IconButton(
+                icon: Icon(Icons.logout, color: AppColors.primary, size: iconSize),
+                onPressed: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                    (route) => false,
+                  );
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
             ],
           ),

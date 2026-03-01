@@ -3,6 +3,9 @@ import '../../utils/constants.dart';
 import '../../utils/responsive.dart';
 import '../../widgets/responsive_container.dart';
 import '../login_page.dart';
+import 'support_staff_dashboard.dart';
+import 'club_application_detail.dart';
+import 'support_ticket_detail.dart';
 
 enum AdminModule {
   club,
@@ -913,6 +916,7 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
       'role': 'Full Membership',
       'date': 'Oct 24, 2023',
       'status': 'Pending',
+      'type': 'membership',
     },
     {
       'name': 'Marcus Holloway',
@@ -920,6 +924,7 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
       'role': 'Associate Member',
       'date': 'Oct 23, 2023',
       'status': 'Reviewing',
+      'type': 'membership',
     },
     {
       'name': 'Sarah Jenkins',
@@ -927,6 +932,15 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
       'role': 'Full Membership',
       'date': 'Oct 21, 2023',
       'status': 'Pending',
+      'type': 'membership',
+    },
+    {
+      'name': 'Alex Johnson',
+      'studentId': '20228811',
+      'role': 'Event Volunteer',
+      'date': 'Oct 20, 2023',
+      'status': 'Reviewing',
+      'type': 'vacancy',
     },
   ];
 
@@ -1054,6 +1068,13 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
   }
 
   Widget _buildApplicationsTab(BuildContext context) {
+    final filteredApplications = _applications.where((item) {
+      if (_applicationsTab == 0) {
+        return item['type'] == 'membership';
+      }
+      return item['type'] == 'vacancy';
+    }).toList();
+
     return ResponsiveContainer(
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 24),
@@ -1101,7 +1122,7 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
             const SizedBox(height: 12),
             _buildApplicationsFilters(),
             const SizedBox(height: 12),
-            ..._applications.map(_buildApplicationCard),
+            ...filteredApplications.map(_buildApplicationCard),
           ],
         ),
       ),
@@ -1826,7 +1847,14 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => _showSnackBar('View application (mock).'),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ClubApplicationDetail(application: item),
+                      ),
+                    );
+                  },
                   child: const Text('View'),
                 ),
               ),
@@ -2219,6 +2247,7 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
       'specialization': 'Network Admin',
       'status': 'Online',
       'workload': '3 Active',
+      'roleType': 'it',
     },
     {
       'name': 'Sarah Jenkins',
@@ -2226,6 +2255,7 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
       'specialization': 'Electrician',
       'status': 'On Break',
       'workload': '1 Active',
+      'roleType': 'fm',
     },
     {
       'name': 'Mark Thompson',
@@ -2233,6 +2263,7 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
       'specialization': 'Desktop Support',
       'status': 'Online',
       'workload': '5 Active',
+      'roleType': 'it',
     },
     {
       'name': 'Elena Rodriguez',
@@ -2240,6 +2271,7 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
       'specialization': 'System Admin',
       'status': 'Online',
       'workload': '2 Active',
+      'roleType': 'it',
     },
   ];
 
@@ -2722,6 +2754,7 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
   }
 
   Widget _buildStaffCard(Map<String, String> item) {
+    final roleType = item['roleType'] == 'fm' ? StaffRoleType.fm : StaffRoleType.it;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -2730,56 +2763,70 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray200),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.primary.withOpacity(0.1),
-            child: const Icon(Icons.person, color: AppColors.primary),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item['name'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.gray900,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SupportStaffDashboard(
+                staffName: item['name'] ?? 'Staff',
+                roleType: roleType,
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: AppColors.primary.withOpacity(0.1),
+              child: const Icon(Icons.person, color: AppColors.primary),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item['name'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.gray900,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
+                  const SizedBox(height: 4),
+                  Text(
+                    item['role'] ?? '',
+                    style: const TextStyle(fontSize: 12, color: AppColors.gray600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item['specialization'] ?? '',
+                    style: const TextStyle(fontSize: 11, color: AppColors.gray500),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _buildStatusPill(item['status'] ?? 'Offline'),
+                const SizedBox(height: 6),
                 Text(
-                  item['role'] ?? '',
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray600),
+                  item['workload'] ?? '',
+                  style: const TextStyle(fontSize: 11, color: AppColors.gray600),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  item['specialization'] ?? '',
-                  style: const TextStyle(fontSize: 11, color: AppColors.gray500),
+                const SizedBox(height: 6),
+                OutlinedButton(
+                  onPressed: () => _showSnackBar('Assign task (mock).'),
+                  child: const Text('Assign'),
                 ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _buildStatusPill(item['status'] ?? 'Offline'),
-              const SizedBox(height: 6),
-              Text(
-                item['workload'] ?? '',
-                style: const TextStyle(fontSize: 11, color: AppColors.gray600),
-              ),
-              const SizedBox(height: 6),
-              OutlinedButton(
-                onPressed: () => _showSnackBar('Assign task (mock).'),
-                child: const Text('Assign'),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2886,7 +2933,17 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
       color = Colors.green;
     }
 
-    return Container(
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SupportTicketDetail(ticket: item),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -2950,6 +3007,7 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
             ],
           ),
         ],
+      ),
       ),
     );
   }

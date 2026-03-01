@@ -3,6 +3,7 @@ import '../utils/constants.dart';
 import '../widgets/responsive_container.dart';
 import 'master_home_page.dart';
 import 'admin/module_admin_screen.dart';
+import 'admin/support_staff_dashboard.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -280,6 +281,20 @@ class _LoginPageState extends State<LoginPage> {
       onPressed: () {
         if (_formKey.currentState!.validate()) {
           final email = _emailController.text.trim().toLowerCase();
+          final staffRole = _resolveStaffRole(email);
+          if (staffRole != null) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SupportStaffDashboard(
+                  staffName: 'Staff User',
+                  roleType: staffRole,
+                ),
+              ),
+            );
+            return;
+          }
+
           final module = ModuleAdminScreen.resolveModule(email);
           if (module != null) {
             Navigator.pushReplacement(
@@ -415,6 +430,16 @@ class _LoginPageState extends State<LoginPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  StaffRoleType? _resolveStaffRole(String email) {
+    if (email.contains('staff') && email.contains('it')) {
+      return StaffRoleType.it;
+    }
+    if (email.contains('staff') && email.contains('fm')) {
+      return StaffRoleType.fm;
+    }
+    return null;
   }
 }
 
