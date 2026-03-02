@@ -54,7 +54,7 @@ class ThemeHelper {
             fontWeight: FontWeight.w600,
           ),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: ColorConstant.surfaceColor,
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -138,7 +138,7 @@ class ThemeHelper {
             fontWeight: FontWeight.w600,
           ),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: ColorConstant.gray800,
           elevation: 2,
           shape: RoundedRectangleBorder(
