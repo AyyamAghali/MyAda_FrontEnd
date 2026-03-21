@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
+import '../../widgets/clubs/clubs_top_nav.dart';
 import 'club_details.dart';
+import 'clubs_home.dart';
+import 'club_module_nav.dart';
 import '../../models/club.dart';
 
 enum MembershipStatus {
@@ -148,13 +150,28 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: ClubUiColors.pageBg,
       body: SafeArea(
         child: ResponsiveContainer(
-          backgroundColor: AppColors.backgroundLight,
+          backgroundColor: ClubUiColors.pageBg,
           child: Column(
             children: [
               _buildHeader(context),
+              ClubsTopNav(
+                active: ClubsNavSection.none,
+                onVacanciesTap: () => ClubModuleNav.openVacancies(context),
+                onMyApplicationsTap: () => ClubModuleNav.openMyVacancyApplications(context),
+                onEventsTap: () => ClubModuleNav.openEvents(context),
+                onClubsTap: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ClubsHome()),
+                  );
+                },
+                onProposeTap: () => ClubModuleNav.openProposeClub(context),
+                onNotificationsTap: () => ClubModuleNav.openNotifications(context),
+                onProfileTap: () {},
+              ),
               _buildTabs(context),
               Expanded(
                 child: TabBarView(
@@ -175,7 +192,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(8, 4, 16, 8),
       color: AppColors.white,
       child: Row(
         children: [
@@ -190,9 +207,9 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
                 Text(
                   'My Memberships',
                   style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
                 Text(

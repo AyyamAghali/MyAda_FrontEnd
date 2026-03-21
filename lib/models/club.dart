@@ -48,6 +48,9 @@ class Club {
   final String about;
   final List<ClubOfficer> officers;
   final List<ClubEvent> events;
+  /// Optional metadata (see web `clubsData.js`).
+  final int? establishedYear;
+  final String? location;
 
   Club({
     required this.id,
@@ -61,6 +64,8 @@ class Club {
     required this.about,
     required this.officers,
     required this.events,
+    this.establishedYear,
+    this.location,
   });
 
   String get statusString {

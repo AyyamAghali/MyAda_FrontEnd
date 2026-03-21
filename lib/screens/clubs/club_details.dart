@@ -4,48 +4,86 @@ import 'package:intl/intl.dart';
 import '../../models/club.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
+import '../../widgets/clubs/clubs_top_nav.dart';
 import 'join_club_sheet.dart';
 import 'event_registration.dart';
+import 'clubs_home.dart';
+import 'club_module_nav.dart';
+import 'my_memberships.dart';
 
-class ClubDetails extends StatelessWidget {
+/// Club profile — aligned with MyAda_Front_Web `ClubDetail.jsx` (hero, tabs, sidebar content folded into scroll).
+class ClubDetails extends StatefulWidget {
   final Club club;
 
   const ClubDetails({super.key, required this.club});
 
   @override
-  Widget build(BuildContext context) {
-    final upcomingEvents = club.events.where((event) {
+  State<ClubDetails> createState() => _ClubDetailsState();
+}
+
+class _ClubDetailsState extends State<ClubDetails> {
+  int _tabIndex = 0;
+
+  static const _tabs = ['About Us', 'Activities', 'Members', 'Resources'];
+
+  Club get club => widget.club;
+
+  void _toast(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  List<ClubEvent> get _upcomingEvents {
+    return club.events.where((event) {
       final eventDate = DateTime.parse(event.date);
       return eventDate.isAfter(DateTime.now()) || eventDate.isAtSameMomentAs(DateTime.now());
     }).toList();
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: ClubUiColors.pageBg,
       body: SafeArea(
+        bottom: false,
         child: ResponsiveContainer(
-          backgroundColor: AppColors.backgroundLight,
-          child: CustomScrollView(
-            slivers: [
-              _buildAppBar(context),
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildClubInfo(context),
-                    const SizedBox(height: 24),
-                    _buildAboutSection(context),
-                    if (upcomingEvents.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      _buildEventsSection(context, upcomingEvents),
+          backgroundColor: ClubUiColors.pageBg,
+          child: Column(
+            children: [
+              ClubsTopNav(
+                active: ClubsNavSection.clubs,
+                onVacanciesTap: () => ClubModuleNav.openVacancies(context),
+                onMyApplicationsTap: () => ClubModuleNav.openMyVacancyApplications(context),
+                onEventsTap: () => ClubModuleNav.openEvents(context),
+                onClubsTap: () => Navigator.pop(context),
+                onProposeTap: () => ClubModuleNav.openProposeClub(context),
+                onNotificationsTap: () => ClubModuleNav.openNotifications(context),
+                onProfileTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(builder: (_) => const MyMemberships()),
+                  );
+                },
+                onLogoTap: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ClubsHome()),
+                    (route) => route.isFirst,
+                  );
+                },
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildHero(context),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildTabs(context),
+                      ),
                     ],
-                    if (club.officers.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      _buildOfficersSection(context),
-                    ],
-                    const SizedBox(height: 24),
-                    _buildContactSection(context),
-                    const SizedBox(height: 100),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -56,238 +94,376 @@ class ClubDetails extends StatelessWidget {
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
-    return SliverAppBar(
-      expandedHeight: 200,
-      pinned: true,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: AppColors.white),
-        onPressed: () => Navigator.pop(context),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.share, color: AppColors.white),
-          onPressed: () {
-            _showSnackBar(context, 'Share is mocked in this prototype.');
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.bookmark_border, color: AppColors.white),
-          onPressed: () {
-            _showSnackBar(context, 'Bookmark is mocked in this prototype.');
-          },
-        ),
-      ],
-      flexibleSpace: FlexibleSpaceBar(
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            CachedNetworkImage(
-              imageUrl: club.banner,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                color: AppColors.primary,
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: AppColors.primary,
-                child: const Icon(Icons.image, size: 64, color: AppColors.white),
-              ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.5),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+  Widget _buildHero(BuildContext context) {
+    final bannerUrl = club.banner.isNotEmpty ? club.banner : club.logo;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 220,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.white, width: 4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: CachedNetworkImage(
-                    imageUrl: club.logo,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: AppColors.gray200,
-                      child: const Center(child: CircularProgressIndicator()),
-                    ),
-                    errorWidget: (context, url, error) => const Icon(Icons.groups),
-                  ),
+              CachedNetworkImage(
+                imageUrl: bannerUrl,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(color: AppColors.gray300),
+                errorWidget: (_, __, ___) => Container(
+                  color: const Color(0xFF0EA5E9),
+                  child: const Icon(Icons.groups, size: 64, color: Colors.white),
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
+            ],
+          ),
+        ),
+        Transform.translate(
+          offset: const Offset(0, -40),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Material(
+              elevation: 6,
+              shadowColor: Colors.black26,
+              borderRadius: BorderRadius.circular(16),
+              color: AppColors.white,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildStatusBadge(),
-                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: CachedNetworkImage(
+                            imageUrl: club.logo,
+                            width: 88,
+                            height: 88,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => Container(
+                              width: 88,
+                              height: 88,
+                              color: AppColors.gray200,
+                              child: const Icon(Icons.groups),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                club.name,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                  height: 1.3,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: ClubUiColors.ctaBlue,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  club.category,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 8,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.people_outline, size: 18, color: ClubNavColors.link),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '${club.memberCount} Members',
+                                        style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                                      ),
+                                    ],
+                                  ),
+                                  if (club.establishedYear != null)
+                                    Text(
+                                      'Est. ${club.establishedYear}',
+                                      style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                                    ),
+                                  if (club.location != null && club.location!.isNotEmpty)
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: Text(
+                                        club.location!,
+                                        style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
-                        const Icon(Icons.people, size: 16, color: AppColors.white),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${club.memberCount} members',
-                          style: const TextStyle(color: AppColors.white, fontSize: 14),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => JoinClubSheet(club: club),
+                                ),
+                              );
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: ClubUiColors.ctaBlue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            icon: const Icon(Icons.add, size: 20),
+                            label: const Text('Join Club', style: TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _toast(context, 'Follow — prototype only.'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF334155),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            icon: const Icon(Icons.star_outline, size: 20),
+                            label: const Text('Follow', style: TextStyle(fontWeight: FontWeight.w600)),
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+      ],
     );
   }
 
-  Widget _buildStatusBadge() {
-    Color bgColor;
-    Color textColor;
-    Color borderColor;
-
-    switch (club.status) {
-      case ClubStatus.open:
-        bgColor = Colors.green.shade50;
-        textColor = Colors.green.shade700;
-        borderColor = Colors.green.shade200;
-        break;
-      case ClubStatus.paused:
-        bgColor = Colors.orange.shade50;
-        textColor = Colors.orange.shade700;
-        borderColor = Colors.orange.shade200;
-        break;
-      default:
-        bgColor = AppColors.gray50;
-        textColor = AppColors.gray700;
-        borderColor = AppColors.gray200;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor),
-      ),
-      child: Text(
-        club.statusString,
-        style: TextStyle(fontSize: 12, color: textColor, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-
-  Widget _buildClubInfo(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            club.name,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: AppColors.gray900,
-            ),
+  Widget _buildTabs(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 2)),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Text(
-                  club.category,
-                  style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: club.tags.map((tag) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.gray100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  tag,
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray700),
+          child: Row(
+            children: List.generate(_tabs.length, (i) {
+              final active = _tabIndex == i;
+              return Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _tabIndex = i),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: active ? ClubNavColors.activeText : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      _tabs[i],
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: active ? ClubNavColors.activeText : ClubNavColors.link,
+                      ),
+                    ),
+                  ),
                 ),
               );
-            }).toList(),
+            }),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 20),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: KeyedSubtree(
+            key: ValueKey<int>(_tabIndex),
+            child: _tabBody(context),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildAboutSection(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+  Widget _tabBody(BuildContext context) {
+    switch (_tabIndex) {
+      case 0:
+        return _buildAboutTab(context);
+      case 1:
+        return _buildActivitiesTab(context);
+      case 2:
+        return _buildMembersTab(context);
+      default:
+        return _buildResourcesTab(context);
+    }
+  }
+
+  Widget _buildAboutTab(BuildContext context) {
+    final tags = club.tags;
+    return Column(
+      key: const ValueKey('about'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Our Mission',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          club.about,
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.5,
+            color: Color(0xFF475569),
+          ),
+        ),
+        if (tags.length >= 2) ...[
+          const SizedBox(height: 24),
           const Text(
-            'About',
+            'Key Focus Areas',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.gray900,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            club.about,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.gray600,
-              height: 1.5,
+          ...List.generate(2, (i) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      i == 0 ? Icons.dashboard_customize_outlined : Icons.code_outlined,
+                      color: ClubNavColors.activeText,
+                      size: 28,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      tags[i],
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Explore activities and projects around ${tags[i].toLowerCase()} with the club community.',
+                      style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+        if (club.officers.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const Text(
+            'Club Officers',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...club.officers.map((o) => _officerRow(o)),
+        ],
+        const SizedBox(height: 24),
+        const Text(
+          'Contact',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Reach the club leadership via official ADA channels or the email shared during onboarding.',
+          style: TextStyle(fontSize: 14, height: 1.45, color: Color(0xFF64748B)),
+        ),
+      ],
+    );
+  }
+
+  Widget _officerRow(ClubOfficer o) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundImage: CachedNetworkImageProvider(o.photo),
+            onBackgroundImageError: (_, __) {},
+            child: const SizedBox.shrink(),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  o.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                Text(
+                  o.role,
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                ),
+              ],
             ),
           ),
         ],
@@ -295,39 +471,52 @@ class ClubDetails extends StatelessWidget {
     );
   }
 
-  Widget _buildEventsSection(BuildContext context, List<ClubEvent> events) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Upcoming Events',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.gray900,
-                ),
-              ),
-              Text(
-                '${events.length} events',
-                style: const TextStyle(fontSize: 12, color: AppColors.primary),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...events.map((event) => _buildEventCard(context, event)),
-        ],
-      ),
+  Widget _buildActivitiesTab(BuildContext context) {
+    final events = _upcomingEvents;
+    return Column(
+      key: const ValueKey('activities'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (events.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              'No upcoming events scheduled.',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
+          )
+        else
+          ...events.map((e) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildEventCard(context, e),
+              )),
+      ],
+    );
+  }
+
+  Widget _buildMembersTab(BuildContext context) {
+    return const Column(
+      key: ValueKey('members'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Member directory and roles will appear here.',
+          style: TextStyle(color: Color(0xFF64748B), height: 1.5),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResourcesTab(BuildContext context) {
+    return const Column(
+      key: ValueKey('resources'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Resources and documents shared by the club will appear here.',
+          style: TextStyle(color: Color(0xFF64748B), height: 1.5),
+        ),
+      ],
     );
   }
 
@@ -345,24 +534,24 @@ class ClubDetails extends StatelessWidget {
           ),
         );
       },
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.gray50,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.gray200),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Row(
           children: [
             Container(
-              width: 64,
-              height: 64,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryDark],
+                  colors: [ClubUiColors.ctaBlue, Color(0xFF1D4ED8)],
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -370,7 +559,7 @@ class ClubDetails extends StatelessWidget {
                   Text(
                     month.toUpperCase(),
                     style: const TextStyle(
-                      color: AppColors.white,
+                      color: Colors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -378,15 +567,15 @@ class ClubDetails extends StatelessWidget {
                   Text(
                     day,
                     style: const TextStyle(
-                      color: AppColors.white,
-                      fontSize: 24,
+                      color: Colors.white,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,175 +584,43 @@ class ClubDetails extends StatelessWidget {
                     event.title,
                     style: const TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.gray900,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0F172A),
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (event.description != null) ...[
+                  if (event.time != null) ...[
                     const SizedBox(height: 4),
                     Text(
-                      event.description!,
-                      style: const TextStyle(fontSize: 12, color: AppColors.gray600),
+                      '${event.time} · ${event.location}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  if (event.time != null)
-                    Row(
-                      children: [
-                        const Icon(Icons.access_time, size: 14, color: AppColors.gray500),
-                        const SizedBox(width: 4),
-                        Text(
-                          event.time!,
-                          style: const TextStyle(fontSize: 12, color: AppColors.gray500),
-                        ),
-                      ],
-                    ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on, size: 14, color: AppColors.gray500),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          event.location,
-                          style: const TextStyle(fontSize: 12, color: AppColors.gray500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.gray400),
+            const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildOfficersSection(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Club Officers',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.gray900,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: club.officers.map((officer) {
-              return Column(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundImage: CachedNetworkImageProvider(officer.photo),
-                    onBackgroundImageError: (_, __) {},
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    officer.name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.gray900,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  Text(
-                    officer.role,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.gray600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContactSection(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Contact',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.gray900,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(Icons.email, size: 20, color: AppColors.primary),
-              const SizedBox(width: 12),
-              Text(
-                'adaadecclub@ada.edu.az',
-                style: const TextStyle(fontSize: 14, color: AppColors.gray700),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.phone, size: 20, color: AppColors.primary),
-              const SizedBox(width: 12),
-              Text(
-                '+994 50 123 45 67',
-                style: const TextStyle(fontSize: 14, color: AppColors.gray700),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBottomButton(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(top: BorderSide(color: AppColors.gray200)),
       ),
       child: SafeArea(
+        top: false,
         child: SizedBox(
           width: double.infinity,
-          child: ElevatedButton(
+          child: FilledButton(
             onPressed: () {
               Navigator.push(
                 context,
@@ -572,9 +629,9 @@ class ClubDetails extends StatelessWidget {
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.white,
+            style: FilledButton.styleFrom(
+              backgroundColor: ClubUiColors.ctaBlue,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -582,18 +639,11 @@ class ClubDetails extends StatelessWidget {
             ),
             child: const Text(
               'Join Club',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
         ),
       ),
     );
   }
-
-  void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
 }
-

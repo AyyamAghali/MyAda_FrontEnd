@@ -45,6 +45,22 @@ class AppRadius {
   static const double circular = 9999.0; // Use for fully circular elements
 }
 
+/// Matches MyAda_Front_Web `vacancies-nav` / club pages (light blue active pill, slate links).
+class ClubNavColors {
+  static const Color link = Color(0xFF64748B);
+  static const Color linkHoverBg = Color(0xFFF1F5F9);
+  static const Color activeBg = Color(0xFFEFF6FF);
+  static const Color activeText = Color(0xFF2563EB);
+  static const Color border = Color(0xFFE2E8F0);
+}
+
+/// Primary actions on club pages (web uses blue `#2563eb` for Join; navy `#111827` for card CTAs).
+class ClubUiColors {
+  static const Color ctaBlue = Color(0xFF2563EB);
+  static const Color ctaNavy = Color(0xFF111827);
+  static const Color pageBg = Color(0xFFF8FAFC);
+}
+
 class AppTextStyles {
   static const TextStyle heading1 = TextStyle(
     fontSize: 24,

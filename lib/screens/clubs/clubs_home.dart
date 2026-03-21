@@ -3,9 +3,11 @@ import '../../models/club.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 import '../../widgets/club_card.dart';
+import '../../widgets/clubs/clubs_top_nav.dart';
 import 'club_details.dart';
-import 'my_memberships.dart';
+import 'club_module_nav.dart';
 import 'create_club_form.dart';
+import 'my_memberships.dart';
 
 class ClubsHome extends StatefulWidget {
   const ClubsHome({super.key});
@@ -27,6 +29,8 @@ class _ClubsHomeState extends State<ClubsHome> {
       logo: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=200&h=200&fit=crop',
       banner: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&h=300&fit=crop',
       category: 'Technology',
+      establishedYear: 2019,
+      location: 'Student Center, Room 201',
       tags: ['Gaming', 'Digital Media', 'Content Creation', 'Esports'],
       memberCount: 156,
       status: ClubStatus.open,
@@ -273,9 +277,12 @@ class _ClubsHomeState extends State<ClubsHome> {
   ];
 
   List<Club> get filteredClubs {
+    final q = searchQuery.trim().toLowerCase();
     return mockClubs.where((club) {
-      final matchesSearch = club.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
-          club.tags.any((tag) => tag.toLowerCase().contains(searchQuery.toLowerCase()));
+      final matchesSearch = q.isEmpty ||
+          club.name.toLowerCase().contains(q) ||
+          club.category.toLowerCase().contains(q) ||
+          club.tags.any((tag) => tag.toLowerCase().contains(q));
       final matchesCategory = selectedCategory == 'All' || club.category == selectedCategory;
       final matchesStatus = selectedStatus == 'all' || club.statusString == selectedStatus;
       return matchesSearch && matchesCategory && matchesStatus;
@@ -285,13 +292,13 @@ class _ClubsHomeState extends State<ClubsHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: ClubUiColors.pageBg,
       body: SafeArea(
         child: ResponsiveContainer(
-          backgroundColor: AppColors.backgroundLight,
+          backgroundColor: ClubUiColors.pageBg,
           child: Column(
             children: [
-              _buildHeader(context),
+              _buildClubsNav(context),
               _buildSearchBar(context),
               _buildFilters(context),
               Expanded(
@@ -314,90 +321,94 @@ class _ClubsHomeState extends State<ClubsHome> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      color: AppColors.white,
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Club Management',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      Text(
-                        '${filteredClubs.length} clubs available',
-                        style: const TextStyle(fontSize: 12, color: AppColors.gray500),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              IconButton(
-                icon: const Icon(Icons.person, color: AppColors.gray600),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MyMemberships()),
-                );
-              },
-              ),
-            ],
+  Widget _buildClubsNav(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, top: 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
-        ],
-      ),
+        ),
+        ClubsTopNav(
+          active: ClubsNavSection.clubs,
+          onVacanciesTap: () => ClubModuleNav.openVacancies(context),
+          onMyApplicationsTap: () => ClubModuleNav.openMyVacancyApplications(context),
+          onEventsTap: () => ClubModuleNav.openEvents(context),
+          onClubsTap: () {},
+          onProposeTap: () => ClubModuleNav.openProposeClub(context),
+          onNotificationsTap: () => ClubModuleNav.openNotifications(context),
+          onProfileTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const MyMemberships()),
+            );
+          },
+        ),
+      ],
     );
   }
 
 
   Widget _buildSearchBar(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       color: AppColors.white,
       child: Row(
         children: [
           Expanded(
             child: TextField(
               onChanged: (value) => setState(() => searchQuery = value),
+              style: const TextStyle(fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'Search clubs, categories, tags...',
-                prefixIcon: const Icon(Icons.search, color: AppColors.gray400),
+                hintStyle: TextStyle(color: AppColors.gray400),
+                prefixIcon: const Icon(Icons.search, color: AppColors.gray400, size: 22),
                 filled: true,
                 fillColor: AppColors.gray50,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.gray200),
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.gray200),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.gray200),
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.gray200),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: ClubNavColors.activeText, width: 1.5),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          IconButton(
-            icon: Icon(isGrid ? Icons.view_list : Icons.grid_view, color: AppColors.gray600),
-            onPressed: () => setState(() => isGrid = !isGrid),
+          Material(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              onTap: () => setState(() => isGrid = !isGrid),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.gray200),
+                ),
+                child: Icon(
+                  isGrid ? Icons.view_list_rounded : Icons.grid_view_rounded,
+                  color: AppColors.gray600,
+                  size: 22,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -405,11 +416,11 @@ class _ClubsHomeState extends State<ClubsHome> {
   }
 
   Widget _buildFilters(BuildContext context) {
-    final categories = ['All', 'Technology', 'Arts', 'Business', 'Academic', 'Social', 'Sports'];
+    final categories = ['All', 'Technology', 'Arts', 'Business', 'Academic', 'Sports'];
     final statuses = ['all', 'Open', 'Closed', 'Paused', 'Disabled', 'By Invitation'];
     
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       color: AppColors.white,
         child: Row(
         children: [
@@ -420,19 +431,19 @@ class _ClubsHomeState extends State<ClubsHome> {
               decoration: InputDecoration(
                 labelText: 'Category',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: AppColors.gray200),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: AppColors.gray200),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: ClubNavColors.activeText, width: 1.5),
                 ),
                 filled: true,
-                fillColor: AppColors.gray50,
+                fillColor: AppColors.white,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               ),
               items: categories.map((category) {
@@ -459,19 +470,19 @@ class _ClubsHomeState extends State<ClubsHome> {
               decoration: InputDecoration(
                 labelText: 'Status',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: AppColors.gray200),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: AppColors.gray200),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: ClubNavColors.activeText, width: 1.5),
                 ),
                 filled: true,
-                fillColor: AppColors.gray50,
+                fillColor: AppColors.white,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               ),
               items: statuses.map((status) {
@@ -504,12 +515,12 @@ class _ClubsHomeState extends State<ClubsHome> {
             const Icon(Icons.groups, size: 64, color: AppColors.gray300),
             const SizedBox(height: 16),
             const Text(
-              'No clubs found',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'No clubs match your search.',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700),
             ),
             const SizedBox(height: 8),
             Text(
-              'Try adjusting your search or filter criteria',
+              'Try different keywords or filters.',
               style: TextStyle(fontSize: 14, color: AppColors.gray500),
             ),
           ],
@@ -517,23 +528,43 @@ class _ClubsHomeState extends State<ClubsHome> {
       );
     }
 
+    void openClub(int index) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ClubDetails(club: filteredClubs[index]),
+        ),
+      );
+    }
+
+    if (isGrid) {
+      return GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: 0.52,
+        ),
+        itemCount: filteredClubs.length,
+        itemBuilder: (context, index) {
+          return ClubCard(
+            club: filteredClubs[index],
+            onTap: () => openClub(index),
+          );
+        },
+      );
+    }
+
     return ListView.builder(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
       itemCount: filteredClubs.length,
       itemBuilder: (context, index) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: 16),
           child: ClubCard(
             club: filteredClubs[index],
-            isGrid: isGrid,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ClubDetails(club: filteredClubs[index]),
-                ),
-              );
-            },
+            onTap: () => openClub(index),
           ),
         );
       },
