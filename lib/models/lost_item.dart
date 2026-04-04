@@ -21,6 +21,7 @@ class LostItem {
   final String dateFound;
   final ItemStatus status;
   final String imageUrl;
+  final bool isLostItem;
 
   LostItem({
     required this.id,
@@ -31,7 +32,10 @@ class LostItem {
     required this.dateFound,
     required this.status,
     required this.imageUrl,
+    this.isLostItem = false,
   });
+
+  String get typeString => isLostItem ? 'Lost item' : 'Found item';
 
   String get statusString {
     switch (status) {

@@ -277,7 +277,11 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                               onOpen: () => Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                  builder: (_) => VacancyDetailScreen(vacancyId: list[i].id),
+                                  builder: (_) => VacancyDetailScreen(
+                                    vacancy: list[i],
+                                    isSaved: _savedIds.contains(list[i].id),
+                                    onSaveToggle: () => _toggleSave(list[i].id),
+                                  ),
                                 ),
                               ),
                             ),
@@ -300,7 +304,11 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                                 onOpen: () => Navigator.push(
                                   context,
                                   MaterialPageRoute<void>(
-                                    builder: (_) => VacancyDetailScreen(vacancyId: list[i].id),
+                                    builder: (_) => VacancyDetailScreen(
+                                      vacancy: list[i],
+                                      isSaved: _savedIds.contains(list[i].id),
+                                      onSaveToggle: () => _toggleSave(list[i].id),
+                                    ),
                                   ),
                                 ),
                               ),

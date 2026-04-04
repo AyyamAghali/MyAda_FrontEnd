@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/lost_item.dart';
 import '../../utils/constants.dart';
-import '../../widgets/responsive_container.dart';
-import '../../utils/responsive.dart';
 import '../../widgets/item_card.dart';
 import '../account_page.dart';
 import 'report_item_form.dart';
@@ -20,20 +17,17 @@ class _HomeScreenState extends State<HomeScreen> {
   String searchQuery = '';
   ItemCategory? selectedCategory;
   String sortBy = 'newest';
-  int _selectedNavIndex = 0;
   bool onlyActive = false;
   String _activeTab = 'home';
   bool _isSpeedDialOpen = false;
-  final ScrollController _scrollController = ScrollController();
-  bool _showStats = true;
-  double _lastScrollOffset = 0.0;
+  String _typeFilter = 'all'; // 'all', 'lost', 'found', 'mine'
 
   final List<LostItem> mockItems = [
     LostItem(
       id: '1',
       title: 'Black Leather Wallet',
       category: ItemCategory.accessories,
-      location: 'Library - 2nd Floor',
+      location: 'Library - 2nd Floor, near the study pods',
       description: 'Black leather wallet found near study area. Contains some cards but no ID.',
       dateFound: '2025-11-10',
       status: ItemStatus.active,
@@ -53,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
       id: '3',
       title: 'Student ID Card',
       category: ItemCategory.documents,
-      location: 'Cafeteria - Near Entrance',
+      location: 'Cafeteria - Lobby near the main entrance',
       description: 'ADA University student ID card. Found on table near main entrance.',
       dateFound: '2025-11-09',
       status: ItemStatus.active,
@@ -63,31 +57,96 @@ class _HomeScreenState extends State<HomeScreen> {
       id: '4',
       title: 'Navy Blue Jacket',
       category: ItemCategory.clothing,
-      location: 'Sports Complex - Locker Room',
+      location: 'Sports Complex - Men\'s locker room, bench area',
       description: 'Navy blue jacket with ADA logo on left chest. Size M.',
       dateFound: '2025-11-08',
       status: ItemStatus.active,
       imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&h=300&fit=crop',
     ),
+    LostItem(
+      id: '5',
+      title: 'AirPods Pro Case',
+      category: ItemCategory.electronics,
+      location: 'Campus - Main yard, on the bench near the fountain',
+      description: 'White AirPods Pro case found on a bench. No name written on it.',
+      dateFound: '2025-11-12',
+      status: ItemStatus.active,
+      imageUrl: 'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=400&h=300&fit=crop',
+    ),
+    LostItem(
+      id: '6',
+      title: 'House Keys',
+      category: ItemCategory.other,
+      location: 'Campus - Parking Area B, ground level near exit gate',
+      description: 'Set of 3 keys on a red keychain with a small teddy bear charm.',
+      dateFound: '2025-11-13',
+      status: ItemStatus.pendingVerification,
+      imageUrl: 'https://images.unsplash.com/photo-1582139329536-e7284fece509?w=400&h=300&fit=crop',
+    ),
+    LostItem(
+      id: '7',
+      title: 'Prescription Glasses',
+      category: ItemCategory.accessories,
+      location: 'Main Building - Room A301',
+      description: 'Black-framed prescription glasses in a brown leather case. Found after lecture.',
+      dateFound: '2025-11-14',
+      status: ItemStatus.active,
+      imageUrl: 'https://images.unsplash.com/photo-1574258495973-f7977603b6d2?w=400&h=300&fit=crop',
+    ),
+    LostItem(
+      id: '8',
+      title: 'Silver MacBook Charger',
+      category: ItemCategory.electronics,
+      location: 'Campus - Outdoor seating area between Block A and Block B',
+      description: 'Apple 67W USB-C charger with a small scratch on the adapter.',
+      dateFound: '2025-11-15',
+      status: ItemStatus.active,
+      isLostItem: true,
+      imageUrl: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&h=300&fit=crop',
+    ),
+    LostItem(
+      id: '9',
+      title: 'Red Notebook',
+      category: ItemCategory.other,
+      location: 'Library - 3rd Floor, reading hall near the windows',
+      description: 'Red Moleskine notebook with handwritten notes. Has a pen clipped to the cover.',
+      dateFound: '2025-11-16',
+      status: ItemStatus.active,
+      isLostItem: true,
+      imageUrl: 'https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=400&h=300&fit=crop',
+    ),
+    LostItem(
+      id: '10',
+      title: 'USB Flash Drive',
+      category: ItemCategory.electronics,
+      location: 'Building C - Room C203',
+      description: 'SanDisk 64GB flash drive with a blue cap. Contains important project files.',
+      dateFound: '2025-11-17',
+      status: ItemStatus.pendingVerification,
+      isLostItem: true,
+      imageUrl: 'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=400&h=300&fit=crop',
+    ),
   ];
 
   List<LostItem> get filteredItems {
     var items = mockItems.where((item) {
-      final matchesSearch = item.title.toLowerCase().contains(searchQuery.toLowerCase()) ||
-          item.location.toLowerCase().contains(searchQuery.toLowerCase()) ||
-          item.description.toLowerCase().contains(searchQuery.toLowerCase());
-      final matchesCategory = selectedCategory == null || item.category == selectedCategory;
+      final matchesSearch = searchQuery.isEmpty ||
+          item.title.toLowerCase().contains(searchQuery.toLowerCase()) ||
+          item.location.toLowerCase().contains(searchQuery.toLowerCase());
+      final matchesCategory =
+          selectedCategory == null || item.category == selectedCategory;
       final matchesStatus = !onlyActive || item.status == ItemStatus.active;
-      return matchesSearch && matchesCategory && matchesStatus;
+      final matchesType = _typeFilter == 'all' ||
+          (_typeFilter == 'lost' && item.isLostItem) ||
+          (_typeFilter == 'found' && !item.isLostItem);
+      return matchesSearch && matchesCategory && matchesStatus && matchesType;
     }).toList();
 
     items.sort((a, b) {
       if (sortBy == 'newest') {
         return DateTime.parse(b.dateFound).compareTo(DateTime.parse(a.dateFound));
-      } else if (sortBy == 'oldest') {
-        return DateTime.parse(a.dateFound).compareTo(DateTime.parse(b.dateFound));
       } else {
-        return a.location.compareTo(b.location);
+        return DateTime.parse(a.dateFound).compareTo(DateTime.parse(b.dateFound));
       }
     });
 
@@ -95,67 +154,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    final currentOffset = _scrollController.offset;
-    
-    // Show stats when scrolling up, hide when scrolling down
-    if (currentOffset > _lastScrollOffset && currentOffset > 50) {
-      // Scrolling down and past threshold
-      if (_showStats) {
-        setState(() => _showStats = false);
-      }
-    } else if (currentOffset < _lastScrollOffset) {
-      // Scrolling up
-      if (!_showStats) {
-        setState(() => _showStats = true);
-      }
-    }
-    
-    _lastScrollOffset = currentOffset;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final stats = {
-      'total': mockItems.length,
-      'active': mockItems.where((i) => i.status == ItemStatus.active).length,
-      'pending': mockItems.where((i) => i.status == ItemStatus.pendingVerification).length,
-    };
-
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
         child: Column(
           children: [
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              child: _showStats
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildHeader(context),
-                        _buildStatsCards(context, stats),
-                        _buildSearchBar(context),
-                      ],
-                    )
-                  : const SizedBox.shrink(),
-            ),
-            Expanded(
-              child: _buildItemsList(context),
-            ),
+            _buildHeader(context),
+            _buildSearchBar(context),
+            _buildResultCount(),
+            Expanded(child: _buildItemsList(context)),
           ],
         ),
       ),
@@ -166,130 +174,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      color: AppColors.white,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
-                onPressed: () => Navigator.pop(context),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Lost & Found',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const Text(
-                    'ADA University Campus',
-                    style: TextStyle(fontSize: 12, color: AppColors.gray500),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.settings, color: AppColors.gray600),
-                onPressed: () {
-                  _showSnackBar('Settings are mocked in this prototype.');
-                },
-              ),
-              Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications, color: AppColors.gray600),
-                    onPressed: () {
-                      _showSnackBar('Notifications are mocked in this prototype.');
-                    },
-                  ),
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.secondary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsCards(BuildContext context, Map<String, int> stats) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: AppColors.white,
+      padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+      color: AppColors.backgroundLight,
       child: Row(
         children: [
-          Expanded(
-            child: _buildStatCard('Total', stats['total']!, AppColors.primary),
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: AppColors.gray700, size: 18),
+            onPressed: () => Navigator.pop(context),
           ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: _buildStatCard('Active', stats['active']!, Colors.green),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: _buildStatCard('Pending', stats['pending']!, Colors.yellow),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String label, int value, Color color) {
-    // Use semantic colors only for status meaning: green for Active, yellow for Pending
-    Color cardColor;
-    if (label == 'Active') {
-      cardColor = Colors.green.shade600; // Success/Active color
-    } else if (label == 'Pending') {
-      cardColor = Colors.yellow.shade700; // Warning/Pending color (yellow as requested)
-    } else {
-      cardColor = AppColors.primary; // Primary color for Total
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 9,
-              color: AppColors.white,
-              fontWeight: FontWeight.w500,
+          const Expanded(
+            child: Text(
+              'Lost & Found',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.gray900,
+              ),
             ),
           ),
-          Text(
-            value.toString(),
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: AppColors.white,
-            ),
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined,
+                color: AppColors.gray600, size: 22),
+            onPressed: () => _showSnackBar('Notifications coming soon.'),
           ),
         ],
       ),
@@ -297,110 +204,89 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSearchBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      color: AppColors.white,
-      child: TextField(
-        onChanged: (value) => setState(() => searchQuery = value),
-        decoration: InputDecoration(
-          hintText: 'Search by item, location, or description...',
-          prefixIcon: const Icon(Icons.search, color: AppColors.gray400),
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.tune, color: AppColors.gray600),
-            onPressed: () {
-              _openFilterSheet(context);
-            },
-          ),
-          filled: true,
-          fillColor: AppColors.gray50,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.medium),
-            borderSide: BorderSide(color: AppColors.gray200),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.medium),
-            borderSide: BorderSide(color: AppColors.gray200),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.medium),
-            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: SizedBox(
+        height: 42,
+        child: TextField(
+          onChanged: (v) => setState(() => searchQuery = v),
+          style: const TextStyle(fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'Search items or locations...',
+            hintStyle: const TextStyle(fontSize: 13, color: AppColors.gray400),
+            prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.gray400),
+            suffixIcon: GestureDetector(
+              onTap: () => _openFilterSheet(context),
+              child: Container(
+                margin: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.tune, size: 17, color: AppColors.primary),
+              ),
+            ),
+            filled: true,
+            fillColor: AppColors.white,
+            contentPadding: EdgeInsets.zero,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.gray200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSortOptions(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
-    final sortOptions = [
-      {'value': 'newest', 'label': 'Newest'},
-      {'value': 'oldest', 'label': 'Oldest'},
-      {'value': 'location', 'label': 'Location'},
-    ];
-    
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 24,
-        vertical: 8,
-      ),
-      color: AppColors.white,
+  Widget _buildResultCount() {
+    final count = filteredItems.length;
+    final hasFilters = selectedCategory != null ||
+        onlyActive ||
+        _typeFilter != 'all';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            '${filteredItems.length} ${filteredItems.length == 1 ? 'item' : 'items'} found',
-            style: TextStyle(
-              fontSize: isMobile ? 12 : 13,
-              color: AppColors.gray600,
-            ),
-          ),
-          SizedBox(
-            width: isMobile ? 120 : 140,
-            child: DropdownButtonFormField<String>(
-              value: sortBy,
-              isExpanded: true,
-              decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.small),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.small),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.small),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-                ),
-              ),
-              style: const TextStyle(
+            '$count ${count == 1 ? 'item' : 'items'}',
+            style: const TextStyle(
                 fontSize: 12,
-                color: AppColors.gray700,
-              ),
-              icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.gray600),
-              items: sortOptions.map((option) {
-                return DropdownMenuItem<String>(
-                  value: option['value'],
-                  child: Text(
-                    option['label']!,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => sortBy = value);
-                }
-              },
-            ),
+                fontWeight: FontWeight.w600,
+                color: AppColors.gray500),
           ),
+          if (hasFilters) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => setState(() {
+                selectedCategory = null;
+                onlyActive = false;
+                _typeFilter = 'all';
+                sortBy = 'newest';
+              }),
+              child: const Text(
+                'Clear filters',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.secondary),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+
+  // ── Filter ──────────────────────────────────────────────────────────
 
   void _openFilterSheet(BuildContext context) {
     final categories = [
@@ -411,184 +297,147 @@ class _HomeScreenState extends State<HomeScreen> {
       ItemCategory.accessories,
       ItemCategory.other,
     ];
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.container)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         ItemCategory? tempCategory = selectedCategory;
         bool tempOnlyActive = onlyActive;
         String tempSortBy = sortBy;
-        
+        String tempType = _typeFilter;
+
         return StatefulBuilder(
           builder: (context, setModalState) {
+            Widget chip(String label, bool selected, VoidCallback onTap) {
+              return GestureDetector(
+                onTap: onTap,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppColors.primary
+                        : AppColors.gray100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color:
+                          selected ? AppColors.white : AppColors.gray700,
+                    ),
+                  ),
+                ),
+              );
+            }
+
             return Padding(
               padding: EdgeInsets.fromLTRB(
-                24,
-                16,
-                24,
-                MediaQuery.of(context).padding.bottom + 24,
-              ),
+                  20, 16, 20, MediaQuery.of(context).padding.bottom + 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.gray300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Filters',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.gray900,
-                        ),
-                      ),
+                      const Text('Filters',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.gray900)),
                       IconButton(
-                        icon: const Icon(Icons.close, color: AppColors.gray600),
+                        icon: const Icon(Icons.close,
+                            color: AppColors.gray500, size: 20),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  // Category Filter
-                  const Text(
-                    'Category',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.gray900,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: categories.map((category) {
-                      final isSelected = tempCategory == category;
-                      String label;
-                      if (category == null) {
-                        label = 'All Items';
-                      } else {
-                        switch (category) {
-                          case ItemCategory.electronics:
-                            label = 'Electronics';
-                            break;
-                          case ItemCategory.documents:
-                            label = 'Documents';
-                            break;
-                          case ItemCategory.clothing:
-                            label = 'Clothing';
-                            break;
-                          case ItemCategory.accessories:
-                            label = 'Accessories';
-                            break;
-                          case ItemCategory.other:
-                            label = 'Other';
-                            break;
-                        }
-                      }
-                      return ChoiceChip(
-                        label: Text(label),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setModalState(() {
-                            tempCategory = selected ? category : null;
-                          });
-                        },
-                        selectedColor: AppColors.primary,
-                        backgroundColor: AppColors.gray50,
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppColors.white : AppColors.gray700,
-                          fontSize: 13,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.small),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 24),
-                  // Sort Options
-                  const Text(
-                    'Sort by',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.gray900,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
+                  const Text('Type',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.gray900)),
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      ChoiceChip(
-                        label: const Text('Newest'),
-                        selected: tempSortBy == 'newest',
-                        onSelected: (_) => setModalState(() => tempSortBy = 'newest'),
-                        selectedColor: AppColors.primary,
-                        backgroundColor: AppColors.gray50,
-                        labelStyle: TextStyle(
-                          color: tempSortBy == 'newest' ? AppColors.white : AppColors.gray700,
-                          fontSize: 13,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.small),
-                        ),
-                      ),
-                      ChoiceChip(
-                        label: const Text('Oldest'),
-                        selected: tempSortBy == 'oldest',
-                        onSelected: (_) => setModalState(() => tempSortBy = 'oldest'),
-                        selectedColor: AppColors.primary,
-                        backgroundColor: AppColors.gray50,
-                        labelStyle: TextStyle(
-                          color: tempSortBy == 'oldest' ? AppColors.white : AppColors.gray700,
-                          fontSize: 13,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.small),
-                        ),
-                      ),
-                      ChoiceChip(
-                        label: const Text('Location'),
-                        selected: tempSortBy == 'location',
-                        onSelected: (_) => setModalState(() => tempSortBy = 'location'),
-                        selectedColor: AppColors.primary,
-                        backgroundColor: AppColors.gray50,
-                        labelStyle: TextStyle(
-                          color: tempSortBy == 'location' ? AppColors.white : AppColors.gray700,
-                          fontSize: 13,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.small),
-                        ),
-                      ),
+                      chip('All', tempType == 'all',
+                          () => setModalState(() => tempType = 'all')),
+                      chip('Lost items', tempType == 'lost',
+                          () => setModalState(() => tempType = 'lost')),
+                      chip('Found items', tempType == 'found',
+                          () => setModalState(() => tempType = 'found')),
+                      chip('My reports', tempType == 'mine',
+                          () => setModalState(() => tempType = 'mine')),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  // Status Filter
+                  const SizedBox(height: 20),
+                  const Text('Category',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.gray900)),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: categories.map((cat) {
+                      final isSelected = tempCategory == cat;
+                      final label = cat == null
+                          ? 'All'
+                          : _categoryLabel(cat);
+                      return chip(label, isSelected,
+                          () => setModalState(() => tempCategory = cat));
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('Sort by',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.gray900)),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      chip('Newest first', tempSortBy == 'newest',
+                          () => setModalState(() => tempSortBy = 'newest')),
+                      chip('Oldest first', tempSortBy == 'oldest',
+                          () => setModalState(() => tempSortBy = 'oldest')),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Show only active items',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    title: const Text('Active items only',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500)),
                     value: tempOnlyActive,
-                    onChanged: (value) {
-                      setModalState(() => tempOnlyActive = value);
-                    },
+                    onChanged: (v) =>
+                        setModalState(() => tempOnlyActive = v),
                     activeColor: AppColors.primary,
                   ),
-                  const SizedBox(height: 24),
-                  // Apply Button
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -597,24 +446,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           selectedCategory = tempCategory;
                           onlyActive = tempOnlyActive;
                           sortBy = tempSortBy;
+                          _typeFilter = tempType;
                         });
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.medium),
-                        ),
+                            borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
                       ),
-                      child: const Text(
-                        'Apply Filters',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: const Text('Apply',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -626,54 +472,57 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _categoryLabel(ItemCategory cat) {
+    switch (cat) {
+      case ItemCategory.electronics:
+        return 'Electronics';
+      case ItemCategory.documents:
+        return 'Documents';
+      case ItemCategory.clothing:
+        return 'Clothing';
+      case ItemCategory.accessories:
+        return 'Accessories';
+      case ItemCategory.other:
+        return 'Other';
+    }
+  }
+
+  // ── Items list ──────────────────────────────────────────────────────
+
   Widget _buildItemsList(BuildContext context) {
     if (filteredItems.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search, size: 64, color: AppColors.gray300),
-            const SizedBox(height: 16),
-            const Text(
-              'No items found',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Try adjusting your search or filter criteria',
-              style: TextStyle(fontSize: 14, color: AppColors.gray500),
-            ),
+            Icon(Icons.search_off, size: 48, color: AppColors.gray300),
+            const SizedBox(height: 12),
+            const Text('No items found',
+                style:
+                    TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            const Text('Try adjusting your search or filters',
+                style: TextStyle(fontSize: 13, color: AppColors.gray500)),
           ],
         ),
       );
     }
 
-    // Calculate bottom padding to account for FAB and navigation bar
-    final bottomNavHeight = 80.0; // Approximate nav bar height
-    final fabHeight = 56.0;
-    final spacing = 16.0;
-    final totalBottomPadding = 24 + bottomNavHeight + spacing + fabHeight + spacing;
-    
     return ListView.builder(
-      controller: _scrollController,
       physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 24,
-        bottom: totalBottomPadding,
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
       itemCount: filteredItems.length,
       itemBuilder: (context, index) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: 8),
           child: ItemCard(
             item: filteredItems[index],
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ItemDetailView(item: filteredItems[index]),
+                  builder: (_) =>
+                      ItemDetailView(item: filteredItems[index]),
                 ),
               );
             },
@@ -683,25 +532,86 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Speed dial ──────────────────────────────────────────────────────
+
+  Widget _buildSpeedDial(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Scrim when open
+        if (_isSpeedDialOpen) ...[
+          _SpeedDialOption(
+            label: 'Report Lost Item',
+            icon: Icons.help_outline,
+            color: AppColors.secondary,
+            visible: _isSpeedDialOpen,
+            delay: 80,
+            onTap: () {
+              setState(() => _isSpeedDialOpen = false);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const ReportItemForm(isLostItem: true)),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          _SpeedDialOption(
+            label: 'Report Found Item',
+            icon: Icons.visibility_outlined,
+            color: Colors.green.shade600,
+            visible: _isSpeedDialOpen,
+            delay: 0,
+            onTap: () {
+              setState(() => _isSpeedDialOpen = false);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) =>
+                        const ReportItemForm(isLostItem: false)),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+        // Main button
+        FloatingActionButton(
+          onPressed: () => setState(() => _isSpeedDialOpen = !_isSpeedDialOpen),
+          backgroundColor: AppColors.primary,
+          elevation: 3,
+          child: AnimatedRotation(
+            turns: _isSpeedDialOpen ? 0.125 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              _isSpeedDialOpen ? Icons.close : Icons.add,
+              color: AppColors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Bottom navigation ───────────────────────────────────────────────
+
   Widget _buildBottomNavigation(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.primary,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(AppRadius.container),
-          topRight: Radius.circular(AppRadius.container),
-        ),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(Icons.home, 'Home', 'home'),
-                _buildNavItem(Icons.search, 'Search', 'search'),
-                _buildNavItem(Icons.person, 'Account', 'account'),
-              ],
+            children: [
+              _buildNavItem(Icons.home_outlined, 'Home', 'home'),
+              _buildNavItem(Icons.search, 'Search', 'search'),
+              _buildNavItem(Icons.person_outline, 'Account', 'account'),
+            ],
           ),
         ),
       ),
@@ -710,248 +620,145 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNavItem(IconData icon, String label, String key) {
     final isActive = _activeTab == key;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: isActive ? AppColors.primary : Colors.transparent,
-            shape: BoxShape.circle,
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppRadius.container),
-            onTap: () {
-              setState(() => _activeTab = key);
-              if (key == 'search') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Search tab is a visual element only in this prototype.')),
-                );
-              } else if (key == 'account') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AccountPage()),
-                );
-              }
-            },
-            child: Icon(
-              icon,
-              color: isActive ? AppColors.white : AppColors.white.withOpacity(0.7),
-              size: 24,
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isActive ? AppColors.white : AppColors.white.withOpacity(0.7),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSpeedDial(BuildContext context) {
-    const buttonSpacing = 12.0;
-    const buttonSize = 48.0;
-    
-    return Stack(
-      alignment: Alignment.bottomRight,
-      clipBehavior: Clip.none,
-      children: [
-        // Speed dial options - vertical stack
-        if (_isSpeedDialOpen) ...[
-          // Report Lost Item FAB (top)
-          Positioned(
-            bottom: buttonSize + buttonSpacing + buttonSize + buttonSpacing,
-            right: 16,
-            child: _buildSpeedDialButton(
-              context,
-              label: 'Report Lost Item',
-              icon: Icons.search_off,
-              onPressed: () {
-                setState(() => _isSpeedDialOpen = false);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ReportItemForm(isLostItem: true),
-                  ),
-                );
-              },
-            ),
-          ),
-          // Report Found Item FAB (middle)
-          Positioned(
-            bottom: buttonSize + buttonSpacing,
-            right: 16,
-            child: _buildSpeedDialButton(
-              context,
-              label: 'Report Found Item',
-              icon: Icons.add_circle_outline,
-              onPressed: () {
-                setState(() => _isSpeedDialOpen = false);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ReportItemForm(isLostItem: false),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-        // Main FAB - morphs from add to close
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: _buildMainSpeedDialButton(context),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSpeedDialButton(
-    BuildContext context, {
-    required String label,
-    required IconData icon,
-    required VoidCallback onPressed,
-  }) {
-    const buttonSize = 48.0;
-    
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: _isSpeedDialOpen ? 1.0 : 0.0),
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        return Transform.scale(
-          scale: value,
-          child: Opacity(
-            opacity: value,
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Label
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.gray900,
-                      borderRadius: BorderRadius.circular(AppRadius.small),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        color: AppColors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  // Button
-                  Material(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(buttonSize / 2),
-                    elevation: 2,
-                    shadowColor: Colors.black.withOpacity(0.15),
-                    child: InkWell(
-                      onTap: onPressed,
-                      borderRadius: BorderRadius.circular(buttonSize / 2),
-                      child: Container(
-                        width: buttonSize,
-                        height: buttonSize,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(buttonSize / 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          icon,
-                          color: AppColors.white,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
+    return GestureDetector(
+      onTap: () {
+        setState(() => _activeTab = key);
+        if (key == 'account') {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const AccountPage()));
+        }
       },
-    );
-  }
-
-  Widget _buildMainSpeedDialButton(BuildContext context) {
-    const buttonSize = 48.0;
-    
-    return Material(
-      color: AppColors.primary,
-      borderRadius: BorderRadius.circular(buttonSize / 2),
-      elevation: 3,
-      shadowColor: Colors.black.withOpacity(0.2),
-      child: InkWell(
-        onTap: () {
-          setState(() => _isSpeedDialOpen = !_isSpeedDialOpen);
-        },
-        borderRadius: BorderRadius.circular(buttonSize / 2),
-        child: Container(
-          width: buttonSize,
-          height: buttonSize,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(buttonSize / 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.15),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            transitionBuilder: (child, animation) {
-              return ScaleTransition(
-                scale: animation,
-                child: FadeTransition(
-                  opacity: animation,
-                  child: child,
-                ),
-              );
-            },
-            child: Icon(
-              _isSpeedDialOpen ? Icons.close : Icons.add,
-              key: ValueKey<bool>(_isSpeedDialOpen),
-              color: AppColors.white,
-              size: 24,
-            ),
-          ),
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon,
+              color:
+                  isActive ? AppColors.white : AppColors.white.withOpacity(0.6),
+              size: 24),
+          const SizedBox(height: 2),
+          Text(label,
+              style: TextStyle(
+                fontSize: 11,
+                color: isActive
+                    ? AppColors.white
+                    : AppColors.white.withOpacity(0.6),
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+              )),
+        ],
       ),
     );
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// Speed dial option with staggered animation
+// ══════════════════════════════════════════════════════════════════════
+
+class _SpeedDialOption extends StatefulWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool visible;
+  final int delay;
+  final VoidCallback onTap;
+
+  const _SpeedDialOption({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.visible,
+    required this.delay,
+    required this.onTap,
+  });
+
+  @override
+  State<_SpeedDialOption> createState() => _SpeedDialOptionState();
+}
+
+class _SpeedDialOptionState extends State<_SpeedDialOption>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+  late Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 220));
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack);
+    _slide = Tween<Offset>(
+      begin: const Offset(0.3, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slide,
+      child: ScaleTransition(
+        scale: _scale,
+        alignment: Alignment.bottomRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.gray900,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2)),
+                ],
+              ),
+              child: Text(widget.label,
+                  style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500)),
+            ),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: widget.onTap,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: widget.color,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                        color: widget.color.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3)),
+                  ],
+                ),
+                child: Icon(widget.icon, color: AppColors.white, size: 20),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

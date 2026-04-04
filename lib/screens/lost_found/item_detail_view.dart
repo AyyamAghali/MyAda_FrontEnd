@@ -13,39 +13,70 @@ class ItemDetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: AppColors.white,
       body: SafeArea(
+        top: false,
         child: ResponsiveContainer(
-          backgroundColor: AppColors.backgroundLight,
+          backgroundColor: AppColors.white,
           child: Column(
             children: [
-              _buildHeader(context),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildImage(context),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildTitle(context),
-                          const SizedBox(height: 16),
-                          _buildDescription(context),
-                          const SizedBox(height: 12),
-                          _buildItemDetails(context),
-                          const SizedBox(height: 12),
-                          _buildTimeline(context),
-                          const SizedBox(height: 16),
-                        ],
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildImageSection(context),
+                      _buildTitleSection(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLocationBlock(context),
+                            _buildDivider(),
+                            _buildSectionTitle('Description'),
+                            const SizedBox(height: 8),
+                            Text(
+                              item.description,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: AppColors.gray600,
+                                height: 1.6,
+                              ),
+                            ),
+                            _buildDivider(),
+                            _buildSectionTitle('Item Details'),
+                            const SizedBox(height: 12),
+                            _buildDetailRow('Category', item.categoryString),
+                            _buildDetailRow('Type', item.typeString),
+                            _buildDetailRow('Status', item.statusString),
+                            _buildDetailRow(
+                                'Reference', 'LF-${item.id.padLeft(6, '0')}'),
+                            _buildDetailRow(
+                              'Date Listed',
+                              DateFormat('MMM dd, yyyy').format(DateTime.now()),
+                            ),
+                            _buildDivider(),
+                            _buildSectionTitle('Timeline'),
+                            const SizedBox(height: 14),
+                            _buildTimelineItem(
+                                'Verified', 'Item verified by staff', true),
+                            _buildTimelineItem('Submitted',
+                                'Item reported and submitted', false),
+                            _buildTimelineItem(
+                              'Found',
+                              'Item found at ${item.location}',
+                              false,
+                              isLast: true,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
               _buildBottomActions(context),
             ],
           ),
@@ -54,69 +85,26 @@ class ItemDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: AppColors.white,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.gray900, size: 20),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.bookmark_border, color: AppColors.gray700, size: 22),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Saved to bookmarks (mock).')),
-                  );
-                },
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.share, color: AppColors.gray700, size: 22),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Share dialog would open here (mock).')),
-                  );
-                },
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // ── Image ──────────────────────────────────────────────────────────
 
-  Widget _buildImage(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          children: [
-            SizedBox(
+  Widget _buildImageSection(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: () => _openImageViewer(context),
+          child: Hero(
+            tag: 'item-image-${item.id}',
+            child: Container(
               width: double.infinity,
-              height: 240, // Reduced from 320 (25% reduction)
+              height: 320 + topPadding,
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(28),
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
               child: CachedNetworkImage(
                 imageUrl: item.imageUrl,
                 fit: BoxFit.cover,
@@ -126,153 +114,153 @@ class ItemDetailView extends StatelessWidget {
                 ),
                 errorWidget: (context, url, error) => Container(
                   color: AppColors.gray200,
-                  child: const Icon(Icons.image, size: 64),
+                  child: const Icon(Icons.image,
+                      size: 64, color: AppColors.gray400),
                 ),
               ),
             ),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _buildStatusBadge(),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.white.withOpacity(0.95),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '#LF-${item.id.padLeft(6, '0')}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-                    ),
-                  ),
+          ),
+        ),
+        // Gradient overlay for readability
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(28)),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.30),
+                  Colors.transparent,
+                  Colors.transparent,
                 ],
+                stops: const [0.0, 0.35, 1.0],
               ),
             ),
-          ],
+          ),
         ),
+        // Back button
+        Positioned(
+          top: topPadding + 8,
+          left: 16,
+          child: _CircleButton(
+            icon: Icons.arrow_back_ios_new,
+            onTap: () => Navigator.pop(context),
+          ),
+        ),
+        // Zoom hint
+        Positioned(
+          top: topPadding + 8,
+          right: 16,
+          child: _CircleButton(
+            icon: Icons.zoom_in,
+            onTap: () => _openImageViewer(context),
+          ),
+        ),
+        // Status + reference overlaid at bottom-left of image
+        Positioned(
+          left: 20,
+          bottom: 16,
+          child: Row(
+            children: [
+              _buildStatusChip(),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.45),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '#LF-${item.id.padLeft(6, '0')}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openImageViewer(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (_, __, ___) => _FullScreenImageViewer(
+          imageUrl: item.imageUrl,
+          heroTag: 'item-image-${item.id}',
+        ),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
       ),
     );
   }
 
-  Widget _buildStatusBadge() {
+  Widget _buildStatusChip() {
     Color bgColor;
-    Color textColor;
-
     switch (item.status) {
       case ItemStatus.active:
-        bgColor = Colors.green.shade50;
-        textColor = Colors.green.shade700;
+        bgColor = Colors.green.shade500;
         break;
       case ItemStatus.pendingVerification:
-        bgColor = Colors.orange.shade50;
-        textColor = Colors.orange.shade700;
+        bgColor = Colors.orange.shade400;
         break;
       case ItemStatus.resolved:
-        bgColor = AppColors.gray100;
-        textColor = AppColors.gray700;
+        bgColor = AppColors.gray500;
         break;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         item.statusString,
-        style: TextStyle(
-          fontSize: 10,
+        style: const TextStyle(
+          fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: textColor,
+          color: AppColors.white,
         ),
       ),
     );
   }
 
-  Widget _buildTitle(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          item.categoryString.toUpperCase(),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.gray500,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          item.title,
-          style: const TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
-            color: AppColors.gray900,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Icon(Icons.location_on, size: 14, color: AppColors.gray500),
-            const SizedBox(width: 4),
-            Text(
-              item.location,
-              style: const TextStyle(fontSize: 13, color: AppColors.gray600),
-            ),
-            const SizedBox(width: 12),
-            Icon(Icons.calendar_today, size: 14, color: AppColors.gray500),
-            const SizedBox(width: 4),
-            Text(
-              DateFormat('MMM dd, yyyy').format(DateTime.parse(item.dateFound)),
-              style: const TextStyle(fontSize: 13, color: AppColors.gray600),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  // ── Title ──────────────────────────────────────────────────────────
 
-
-  Widget _buildDescription(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
+  Widget _buildTitleSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Description',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.gray900,
-              letterSpacing: -0.2,
+            item.categoryString.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+              letterSpacing: 1.0,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
           Text(
-            item.description,
+            item.title,
             style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.gray600,
-              height: 1.5,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.gray900,
+              letterSpacing: -0.3,
             ),
           ),
         ],
@@ -280,315 +268,500 @@ class ItemDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildItemDetails(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
+  // ── Location ───────────────────────────────────────────────────────
+
+  Widget _buildLocationBlock(BuildContext context) {
+    final parsed = _parseLocation(item.location);
+    return _ExpandableLocationBlock(parsed: parsed);
+  }
+
+  _ParsedLocation _parseLocation(String location) {
+    final lower = location.toLowerCase();
+
+    if (lower.startsWith('campus')) {
+      final detail = location.contains(' - ')
+          ? location.split(' - ').sublist(1).join(' - ').trim()
+          : (location.length > 7 ? location.substring(7).trim() : '');
+      return _ParsedLocation(
+        isCampus: true,
+        building: '',
+        detail: detail,
+        isRoom: false,
+      );
+    }
+
+    if (location.contains(' - ')) {
+      final parts = location.split(' - ');
+      final building = parts.first.trim();
+      final rest = parts.sublist(1).join(' - ').trim();
+      final isRoom = rest.toLowerCase().contains('room') ||
+          RegExp(r'^[A-Z]?\d{2,4}$').hasMatch(rest.trim());
+      return _ParsedLocation(
+        isCampus: false,
+        building: building,
+        detail: rest,
+        isRoom: isRoom,
+      );
+    }
+
+    return _ParsedLocation(
+      isCampus: false,
+      building: location,
+      detail: '',
+      isRoom: false,
+    );
+  }
+
+  // ── Shared helpers ─────────────────────────────────────────────────
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        color: AppColors.gray900,
+        letterSpacing: -0.2,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Item Details',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.gray900,
-              letterSpacing: -0.2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildDetailRow('Category', item.categoryString),
-          const Divider(height: 20),
-          _buildDetailRow('Status', item.statusString),
-          const Divider(height: 20),
-          _buildDetailRow('Reference #', 'LF-${item.id.padLeft(6, '0')}'),
-          const Divider(height: 20),
-          _buildDetailRow('Date Posted', DateFormat('MMM dd, yyyy').format(DateTime.now())),
-        ],
-      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Divider(color: AppColors.gray200, height: 1),
     );
   }
 
   Widget _buildDetailRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 13, color: AppColors.gray500),
-        ),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.gray900),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimeline(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Timeline',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.gray900,
-              letterSpacing: -0.2,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _buildTimelineItem('Verified', 'Item verified by staff', true),
-          _buildTimelineItem('Submitted', 'Item reported and submitted', false),
-          _buildTimelineItem('Found', 'Item found at ${item.location}', false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimelineItem(String status, String description, bool isActive) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: isActive ? AppColors.primary : AppColors.gray200,
-                  shape: BoxShape.circle,
-                ),
-                child: isActive
-                    ? const Icon(Icons.check, color: AppColors.white, size: 14)
-                    : Container(
-                        margin: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: AppColors.gray400,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-              ),
-              if (status != 'Found')
-                Container(
-                  width: 2,
-                  height: 40,
-                  color: AppColors.gray200,
-                ),
-            ],
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  status,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isActive ? AppColors.gray900 : AppColors.gray600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  description,
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray500),
-                ),
-              ],
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(fontSize: 14, color: AppColors.gray500)),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.gray900)),
         ],
       ),
     );
   }
+
+  Widget _buildTimelineItem(String status, String description, bool isActive,
+      {bool isLast = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 24,
+              child: Column(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color:
+                          isActive ? AppColors.primary : AppColors.gray200,
+                      shape: BoxShape.circle,
+                    ),
+                    child: isActive
+                        ? const Icon(Icons.check,
+                            color: AppColors.white, size: 13)
+                        : Center(
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: AppColors.gray400,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                  ),
+                  if (!isLast)
+                    Expanded(
+                      child: Container(
+                        width: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        color: AppColors.gray200,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      status,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isActive
+                            ? AppColors.gray900
+                            : AppColors.gray600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.gray500),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Bottom bar ─────────────────────────────────────────────────────
 
   Widget _buildBottomActions(BuildContext context) {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
         decoration: BoxDecoration(
           color: AppColors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          border:
+              Border(top: BorderSide(color: AppColors.gray200, width: 1)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Actions',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.gray500,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) {
-                          return AlertDialog(
-                            title: const Text('Contact Lost & Found Office'),
-                            content: const Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Office Location: Main Building, Ground Floor, Room 005'),
-                                SizedBox(height: 8),
-                                Text('Phone: +994 12 437 32 35'),
-                                SizedBox(height: 8),
-                                Text('Working hours: Mon–Fri, 9:00–18:00'),
-                              ],
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: Navigator.of(context).pop,
-                                child: const Text('Close'),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Contact Office',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Confirm Claim'),
+                  content: const Text(
+                    'By confirming, you acknowledge that you are the rightful owner of this item and will be asked to verify ownership at the Lost & Found office.',
                   ),
+                  actions: [
+                    TextButton(
+                      onPressed: Navigator.of(context).pop,
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content:
+                                Text('Claim submitted to staff (mock).'),
+                          ),
+                        );
+                      },
+                      child: const Text('Confirm'),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) {
-                          return AlertDialog(
-                            title: const Text('Confirm Claim'),
-                            content: const Text(
-                              'By confirming, you acknowledge that you are the rightful owner of this item and will be asked to verify ownership at the Lost & Found office.',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: Navigator.of(context).pop,
-                                child: const Text('Cancel'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Claim submitted to staff (mock).')),
-                                  );
-                                },
-                                child: const Text('Confirm'),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary,
-                      foregroundColor: AppColors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'This is Mine',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              );
+            },
+            icon: const Icon(Icons.front_hand_outlined, size: 18),
+            label: const Text(
+              'This is Mine',
+              style:
+                  TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Issue reported to staff (mock).')),
-                );
-              },
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                minimumSize: const Size(double.infinity, 0),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondary,
+              foregroundColor: AppColors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.report_problem, size: 16, color: AppColors.gray600),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Report Issue',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.gray600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+              elevation: 0,
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// Private helper classes
+// ══════════════════════════════════════════════════════════════════════
+
+class _ParsedLocation {
+  final bool isCampus;
+  final String building;
+  final String detail;
+  final bool isRoom;
+
+  const _ParsedLocation({
+    required this.isCampus,
+    required this.building,
+    required this.detail,
+    required this.isRoom,
+  });
+}
+
+class _ExpandableLocationBlock extends StatefulWidget {
+  final _ParsedLocation parsed;
+  const _ExpandableLocationBlock({required this.parsed});
+
+  @override
+  State<_ExpandableLocationBlock> createState() =>
+      _ExpandableLocationBlockState();
+}
+
+class _ExpandableLocationBlockState extends State<_ExpandableLocationBlock>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+
+  bool get _hasLongText {
+    final p = widget.parsed;
+    if (p.isCampus) return p.detail.length > 35;
+    if (!p.isRoom && p.detail.length > 35) return true;
+    return false;
+  }
+
+  void _toggle() {
+    if (_hasLongText) setState(() => _expanded = !_expanded);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.parsed;
+
+    return GestureDetector(
+      onTap: _toggle,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.gray50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.gray200.withOpacity(0.6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    p.isCampus
+                        ? Icons.park_outlined
+                        : Icons.business_outlined,
+                    size: 17,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    p.isCampus ? 'Campus Location' : 'Building Location',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.gray900,
+                    ),
+                  ),
+                ),
+                if (_hasLongText)
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 250),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 20,
+                      color: AppColors.gray400,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Rows
+            if (p.isCampus) ...[
+              _buildRow(
+                Icons.place_outlined,
+                'Area',
+                p.detail.isNotEmpty ? p.detail : 'Campus',
+              ),
+            ] else ...[
+              _buildRow(Icons.apartment, 'Building', p.building),
+              if (p.detail.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _buildRow(
+                  p.isRoom
+                      ? Icons.meeting_room_outlined
+                      : Icons.place_outlined,
+                  p.isRoom ? 'Room' : 'Area',
+                  p.detail,
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(icon, size: 16, color: AppColors.gray500),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppColors.gray500,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Expanded(
+          child: AnimatedCrossFade(
+            duration: const Duration(milliseconds: 250),
+            crossFadeState: _expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.gray900,
+              ),
+            ),
+            secondChild: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.gray900,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CircleButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.35),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: AppColors.white, size: 18),
+      ),
+    );
+  }
+}
+
+// ── Fullscreen zoomable image viewer ─────────────────────────────────
+
+class _FullScreenImageViewer extends StatelessWidget {
+  final String imageUrl;
+  final String heroTag;
+
+  const _FullScreenImageViewer({
+    required this.imageUrl,
+    required this.heroTag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Center(
+            child: Hero(
+              tag: heroTag,
+              child: InteractiveViewer(
+                minScale: 1.0,
+                maxScale: 5.0,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) =>
+                      const Center(child: CircularProgressIndicator()),
+                  errorWidget: (context, url, error) =>
+                      const Icon(Icons.image, size: 64, color: AppColors.gray400),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            left: 16,
+            child: _CircleButton(
+              icon: Icons.close,
+              onTap: () => Navigator.pop(context),
+            ),
+          ),
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 20,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Pinch to zoom',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
