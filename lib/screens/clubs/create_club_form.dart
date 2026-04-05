@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
-import '../../widgets/unified_photo_picker.dart';
 
 class CreateClubForm extends StatefulWidget {
   const CreateClubForm({super.key});
@@ -35,7 +34,8 @@ class _CreateClubFormState extends State<CreateClubForm> {
   // Step 3 fields
   String alignment = '';
   String vision = '';
-  bool commitsToCode = false;
+  /// `null` = not answered yet; must be `true` to continue past step 3.
+  bool? honorCommitment;
 
   // Step 4 fields
   String? logoPath;
@@ -45,6 +45,99 @@ class _CreateClubFormState extends State<CreateClubForm> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  InputDecoration _clubInputDecoration([String? hint]) {
+    return InputDecoration(
+      hintText: (hint != null && hint.isNotEmpty) ? hint : null,
+      filled: true,
+      fillColor: AppColors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppColors.gray200),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppColors.gray200),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      hintStyle: TextStyle(color: AppColors.gray400.withValues(alpha: 0.85), fontSize: 14),
+    );
+  }
+
+  void _showImageSourceSheet({
+    required VoidCallback onCamera,
+    required VoidCallback onGallery,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.gray300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Icon(Icons.camera_alt, color: AppColors.primary, size: 20),
+                  ),
+                  title: const Text('Take photo', style: TextStyle(fontWeight: FontWeight.w500)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onCamera();
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Icon(Icons.photo_library, color: AppColors.primary, size: 20),
+                  ),
+                  title: const Text('Choose from library', style: TextStyle(fontWeight: FontWeight.w500)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onGallery();
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -95,12 +188,12 @@ class _CreateClubFormState extends State<CreateClubForm> {
           const SizedBox(width: 4),
           Expanded(
             child: Text(
-              'New Club Registration - Step ${_currentStep + 1} of 4',
+              'New Club Registration · Step ${_currentStep + 1} of 4',
               style: const TextStyle(
-                fontSize: 22,
+                fontSize: 17,
                 fontWeight: FontWeight.w600,
                 color: AppColors.gray900,
-                letterSpacing: -0.3,
+                letterSpacing: -0.2,
               ),
             ),
           ),
@@ -134,55 +227,58 @@ class _CreateClubFormState extends State<CreateClubForm> {
 
   Widget _buildStep1() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildInfoBox(
-              title: 'Eligibility Requirements',
-              color: Colors.blue,
-              children: [
-                'Only currently enrolled, active students can propose a new club',
-                'Good academic standing required (no Honor Code violations)',
-                'Minimum 2 core leaders (President & Vice President)',
-                'Review existing clubs before applying',
-              ],
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.gray200),
+            ),
+            child: Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                initiallyExpanded: false,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                title: const Text(
+                  'Eligibility requirements',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+                subtitle: Text(
+                  'Who can apply · what you need',
+                  style: TextStyle(fontSize: 12, color: AppColors.gray500),
+                ),
+                children: const [
+                  _EligibilityLine(
+                    'Only currently enrolled, active students can propose a new club.',
+                  ),
+                  _EligibilityLine(
+                    'Good academic standing required (no Honor Code violations).',
+                  ),
+                  _EligibilityLine(
+                    'Minimum two core leaders (President and Vice President).',
+                  ),
+                  _EligibilityLine(
+                    'Review existing clubs before applying.',
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildWarningBox(
-              title: 'Submission Deadline',
-              text: 'Applications must be submitted by **September 30** Late submissions will not be considered.',
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _buildNumberedField(
             number: 1,
             label: 'Proposed Club Name *',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'Enter your club name',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-              ),
+              decoration: _clubInputDecoration('Enter your club name'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               onChanged: (value) => setState(() => clubName = value),
             ),
@@ -192,25 +288,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
             number: 2,
             label: 'Short Description of the Club *',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'Describe your club\'s mission, purpose, and focus areas...',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-              ),
+              decoration: _clubInputDecoration('Describe your club\'s mission, purpose, and focus areas…'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               maxLines: 4,
               maxLength: 500,
@@ -223,25 +301,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
             label: 'What makes this club unique? *',
             subLabel: 'Compared to existing clubs',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'Explain what makes your club different from existing clubs...',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-              ),
+              decoration: _clubInputDecoration('Explain what makes your club different from existing clubs…'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               maxLines: 3,
               onChanged: (value) => setState(() => uniqueness = value),
@@ -253,25 +313,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
             label: 'Main goals and objectives *',
             subLabel: 'For this academic year (provide at least 3)',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: '1. Goal one\n2. Goal two\n3. Goal three',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-              ),
+              decoration: _clubInputDecoration('1. Goal one\n2. Goal two\n3. Goal three'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               maxLines: 4,
               onChanged: (value) => setState(() => goals = value),
@@ -283,24 +325,8 @@ class _CreateClubFormState extends State<CreateClubForm> {
             label: 'Proposed activities/events *',
             subLabel: 'Give specific examples',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'Example: Monthly workshops, guest speaker series, hackathons...',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+              decoration: _clubInputDecoration(
+                'Example: Monthly workshops, guest speaker series, hackathons…',
               ),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               maxLines: 3,
@@ -314,41 +340,28 @@ class _CreateClubFormState extends State<CreateClubForm> {
 
   Widget _buildStep2() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: const Text(
-              'President Information',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'President',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+                letterSpacing: 0.02,
+              ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildNumberedField(
             number: 6,
             label: 'Full Name of President *',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'First and Last Name',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-              ),
+              decoration: _clubInputDecoration('First and Last Name'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               onChanged: (value) => setState(() => presidentName = value),
             ),
@@ -358,25 +371,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
             number: 7,
             label: 'ADA Email *',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'student@ada.edu.az',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-              ),
+              decoration: _clubInputDecoration('student@ada.edu.az'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               keyboardType: TextInputType.emailAddress,
               onChanged: (value) => setState(() => presidentEmail = value),
@@ -384,29 +379,14 @@ class _CreateClubFormState extends State<CreateClubForm> {
           ),
           const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: _buildNumberedField(
                   number: 0,
                   label: 'Program of Study *',
                   child: TextFormField(
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: AppColors.gray50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.gray200),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.gray200),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
+                    decoration: _clubInputDecoration(),
                     style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                     onChanged: (value) => setState(() => presidentProgram = value),
                   ),
@@ -418,23 +398,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
                   number: 0,
                   label: 'Graduation Year *',
                   child: TextFormField(
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: AppColors.gray50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.gray200),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.gray200),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
+                    decoration: _clubInputDecoration(),
                     style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                     onChanged: (value) => setState(() => presidentGradYear = value),
                   ),
@@ -442,38 +406,25 @@ class _CreateClubFormState extends State<CreateClubForm> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: const Text(
-              'Vice President Information',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Vice President',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+                letterSpacing: 0.02,
+              ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildNumberedField(
             number: 9,
             label: 'Full Name of Vice-President *',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'First and Last Name',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-              ),
+              decoration: _clubInputDecoration('First and Last Name'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               onChanged: (value) => setState(() => vicePresidentName = value),
             ),
@@ -483,25 +434,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
             number: 0,
             label: 'ADA Email *',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'student@ada.edu.az',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-              ),
+              decoration: _clubInputDecoration('student@ada.edu.az'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               keyboardType: TextInputType.emailAddress,
               onChanged: (value) => setState(() => vicePresidentEmail = value),
@@ -509,29 +442,14 @@ class _CreateClubFormState extends State<CreateClubForm> {
           ),
           const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: _buildNumberedField(
                   number: 0,
                   label: 'Program of Study *',
                   child: TextFormField(
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: AppColors.gray50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.gray200),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.gray200),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
+                    decoration: _clubInputDecoration(),
                     style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                     onChanged: (value) => setState(() => vicePresidentProgram = value),
                   ),
@@ -543,23 +461,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
                   number: 0,
                   label: 'Graduation Year *',
                   child: TextFormField(
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: AppColors.gray50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.gray200),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.gray200),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
+                    decoration: _clubInputDecoration(),
                     style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                     onChanged: (value) => setState(() => vicePresidentGradYear = value),
                   ),
@@ -573,25 +475,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
             label: 'Other Core Executive Members',
             subLabel: 'List additional founding members (optional)',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'Name - Position - Email\nName - Position - Email',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-              ),
+              decoration: _clubInputDecoration('Name — Position — Email'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               maxLines: 4,
               onChanged: (value) => setState(() => otherMembers = value),
@@ -604,7 +488,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
 
   Widget _buildStep3() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -612,24 +496,8 @@ class _CreateClubFormState extends State<CreateClubForm> {
             number: 11,
             label: 'How does this club align with ADA University\'s mission and values? *',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'Explain how your club supports ADA\'s educational mission and core values...',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+              decoration: _clubInputDecoration(
+                'Explain how your club supports ADA\'s educational mission and core values…',
               ),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               maxLines: 4,
@@ -641,24 +509,8 @@ class _CreateClubFormState extends State<CreateClubForm> {
             number: 12,
             label: 'What is the long-term vision of the club? *',
             child: TextFormField(
-              decoration: InputDecoration(
-                hintText: 'Describe your club\'s vision for the next 3-5 years...',
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+              decoration: _clubInputDecoration(
+                'Describe your club\'s vision for the next 3–5 years…',
               ),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               maxLines: 4,
@@ -670,33 +522,35 @@ class _CreateClubFormState extends State<CreateClubForm> {
             number: 13,
             label: 'Do you commit to following ADA\'s Honor Code, Code of Conduct, and Student Club Policy regulations?',
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                RadioListTile<bool>(
+                RadioListTile<bool?>(
                   title: const Text('Yes, I commit'),
                   value: true,
-                  groupValue: commitsToCode,
-                  onChanged: (value) => setState(() => commitsToCode = value!),
+                  groupValue: honorCommitment,
+                  onChanged: (bool? value) => setState(() => honorCommitment = value),
                   contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.primary,
                 ),
-                RadioListTile<bool>(
+                RadioListTile<bool?>(
                   title: const Text('No'),
                   value: false,
-                  groupValue: commitsToCode,
-                  onChanged: (value) => setState(() => commitsToCode = value!),
+                  groupValue: honorCommitment,
+                  onChanged: (bool? value) => setState(() => honorCommitment = value),
                   contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.primary,
                 ),
-                if (commitsToCode)
-                  Container(
-                    margin: const EdgeInsets.only(top: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.shade200),
-                    ),
+                if (honorCommitment == true)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'Thank you for your commitment to upholding ADA University\'s standards of academic integrity and student conduct.',
-                      style: TextStyle(fontSize: 12, color: Colors.green.shade700),
+                      'Thank you — your commitment is recorded with this application.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.35,
+                        color: AppColors.primary.withValues(alpha: 0.9),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
               ],
@@ -709,81 +563,176 @@ class _CreateClubFormState extends State<CreateClubForm> {
 
   Widget _buildStep4() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildInfoBox(
-              title: 'Required Documents',
-              color: Colors.blue,
-              children: [
-                'Please upload your club logo and constitution document to complete your application.',
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
           _buildNumberedField(
             number: 0,
             label: 'Club Logo *',
-            child: UnifiedPhotoPicker(
-              label: 'Upload Club Logo',
-              icon: Icons.add_photo_alternate,
-              height: 200,
-              isFullWidth: false,
-              backgroundColor: AppColors.gray100,
-              onCameraSelected: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Club logo captured (mock).')),
-                );
-              },
-              onPhotoSelected: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Club logo uploaded (mock).')),
-                );
-              },
-            ),
+            child: _buildElegantLogoPicker(),
           ),
           const SizedBox(height: 16),
           _buildNumberedField(
             number: 0,
             label: 'Club Constitution *',
-            subLabel: 'Upload a PDF document outlining your club\'s structure, bylaws, and operating procedures',
-            child: InkWell(
-              onTap: () {},
-              child: Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  color: AppColors.gray100,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.gray300),
+            subLabel:
+                'PDF outlining your club\'s structure, bylaws, and operating procedures',
+            child: _buildConstitutionPicker(),
+          ),
+          const SizedBox(height: 20),
+          _buildReviewHint(),
+          const SizedBox(height: 28),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildElegantLogoPicker() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showImageSourceSheet(
+          onCamera: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Club logo captured (mock).')),
+            );
+          },
+          onGallery: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Club logo uploaded (mock).')),
+            );
+          },
+        ),
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.gray200),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+            child: Column(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.add_photo_alternate_outlined,
+                    color: AppColors.primary,
+                    size: 30,
+                  ),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.upload_file, size: 48, color: AppColors.gray400),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Upload Constitution (PDF)',
-                      style: TextStyle(fontSize: 14, color: AppColors.gray600),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Max file size: 10MB',
-                      style: TextStyle(fontSize: 12, color: AppColors.gray500),
-                    ),
-                  ],
+                const SizedBox(height: 16),
+                const Text(
+                  'Add club logo',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.gray900,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 6),
+                Text(
+                  'Tap to choose or take a photo · PNG or JPG · min. 200×200 px',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    color: AppColors.gray500,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildWarningBox(
-              title: 'Review Before Submission',
-              text: 'Please ensure all information is accurate. The Office of Student Services will contact you if any clarifications are needed.',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConstitutionPicker() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.gray200),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.gray50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.picture_as_pdf_outlined,
+                    color: AppColors.primary.withValues(alpha: 0.9),
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Constitution (PDF)',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.gray900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap to upload · max. 10 MB',
+                        style: TextStyle(fontSize: 13, color: AppColors.gray500),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: AppColors.gray400, size: 22),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewHint() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.fact_check_outlined,
+            size: 22,
+            color: AppColors.primary.withValues(alpha: 0.75),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Take a moment to confirm your answers. Student Services may follow up if anything needs clarification.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.gray600,
+              ),
             ),
           ),
         ],
@@ -850,130 +799,39 @@ class _CreateClubFormState extends State<CreateClubForm> {
     );
   }
 
-  Widget _buildInfoBox({
-    required String title,
-    required Color color,
-    required List<String> children,
-  }) {
-    // Convert Color to MaterialColor shades
-    Color getShade(int shade) {
-      if (color == Colors.blue) {
-        return Colors.blue[shade] ?? color;
+  void _onPrimaryPressed() {
+    if (_currentStep == 2) {
+      if (honorCommitment != true) {
+        final msg = honorCommitment == false
+            ? 'You must agree to ADA policies to register a club.'
+            : 'Please answer the honor code question to continue.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          ),
+        );
+        return;
       }
-      // For other colors, use a simple approach
-      return color;
     }
-
-    final bgColor = color == Colors.blue ? Colors.blue.shade50 : color.withOpacity(0.1);
-    final borderColor = color == Colors.blue ? Colors.blue.shade200 : color.withOpacity(0.3);
-    final textColor = color == Colors.blue ? Colors.blue.shade900 : color;
-    final itemColor = color == Colors.blue ? Colors.blue.shade700 : color.withOpacity(0.8);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: bgColor.withOpacity(0.6),
-        border: Border.all(color: borderColor.withOpacity(0.5), width: 1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: (color == Colors.blue ? Colors.blue.shade100 : color.withOpacity(0.2)).withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.info_outline,
-                  color: textColor,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...children.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('• ', style: TextStyle(fontSize: 12, color: itemColor)),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: TextStyle(fontSize: 11, color: itemColor, height: 1.3),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWarningBox({
-    required String title,
-    required String text,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50.withOpacity(0.6),
-        border: Border.all(color: Colors.orange.shade200.withOpacity(0.5), width: 1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade100.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.orange.shade900,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.orange.shade900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            text,
-            style: TextStyle(fontSize: 11, color: Colors.orange.shade700, height: 1.3),
-          ),
-        ],
-      ),
-    );
+    if (_currentStep < 3) {
+      setState(() => _currentStep++);
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Application submitted successfully.'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
   }
 
   Widget _buildBottomButtons(BuildContext context) {
@@ -985,12 +843,12 @@ class _CreateClubFormState extends State<CreateClubForm> {
           color: AppColors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
             ),
           ],
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Row(
           children: [
@@ -1005,58 +863,101 @@ class _CreateClubFormState extends State<CreateClubForm> {
                     );
                   },
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    foregroundColor: AppColors.gray700,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    side: BorderSide(color: AppColors.gray300),
+                    side: BorderSide(color: AppColors.gray200),
                   ),
                   child: const Text(
                     'Back',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
-            if (_currentStep > 0) const SizedBox(width: 10),
+            if (_currentStep > 0) const SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton(
-                onPressed: () {
-                  if (_currentStep < 3) {
-                    setState(() => _currentStep++);
-                    _pageController.nextPage(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  } else {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Application submitted successfully!'),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    );
-                  }
-                },
-                style: ElevatedButton.styleFrom(
+              child: FilledButton(
+                onPressed: _onPrimaryPressed,
+                style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 0,
                 ),
-                child: Text(
-                  _currentStep < 3 ? 'Continue >' : 'Submit Application',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
-                ),
+                child: _currentStep < 3
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Continue',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                          SizedBox(width: 8),
+                          Icon(Icons.arrow_forward_rounded, size: 20),
+                        ],
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.outbox_rounded, size: 22),
+                          SizedBox(width: 10),
+                          Text(
+                            'Submit registration',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EligibilityLine extends StatelessWidget {
+  final String text;
+
+  const _EligibilityLine(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Container(
+              width: 5,
+              height: 5,
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: AppColors.gray700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

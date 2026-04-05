@@ -41,6 +41,13 @@ class _ClubsHomeState extends State<ClubsHome> {
   // ── Directory state ───────────────────────────────────────────────
   String searchQuery = '';
   String selectedCategory = 'All';
+  final FocusNode _searchFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _searchFocus.dispose();
+    super.dispose();
+  }
 
   static const _categories = [
     'All',
@@ -262,6 +269,7 @@ class _ClubsHomeState extends State<ClubsHome> {
   Widget build(BuildContext context) {
     final body = ResponsiveContainer(
       backgroundColor: AppColors.backgroundLight,
+      padding: widget.embeddedInHub ? EdgeInsets.zero : null,
       child: Column(
         children: [
           if (!widget.embeddedInHub) _buildStandaloneHeader(context),
@@ -306,7 +314,7 @@ class _ClubsHomeState extends State<ClubsHome> {
             MaterialPageRoute(builder: (context) => const CreateClubForm()),
           );
         },
-        backgroundColor: AppColors.secondary,
+        backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.white),
       ),
     );
@@ -316,44 +324,79 @@ class _ClubsHomeState extends State<ClubsHome> {
     return Material(
       color: AppColors.white,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+        child: Row(
           children: [
-            SegmentedButton<ClubsHomePane>(
-              style: SegmentedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                selectedBackgroundColor: AppColors.secondary.withOpacity(0.12),
-                selectedForegroundColor: AppColors.secondary,
-                foregroundColor: AppColors.gray600,
-                side: BorderSide(color: AppColors.gray200),
+            Expanded(
+              child: _paneToggle(
+                label: 'Discover',
+                icon: Icons.travel_explore_outlined,
+                selected: widget.clubsPane == ClubsHomePane.browse,
+                onTap: () => widget.onClubsPaneChanged?.call(ClubsHomePane.browse),
               ),
-              segments: const [
-                ButtonSegment<ClubsHomePane>(
-                  value: ClubsHomePane.browse,
-                  label: Text('Discover'),
-                  icon: Icon(Icons.travel_explore_outlined, size: 18),
-                ),
-                ButtonSegment<ClubsHomePane>(
-                  value: ClubsHomePane.myClubs,
-                  label: Text('My clubs'),
-                  icon: Icon(Icons.folder_special_outlined, size: 18),
-                ),
-              ],
-              selected: {widget.clubsPane},
-              onSelectionChanged: (Set<ClubsHomePane> next) {
-                widget.onClubsPaneChanged?.call(next.first);
-              },
             ),
-            if (widget.clubsPane == ClubsHomePane.browse) ...[
-              const SizedBox(height: 6),
-              Text(
-                '${filteredClubs.length} clubs',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: AppColors.gray500),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _paneToggle(
+                label: 'My clubs',
+                icon: Icons.folder_special_outlined,
+                selected: widget.clubsPane == ClubsHomePane.myClubs,
+                onTap: () => widget.onClubsPaneChanged?.call(ClubsHomePane.myClubs),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _paneToggle({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary.withOpacity(0.08) : AppColors.gray50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? AppColors.primary.withOpacity(0.35) : AppColors.gray200,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? AppColors.primary : AppColors.gray600,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    color: selected ? AppColors.primary : AppColors.gray600,
+                  ),
+                ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -405,101 +448,209 @@ class _ClubsHomeState extends State<ClubsHome> {
     );
   }
 
+  /// Matches [HomeScreen] lost & found search row (height 40, padding, filter control).
   Widget _buildCompactSearchAndCategories(BuildContext context) {
+    final showCount = widget.embeddedInHub;
     return Material(
       color: AppColors.white,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              onChanged: (value) => setState(() => searchQuery = value),
-              style: const TextStyle(fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Search by name or tag…',
-                hintStyle: TextStyle(fontSize: 14, color: AppColors.gray400),
-                prefixIcon: const Icon(Icons.search, color: AppColors.gray400, size: 20),
-                isDense: true,
-                filled: true,
-                fillColor: AppColors.gray50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Text(
-                  'Category',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.02,
-                    color: AppColors.gray500,
-                  ),
-                ),
-                const Spacer(),
-                if (selectedCategory != 'All')
-                  TextButton(
-                    onPressed: () => setState(() => selectedCategory = 'All'),
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text('Clear', style: TextStyle(fontSize: 12)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
             SizedBox(
-              height: 36,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 6),
-                itemBuilder: (context, i) {
-                  final c = _categories[i];
-                  final selected = selectedCategory == c;
-                  return FilterChip(
-                    label: Text(
-                      c,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                        color: selected ? AppColors.secondary : AppColors.gray700,
-                      ),
+              height: 40,
+              child: TextField(
+                focusNode: _searchFocus,
+                onChanged: (value) => setState(() => searchQuery = value),
+                style: const TextStyle(fontSize: 14, color: AppColors.gray900),
+                decoration: InputDecoration(
+                  hintText: 'Search by name or tag…',
+                  hintStyle: const TextStyle(fontSize: 13, color: AppColors.gray400),
+                  prefixIcon:
+                      const Icon(Icons.search, size: 20, color: AppColors.gray400),
+                  prefixIconConstraints:
+                      const BoxConstraints(minWidth: 40, minHeight: 0),
+                  suffixIcon: GestureDetector(
+                    onTap: () => _openCategoryFilterSheet(context),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          margin: const EdgeInsets.only(right: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.tune, size: 17, color: AppColors.primary),
+                        ),
+                        if (selectedCategory != 'All')
+                          Positioned(
+                            right: 2,
+                            top: 2,
+                            child: Container(
+                              width: 7,
+                              height: 7,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    selected: selected,
-                    showCheckmark: false,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    selectedColor: AppColors.secondary.withOpacity(0.14),
-                    backgroundColor: AppColors.gray50,
-                    side: BorderSide(
-                      color: selected ? AppColors.secondary.withOpacity(0.35) : AppColors.gray200,
-                    ),
-                    onSelected: (_) => setState(() => selectedCategory = c),
-                  );
-                },
+                  ),
+                  suffixIconConstraints:
+                      const BoxConstraints(minWidth: 40, minHeight: 0),
+                  filled: true,
+                  fillColor: AppColors.gray50,
+                  contentPadding: EdgeInsets.zero,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                ),
               ),
             ),
+            if (showCount) ...[
+              const SizedBox(height: 6),
+              Text(
+                '${filteredClubs.length} clubs',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: AppColors.gray500),
+              ),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  void _openCategoryFilterSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        var tmp = selectedCategory;
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                14,
+                20,
+                MediaQuery.of(ctx).padding.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.gray300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Filters',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.gray900,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(ctx),
+                        child: const Icon(Icons.close, size: 22, color: AppColors.gray500),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Category',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.gray600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _categories.map((c) {
+                      final sel = tmp == c;
+                      return GestureDetector(
+                        onTap: () => setModal(() => tmp = c),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: sel ? AppColors.primary : AppColors.gray100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            c,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: sel ? AppColors.white : AppColors.gray700,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() => selectedCategory = tmp);
+                        Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Apply',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

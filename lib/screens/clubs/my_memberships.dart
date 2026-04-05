@@ -167,6 +167,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
   Widget build(BuildContext context) {
     final inner = ResponsiveContainer(
       backgroundColor: ClubUiColors.pageBg,
+      padding: widget.embeddedInClubsTab ? EdgeInsets.zero : null,
       child: Column(
         children: [
           if (!widget.embeddedInClubsTab) _buildHeader(context),
@@ -248,22 +249,52 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
   }
 
   Widget _buildTabs(BuildContext context) {
+    final entries = <({String label, int? count, int index})>[
+      (label: 'Active', count: activeMemberships.length, index: 0),
+      (label: 'Pending', count: pendingMemberships.length, index: 1),
+      (label: 'Declined', count: declinedMemberships.length, index: 2),
+      (label: 'Applications', count: null, index: 3),
+    ];
     return Material(
       color: AppColors.white,
-      child: TabBar(
-        controller: _tabController,
-        labelColor: AppColors.primary,
-        unselectedLabelColor: AppColors.gray600,
-        indicatorColor: AppColors.primary,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        tabs: [
-          Tab(text: 'Active (${activeMemberships.length})'),
-          Tab(text: 'Pending (${pendingMemberships.length})'),
-          Tab(text: 'Declined (${declinedMemberships.length})'),
-          const Tab(text: 'Applications'),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.embeddedInClubsTab ? 12 : 16,
+              vertical: 6,
+            ),
+            child: AnimatedBuilder(
+              animation: _tabController,
+              builder: (context, _) {
+                final idx = _tabController.index;
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final e in entries)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _MembershipFilterChip(
+                            label: e.label,
+                            count: e.count,
+                            selected: idx == e.index,
+                            onTap: () {
+                              if (_tabController.index != e.index) {
+                                _tabController.animateTo(e.index);
+                              }
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          Divider(height: 1, thickness: 1, color: AppColors.gray200),
         ],
       ),
     );
@@ -294,7 +325,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
     return ListView.builder(
       padding: EdgeInsets.fromLTRB(
         widget.embeddedInClubsTab ? 12 : 24,
-        widget.embeddedInClubsTab ? 12 : 24,
+        widget.embeddedInClubsTab ? 8 : 24,
         widget.embeddedInClubsTab ? 12 : 24,
         20,
       ),
@@ -306,17 +337,18 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
   }
 
   Widget _buildMembershipCard(BuildContext context, Membership membership) {
+    const cardRadius = 12.0;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(cardRadius),
         border: Border.all(color: AppColors.gray200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
@@ -329,7 +361,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.orange.shade50,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(cardRadius)),
               ),
               child: Row(
                 children: [
@@ -352,7 +384,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.red.shade50,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(cardRadius)),
               ),
               child: Row(
                 children: [
@@ -374,11 +406,11 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
             child: Row(
               children: [
                 CircleAvatar(
-                  radius: 40,
+                  radius: 32,
                   backgroundImage: CachedNetworkImageProvider(membership.club.logo),
                   onBackgroundImageError: (_, __) {},
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,7 +420,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.gray900,
+                          color: AppColors.primary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -459,9 +491,11 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
                       ClubHubScope.maybeOf(context)?.applyDeepLink(link);
                     },
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     child: const Text('View Club'),
@@ -481,7 +515,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
                         foregroundColor: AppColors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                     ),
@@ -521,3 +555,75 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
   }
 }
 
+class _MembershipFilterChip extends StatelessWidget {
+  final String label;
+  final int? count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _MembershipFilterChip({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary.withOpacity(0.08) : AppColors.gray50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? AppColors.primary.withOpacity(0.35) : AppColors.gray200,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected ? AppColors.primary : AppColors.gray700,
+                ),
+              ),
+              if (count != null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  constraints: const BoxConstraints(minWidth: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppColors.primary.withOpacity(0.14)
+                        : AppColors.gray200,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? AppColors.primary : AppColors.gray600,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

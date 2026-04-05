@@ -155,9 +155,9 @@ class ClubManagementHubState extends State<ClubManagementHub>
             isScrollable: false,
             tabAlignment: TabAlignment.fill,
             indicatorSize: TabBarIndicatorSize.tab,
-            labelColor: AppColors.secondary,
+            labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.gray500,
-            indicatorColor: AppColors.secondary,
+            indicatorColor: AppColors.primary,
             indicatorWeight: 2.5,
             labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
@@ -215,7 +215,7 @@ class ClubManagementHubState extends State<ClubManagementHub>
                   ),
                 );
               },
-              backgroundColor: AppColors.secondary,
+              backgroundColor: AppColors.primary,
               child: const Icon(Icons.add, color: AppColors.white),
             )
           : null,
