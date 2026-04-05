@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
-import '../../widgets/clubs/clubs_top_nav.dart';
 import 'club_details.dart';
-import 'clubs_home.dart';
-import 'club_module_nav.dart';
+import 'club_hub_deep_link.dart';
+import 'club_hub_scope.dart';
 import '../../models/club.dart';
+import 'vacancy_applications_body.dart';
 
 enum MembershipStatus {
   active,
@@ -33,7 +33,19 @@ class Membership {
 }
 
 class MyMemberships extends StatefulWidget {
-  const MyMemberships({super.key});
+  final bool embeddedInHub;
+  /// Nested under [ClubsHome] "My clubs" — no duplicate page title / scaffold chrome.
+  final bool embeddedInClubsTab;
+  final int initialPrimaryTabIndex;
+  final String? applicationsClubNameFilter;
+
+  const MyMemberships({
+    super.key,
+    this.embeddedInHub = false,
+    this.embeddedInClubsTab = false,
+    this.initialPrimaryTabIndex = 0,
+    this.applicationsClubNameFilter,
+  });
 
   @override
   State<MyMemberships> createState() => _MyMembershipsState();
@@ -124,7 +136,11 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: widget.initialPrimaryTabIndex.clamp(0, 3),
+    );
     _tabController.addListener(() {
       setState(() {
         _selectedIndex = _tabController.index;
@@ -149,72 +165,79 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final inner = ResponsiveContainer(
+      backgroundColor: ClubUiColors.pageBg,
+      child: Column(
+        children: [
+          if (!widget.embeddedInClubsTab) _buildHeader(context),
+          _buildTabs(context),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildMembershipList(activeMemberships),
+                _buildMembershipList(pendingMemberships),
+                _buildMembershipList(declinedMemberships),
+                VacancyApplicationsBody(
+                  filterClubName: widget.applicationsClubNameFilter,
+                  showBrowseVacanciesAction:
+                      widget.embeddedInHub || widget.embeddedInClubsTab,
+                  onBrowseOpenings: (widget.embeddedInHub || widget.embeddedInClubsTab)
+                      ? () {
+                          ClubHubScope.maybeOf(context)?.applyDeepLink(
+                            ClubHubDeepLink(
+                              tabIndex: ClubHubTabs.openings,
+                              clubName: widget.applicationsClubNameFilter,
+                            ),
+                          );
+                        }
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.embeddedInClubsTab) {
+      return ColoredBox(color: ClubUiColors.pageBg, child: inner);
+    }
+
     return Scaffold(
       backgroundColor: ClubUiColors.pageBg,
-      body: SafeArea(
-        child: ResponsiveContainer(
-          backgroundColor: ClubUiColors.pageBg,
-          child: Column(
-            children: [
-              _buildHeader(context),
-              ClubsTopNav(
-                active: ClubsNavSection.none,
-                onVacanciesTap: () => ClubModuleNav.openVacancies(context),
-                onMyApplicationsTap: () => ClubModuleNav.openMyVacancyApplications(context),
-                onEventsTap: () => ClubModuleNav.openEvents(context),
-                onClubsTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ClubsHome()),
-                  );
-                },
-                onProposeTap: () => ClubModuleNav.openProposeClub(context),
-                onNotificationsTap: () => ClubModuleNav.openNotifications(context),
-                onProfileTap: () {},
-              ),
-              _buildTabs(context),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildMembershipList(activeMemberships),
-                    _buildMembershipList(pendingMemberships),
-                    _buildMembershipList(declinedMemberships),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      body: SafeArea(child: inner),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 4, 16, 8),
+      padding: EdgeInsets.fromLTRB(widget.embeddedInHub ? 16 : 8, 4, 16, 8),
       color: AppColors.white,
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const Expanded(
+          if (!widget.embeddedInHub)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
+              onPressed: () => Navigator.pop(context),
+            ),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'My Memberships',
-                  style: TextStyle(
+                  widget.embeddedInHub ? 'My clubs' : 'My Memberships',
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF0F172A),
                   ),
                 ),
                 Text(
-                  'Track all your club memberships',
-                  style: TextStyle(fontSize: 12, color: AppColors.gray500),
+                  widget.embeddedInHub
+                      ? 'Memberships and vacancy applications'
+                      : 'Track all your club memberships',
+                  style: const TextStyle(fontSize: 12, color: AppColors.gray500),
                 ),
               ],
             ),
@@ -225,17 +248,22 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
   }
 
   Widget _buildTabs(BuildContext context) {
-    return Container(
+    return Material(
       color: AppColors.white,
       child: TabBar(
         controller: _tabController,
         labelColor: AppColors.primary,
         unselectedLabelColor: AppColors.gray600,
         indicatorColor: AppColors.primary,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         tabs: [
           Tab(text: 'Active (${activeMemberships.length})'),
           Tab(text: 'Pending (${pendingMemberships.length})'),
           Tab(text: 'Declined (${declinedMemberships.length})'),
+          const Tab(text: 'Applications'),
         ],
       ),
     );
@@ -264,7 +292,12 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.fromLTRB(
+        widget.embeddedInClubsTab ? 12 : 24,
+        widget.embeddedInClubsTab ? 12 : 24,
+        widget.embeddedInClubsTab ? 12 : 24,
+        20,
+      ),
       itemCount: memberships.length,
       itemBuilder: (context, index) {
         return _buildMembershipCard(context, memberships[index]);
@@ -415,13 +448,15 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.push(
+                    onPressed: () async {
+                      final link = await Navigator.push<ClubHubDeepLink?>(
                         context,
-                        MaterialPageRoute(
+                        MaterialPageRoute<ClubHubDeepLink?>(
                           builder: (context) => ClubDetails(club: membership.club),
                         ),
                       );
+                      if (!context.mounted || link == null) return;
+                      ClubHubScope.maybeOf(context)?.applyDeepLink(link);
                     },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),

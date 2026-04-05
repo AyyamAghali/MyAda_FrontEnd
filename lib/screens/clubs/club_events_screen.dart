@@ -3,12 +3,9 @@ import 'package:intl/intl.dart';
 import '../../data/club_events_discovery_mock.dart';
 import '../../models/club_public_event.dart';
 import '../../utils/constants.dart';
-import '../../widgets/clubs/clubs_top_nav.dart';
 import '../../widgets/responsive_container.dart';
 import 'club_event_detail_screen.dart';
 import 'club_module_nav.dart';
-import 'clubs_home.dart';
-import 'my_memberships.dart';
 
 const _kCategories = ['All Events', 'Technology', 'Social', 'Academic', 'Sports', 'Arts', 'Business'];
 
@@ -32,7 +29,16 @@ Color _eventCategoryColor(String category) {
 }
 
 class ClubEventsScreen extends StatefulWidget {
-  const ClubEventsScreen({super.key});
+  final bool embedInHub;
+
+  /// When set, only events for this club id (discovery mock) are listed.
+  final int? filterClubId;
+
+  const ClubEventsScreen({
+    super.key,
+    this.embedInHub = false,
+    this.filterClubId,
+  });
 
   @override
   State<ClubEventsScreen> createState() => _ClubEventsScreenState();
@@ -49,6 +55,10 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
 
   List<ClubPublicEvent> get _filtered {
     var list = List<ClubPublicEvent>.from(kClubDiscoveryEvents);
+    final hubClub = widget.filterClubId;
+    if (hubClub != null) {
+      list = list.where((e) => e.clubId == hubClub).toList();
+    }
     if (myClubsOnly) {
       list = list.where((e) => _myClubIds.contains(e.clubId)).toList();
     }
@@ -84,45 +94,9 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
   @override
   Widget build(BuildContext context) {
     final list = _filtered;
-    return Scaffold(
+    final scroll = ResponsiveContainer(
       backgroundColor: ClubUiColors.pageBg,
-      body: SafeArea(
-        child: ResponsiveContainer(
-          backgroundColor: ClubUiColors.pageBg,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-              ),
-              ClubsTopNav(
-                active: ClubsNavSection.events,
-                onVacanciesTap: () => ClubModuleNav.openVacancies(context),
-                onMyApplicationsTap: () => ClubModuleNav.openMyVacancyApplications(context),
-                onEventsTap: () {},
-                onClubsTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(builder: (_) => const ClubsHome()),
-                  );
-                },
-                onProposeTap: () => ClubModuleNav.openProposeClub(context),
-                onNotificationsTap: () => ClubModuleNav.openNotifications(context),
-                onProfileTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(builder: (_) => const MyMemberships()),
-                  );
-                },
-              ),
-              Expanded(
-                child: CustomScrollView(
+      child: CustomScrollView(
                   slivers: [
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -283,11 +257,25 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
                     const SliverToBoxAdapter(child: SizedBox(height: 24)),
                   ],
                 ),
-              ),
-            ],
-          ),
+    );
+
+    if (widget.embedInHub) {
+      return scroll;
+    }
+
+    return Scaffold(
+      backgroundColor: ClubUiColors.pageBg,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.gray900,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
         ),
+        title: const Text('Club Events'),
       ),
+      body: SafeArea(child: scroll),
     );
   }
 

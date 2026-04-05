@@ -4,27 +4,53 @@ import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 import '../../widgets/club_card.dart';
 import 'club_details.dart';
-import 'my_memberships.dart';
+import 'club_hub_deep_link.dart';
 import 'create_club_form.dart';
-import 'club_vacancies.dart';
+import 'my_memberships.dart';
 
 class ClubsHome extends StatefulWidget {
-  const ClubsHome({super.key});
+  /// When true, this widget is embedded in [ClubManagementHub] (no outer scaffold chrome).
+  final bool embeddedInHub;
+
+  /// Hub-controlled: Discover vs My clubs (only used when [embeddedInHub] is true).
+  final ClubsHomePane clubsPane;
+
+  final ValueChanged<ClubsHomePane>? onClubsPaneChanged;
+
+  final int myClubsInnerTabIndex;
+  final String? applicationsClubNameFilter;
+
+  /// When set (hub mode), opening a club uses this instead of pushing [ClubDetails] directly.
+  final Future<void> Function(Club club)? onClubOpen;
+
+  const ClubsHome({
+    super.key,
+    this.embeddedInHub = false,
+    this.clubsPane = ClubsHomePane.browse,
+    this.onClubsPaneChanged,
+    this.myClubsInnerTabIndex = 0,
+    this.applicationsClubNameFilter,
+    this.onClubOpen,
+  });
 
   @override
   State<ClubsHome> createState() => _ClubsHomeState();
 }
 
-class _ClubsHomeState extends State<ClubsHome>
-    with SingleTickerProviderStateMixin {
-  // ── Tab controller ────────────────────────────────────────────────
-  late TabController _tabController;
-
-  // ── Clubs tab state ───────────────────────────────────────────────
+class _ClubsHomeState extends State<ClubsHome> {
+  // ── Directory state ───────────────────────────────────────────────
   String searchQuery = '';
   String selectedCategory = 'All';
-  String selectedStatus = 'all';
-  bool isGrid = false;
+
+  static const _categories = [
+    'All',
+    'Technology',
+    'Arts',
+    'Business',
+    'Academic',
+    'Social',
+    'Sports',
+  ];
 
   final List<Club> mockClubs = [
     Club(
@@ -206,6 +232,20 @@ class _ClubsHomeState extends State<ClubsHome>
     ),
   ];
 
+  Future<void> _onClubCardTap(BuildContext context, Club club) async {
+    final opener = widget.onClubOpen;
+    if (opener != null) {
+      await opener(club);
+      return;
+    }
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => ClubDetails(club: club),
+      ),
+    );
+  }
+
   List<Club> get filteredClubs {
     return mockClubs.where((club) {
       final matchesSearch =
@@ -214,68 +254,123 @@ class _ClubsHomeState extends State<ClubsHome>
                   tag.toLowerCase().contains(searchQuery.toLowerCase()));
       final matchesCategory =
           selectedCategory == 'All' || club.category == selectedCategory;
-      final matchesStatus =
-          selectedStatus == 'all' || club.statusString == selectedStatus;
-      return matchesSearch && matchesCategory && matchesStatus;
+      return matchesSearch && matchesCategory;
     }).toList();
   }
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final body = ResponsiveContainer(
+      backgroundColor: AppColors.backgroundLight,
+      child: Column(
+        children: [
+          if (!widget.embeddedInHub) _buildStandaloneHeader(context),
+          Expanded(
+            child: widget.embeddedInHub
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildPaneSwitcher(context),
+                      Expanded(
+                        child: widget.clubsPane == ClubsHomePane.browse
+                            ? _buildBrowsePane(context)
+                            : MyMemberships(
+                                key: ValueKey(
+                                  'mc-${widget.myClubsInnerTabIndex}-${widget.applicationsClubNameFilter}',
+                                ),
+                                embeddedInHub: true,
+                                embeddedInClubsTab: true,
+                                initialPrimaryTabIndex: widget.myClubsInnerTabIndex,
+                                applicationsClubNameFilter: widget.applicationsClubNameFilter,
+                              ),
+                      ),
+                    ],
+                  )
+                : _buildBrowsePane(context),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.embeddedInHub) {
+      return body;
+    }
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
-      body: SafeArea(
-        child: ResponsiveContainer(
-          backgroundColor: AppColors.backgroundLight,
-          child: Column(
-            children: [
-              _buildHeader(context),
-              _buildTabBar(),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildClubsTab(context),
-                    VacanciesTab(key: const ValueKey('vacancies_tab')),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+      body: SafeArea(child: body),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateClubForm()),
+          );
+        },
+        backgroundColor: AppColors.secondary,
+        child: const Icon(Icons.add, color: AppColors.white),
       ),
-      // FAB only visible on Clubs tab
-      floatingActionButton: _tabController.index == 0
-          ? FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const CreateClubForm()),
-                );
-              },
-              backgroundColor: AppColors.secondary,
-              child: const Icon(Icons.add, color: AppColors.white),
-            )
-          : null,
     );
   }
 
-  // ── Header ─────────────────────────────────────────────────────────
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildPaneSwitcher(BuildContext context) {
+    return Material(
+      color: AppColors.white,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SegmentedButton<ClubsHomePane>(
+              style: SegmentedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                selectedBackgroundColor: AppColors.secondary.withOpacity(0.12),
+                selectedForegroundColor: AppColors.secondary,
+                foregroundColor: AppColors.gray600,
+                side: BorderSide(color: AppColors.gray200),
+              ),
+              segments: const [
+                ButtonSegment<ClubsHomePane>(
+                  value: ClubsHomePane.browse,
+                  label: Text('Discover'),
+                  icon: Icon(Icons.travel_explore_outlined, size: 18),
+                ),
+                ButtonSegment<ClubsHomePane>(
+                  value: ClubsHomePane.myClubs,
+                  label: Text('My clubs'),
+                  icon: Icon(Icons.folder_special_outlined, size: 18),
+                ),
+              ],
+              selected: {widget.clubsPane},
+              onSelectionChanged: (Set<ClubsHomePane> next) {
+                widget.onClubsPaneChanged?.call(next.first);
+              },
+            ),
+            if (widget.clubsPane == ClubsHomePane.browse) ...[
+              const SizedBox(height: 6),
+              Text(
+                '${filteredClubs.length} clubs',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: AppColors.gray500),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBrowsePane(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildCompactSearchAndCategories(context),
+        Expanded(child: _buildClubsList(context)),
+      ],
+    );
+  }
+
+  // ── Header (standalone: full chrome; embedded: subtitle only) ─────
+  Widget _buildStandaloneHeader(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
       color: AppColors.white,
@@ -299,208 +394,111 @@ class _ClubsHomeState extends State<ClubsHome>
                   ),
                 ),
                 Text(
-                  _tabController.index == 0
-                      ? '${filteredClubs.length} clubs available'
-                      : 'Open positions across clubs',
+                  '${filteredClubs.length} clubs',
                   style: const TextStyle(fontSize: 12, color: AppColors.gray500),
                 ),
               ],
             ),
           ),
-          // My Memberships icon — always visible
-          IconButton(
-            icon: const Icon(Icons.person_outline, color: AppColors.gray600),
-            tooltip: 'My Memberships',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MyMemberships()),
-              );
-            },
-          ),
         ],
       ),
     );
   }
 
-  // ── Tab bar ────────────────────────────────────────────────────────
-  Widget _buildTabBar() {
-    return Container(
+  Widget _buildCompactSearchAndCategories(BuildContext context) {
+    return Material(
       color: AppColors.white,
-      child: TabBar(
-        controller: _tabController,
-        labelColor: AppColors.secondary,
-        unselectedLabelColor: AppColors.gray500,
-        indicatorColor: AppColors.secondary,
-        indicatorWeight: 2.5,
-        labelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-        ),
-        tabs: const [
-          Tab(text: 'Clubs'),
-          Tab(text: 'Vacancies'),
-        ],
-      ),
-    );
-  }
-
-  // ── Clubs tab ──────────────────────────────────────────────────────
-  Widget _buildClubsTab(BuildContext context) {
-    return Column(
-      children: [
-        _buildSearchBar(context),
-        _buildFilters(context),
-        Expanded(child: _buildClubsList(context)),
-      ],
-    );
-  }
-
-  Widget _buildSearchBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-      color: AppColors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
               onChanged: (value) => setState(() => searchQuery = value),
+              style: const TextStyle(fontSize: 14),
               decoration: InputDecoration(
-                hintText: 'Search clubs, categories, tags...',
-                prefixIcon:
-                    const Icon(Icons.search, color: AppColors.gray400),
+                hintText: 'Search by name or tag…',
+                hintStyle: TextStyle(fontSize: 14, color: AppColors.gray400),
+                prefixIcon: const Icon(Icons.search, color: AppColors.gray400, size: 20),
+                isDense: true,
                 filled: true,
                 fillColor: AppColors.gray50,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(color: AppColors.gray200),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(color: AppColors.gray200),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: AppColors.primary, width: 2),
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: Icon(
-                isGrid ? Icons.view_list : Icons.grid_view,
-                color: AppColors.gray600),
-            onPressed: () => setState(() => isGrid = !isGrid),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilters(BuildContext context) {
-    final categories = [
-      'All',
-      'Technology',
-      'Arts',
-      'Business',
-      'Academic',
-      'Social',
-      'Sports'
-    ];
-    final statuses = [
-      'all',
-      'Open',
-      'Closed',
-      'Paused',
-      'Disabled',
-      'By Invitation'
-    ];
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      color: AppColors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: selectedCategory,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: 'Category',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.gray200),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Text(
+                  'Category',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.02,
+                    color: AppColors.gray500,
+                  ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                filled: true,
-                fillColor: AppColors.gray50,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-              items: categories.map((c) {
-                return DropdownMenuItem<String>(
-                  value: c,
-                  child: Text(c, overflow: TextOverflow.ellipsis),
-                );
-              }).toList(),
-              onChanged: (v) {
-                if (v != null) setState(() => selectedCategory = v);
-              },
+                const Spacer(),
+                if (selectedCategory != 'All')
+                  TextButton(
+                    onPressed: () => setState(() => selectedCategory = 'All'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Clear', style: TextStyle(fontSize: 12)),
+                  ),
+              ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: selectedStatus,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: 'Status',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: AppColors.primary, width: 2),
-                ),
-                filled: true,
-                fillColor: AppColors.gray50,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _categories.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 6),
+                itemBuilder: (context, i) {
+                  final c = _categories[i];
+                  final selected = selectedCategory == c;
+                  return FilterChip(
+                    label: Text(
+                      c,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                        color: selected ? AppColors.secondary : AppColors.gray700,
+                      ),
+                    ),
+                    selected: selected,
+                    showCheckmark: false,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    selectedColor: AppColors.secondary.withOpacity(0.14),
+                    backgroundColor: AppColors.gray50,
+                    side: BorderSide(
+                      color: selected ? AppColors.secondary.withOpacity(0.35) : AppColors.gray200,
+                    ),
+                    onSelected: (_) => setState(() => selectedCategory = c),
+                  );
+                },
               ),
-              items: statuses.map((s) {
-                return DropdownMenuItem<String>(
-                  value: s,
-                  child: Text(s == 'all' ? 'All Status' : s,
-                      overflow: TextOverflow.ellipsis),
-                );
-              }).toList(),
-              onChanged: (v) {
-                if (v != null) setState(() => selectedStatus = v);
-              },
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -527,22 +525,14 @@ class _ClubsHomeState extends State<ClubsHome>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
       itemCount: filteredClubs.length,
       itemBuilder: (context, index) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: ClubCard(
             club: filteredClubs[index],
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ClubDetails(club: filteredClubs[index]),
-                ),
-              );
-            },
+            onTap: () => _onClubCardTap(context, filteredClubs[index]),
           ),
         );
       },

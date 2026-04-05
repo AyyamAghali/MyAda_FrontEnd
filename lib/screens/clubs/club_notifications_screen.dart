@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
-import '../../widgets/clubs/clubs_top_nav.dart';
 import '../../widgets/responsive_container.dart';
 import 'club_module_nav.dart';
-import 'clubs_home.dart';
-import 'my_memberships.dart';
 
 /// Mirrors web `ClubNotifications.jsx` (simplified content).
 class ClubNotificationsScreen extends StatefulWidget {
@@ -29,126 +26,128 @@ class _ClubNotificationsScreenState extends State<ClubNotificationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ClubUiColors.pageBg,
-      body: SafeArea(
-        child: ResponsiveContainer(
-          backgroundColor: ClubUiColors.pageBg,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-              ),
-              ClubsTopNav(
-                active: ClubsNavSection.none,
-                onVacanciesTap: () => ClubModuleNav.openVacancies(context),
-                onMyApplicationsTap: () => ClubModuleNav.openMyVacancyApplications(context),
-                onEventsTap: () => ClubModuleNav.openEvents(context),
-                onClubsTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(builder: (_) => const ClubsHome()),
-                  );
-                },
-                onProposeTap: () => ClubModuleNav.openProposeClub(context),
-                onNotificationsTap: () {},
-                onProfileTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(builder: (_) => const MyMemberships()),
-                  );
-                },
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Notification Center',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Club proposals, membership, applications, and campus events.',
-                      style: TextStyle(color: Color(0xFF64748B)),
-                    ),
-                    const SizedBox(height: 16),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: _tabs.map((t) {
-                          final sel = _tab == t.$1;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(t.$2),
-                              selected: sel,
-                              onSelected: (_) => setState(() => _tab = t.$1),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  children: [
-                    if (_show('proposals'))
-                      _notifCard(
-                        title: 'Your proposal for ADA Robotics has been approved!',
-                        body:
-                            'Your club proposal completed all reviews. You can configure your club dashboard and schedule events.',
-                        pill: 'Club Proposals',
-                        pillColor: const Color(0xFF2563EB),
-                        time: '2 hours ago',
-                      ),
-                    if (_show('proposals'))
-                      _notifCard(
-                        title: 'Revision requested for club constitution',
-                        body: 'Please upload an updated constitution document with section 3 clarified.',
-                        pill: 'Club Proposals',
-                        pillColor: const Color(0xFFF59E0B),
-                        time: '5 hours ago',
-                      ),
-                    if (_show('membership'))
-                      _notifCard(
-                        title: 'Membership approved',
-                        body: 'You are now an active member of ADA Photo Club.',
-                        pill: 'Membership',
-                        pillColor: const Color(0xFF16A34A),
-                        time: '5 hours ago',
-                      ),
-                    if (_show('vacancies'))
-                      _notifCard(
-                        title: 'Interview scheduled',
-                        body: 'Your vacancy application — review the time slot in your email.',
-                        pill: 'Vacancies',
-                        pillColor: const Color(0xFF8B5CF6),
-                        time: 'Yesterday',
-                      ),
-                    if (_show('events'))
-                      _notifCard(
-                        title: 'Event reminder',
-                        body: 'Open Mic Night starts at 7:00 PM tonight at the Student Lounge.',
-                        pill: 'Events',
-                        pillColor: const Color(0xFF4F46E5),
-                        time: 'Today',
-                      ),
-                  ],
-                ),
-              ),
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.gray900,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Notifications'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.dashboard_outlined, color: AppColors.gray700),
+            tooltip: 'Club hub',
+            onSelected: (v) {
+              switch (v) {
+                case 'openings':
+                  ClubModuleNav.openVacancies(context);
+                  break;
+                case 'events':
+                  ClubModuleNav.openEvents(context);
+                  break;
+                case 'myClubs':
+                  ClubModuleNav.openMyClubsPane(context);
+                  break;
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'openings', child: Text('Openings')),
+              PopupMenuItem(value: 'events', child: Text('Events')),
+              PopupMenuItem(value: 'myClubs', child: Text('My clubs')),
             ],
           ),
+        ],
+      ),
+      body: ResponsiveContainer(
+        backgroundColor: ClubUiColors.pageBg,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Notification Center',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Club proposals, membership, applications, and campus events.',
+                    style: TextStyle(color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 16),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _tabs.map((t) {
+                        final sel = _tab == t.$1;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(t.$2),
+                            selected: sel,
+                            onSelected: (_) => setState(() => _tab = t.$1),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                children: [
+                  if (_show('proposals'))
+                    _notifCard(
+                      title: 'Your proposal for ADA Robotics has been approved!',
+                      body:
+                          'Your club proposal completed all reviews. You can configure your club dashboard and schedule events.',
+                      pill: 'Club Proposals',
+                      pillColor: const Color(0xFF2563EB),
+                      time: '2 hours ago',
+                    ),
+                  if (_show('proposals'))
+                    _notifCard(
+                      title: 'Revision requested for club constitution',
+                      body: 'Please upload an updated constitution document with section 3 clarified.',
+                      pill: 'Club Proposals',
+                      pillColor: const Color(0xFFF59E0B),
+                      time: '5 hours ago',
+                    ),
+                  if (_show('membership'))
+                    _notifCard(
+                      title: 'Membership approved',
+                      body: 'You are now an active member of ADA Photo Club.',
+                      pill: 'Membership',
+                      pillColor: const Color(0xFF16A34A),
+                      time: '5 hours ago',
+                    ),
+                  if (_show('vacancies'))
+                    _notifCard(
+                      title: 'Interview scheduled',
+                      body: 'Your vacancy application — review the time slot in your email.',
+                      pill: 'Vacancies',
+                      pillColor: const Color(0xFF8B5CF6),
+                      time: 'Yesterday',
+                    ),
+                  if (_show('events'))
+                    _notifCard(
+                      title: 'Event reminder',
+                      body: 'Open Mic Night starts at 7:00 PM tonight at the Student Lounge.',
+                      pill: 'Events',
+                      pillColor: const Color(0xFF4F46E5),
+                      time: 'Today',
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

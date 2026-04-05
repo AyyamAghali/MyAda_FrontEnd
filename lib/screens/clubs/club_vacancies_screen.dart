@@ -3,16 +3,25 @@ import '../../data/club_vacancies_mock.dart';
 import '../../models/club_vacancy.dart';
 import '../../services/club_module_prefs.dart';
 import '../../utils/constants.dart';
-import '../../widgets/clubs/clubs_top_nav.dart';
 import '../../widgets/responsive_container.dart';
 import '../../utils/vacancy_category_style.dart';
 import 'club_module_nav.dart';
-import 'clubs_home.dart';
-import 'my_memberships.dart';
 import 'vacancy_detail_screen.dart';
 
 class ClubVacanciesScreen extends StatefulWidget {
-  const ClubVacanciesScreen({super.key});
+  /// When set, only vacancies for this club are listed (from club profile).
+  final int? filterClubId;
+  final String? filterClubName;
+
+  /// Inside [ClubManagementHub]: no app bar / back row (hub provides navigation).
+  final bool embedInHub;
+
+  const ClubVacanciesScreen({
+    super.key,
+    this.filterClubId,
+    this.filterClubName,
+    this.embedInHub = false,
+  });
 
   @override
   State<ClubVacanciesScreen> createState() => _ClubVacanciesScreenState();
@@ -42,6 +51,14 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
 
   List<ClubVacancy> get _filtered {
     var list = List<ClubVacancy>.from(kClubVacanciesMock);
+    final clubId = widget.filterClubId;
+    final clubName = widget.filterClubName;
+    if (clubId != null) {
+      list = list.where((v) => v.clubId == clubId).toList();
+    } else if (clubName != null && clubName.trim().isNotEmpty) {
+      final n = clubName.trim().toLowerCase();
+      list = list.where((v) => v.clubName.toLowerCase() == n).toList();
+    }
     if (_savedOnly) {
       list = list.where((v) => _savedIds.contains(v.id)).toList();
     }
@@ -149,46 +166,10 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
   @override
   Widget build(BuildContext context) {
     final list = _filtered;
-    return Scaffold(
+    final scopedClub = widget.filterClubName;
+    final scroll = ResponsiveContainer(
       backgroundColor: ClubUiColors.pageBg,
-      body: SafeArea(
-        child: ResponsiveContainer(
-          backgroundColor: ClubUiColors.pageBg,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-              ),
-              ClubsTopNav(
-                active: ClubsNavSection.vacancies,
-                onVacanciesTap: () {},
-                onMyApplicationsTap: () => ClubModuleNav.openMyVacancyApplications(context),
-                onEventsTap: () => ClubModuleNav.openEvents(context),
-                onClubsTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(builder: (_) => const ClubsHome()),
-                  );
-                },
-                onProposeTap: () => ClubModuleNav.openProposeClub(context),
-                onNotificationsTap: () => ClubModuleNav.openNotifications(context),
-                onProfileTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(builder: (_) => const MyMemberships()),
-                  );
-                },
-              ),
-              Expanded(
-                child: CustomScrollView(
+      child: CustomScrollView(
                   slivers: [
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -196,17 +177,20 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Club Vacancies',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A),
+                            if (scopedClub == null)
+                              const Text(
+                                'Browse openings',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
+                            if (scopedClub == null) const SizedBox(height: 4),
                             Text(
-                              '${list.length} positions available for your profile',
+                              scopedClub != null
+                                  ? '${list.length} open position${list.length == 1 ? '' : 's'} here'
+                                  : '${list.length} positions across clubs',
                               style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
                             ),
                             const SizedBox(height: 16),
@@ -317,13 +301,66 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                           ),
                         ),
                       ),
-                  ],
+          ],
+        ),
+    );
+
+    if (widget.embedInHub) {
+      return scroll;
+    }
+
+    return Scaffold(
+      backgroundColor: ClubUiColors.pageBg,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.gray900,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              scopedClub != null ? 'Open roles' : 'Club vacancies',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.gray900,
+              ),
+            ),
+            if (scopedClub != null)
+              Text(
+                scopedClub,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF64748B),
                 ),
               ),
-            ],
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'My applications',
+            onPressed: () => ClubModuleNav.openMyVacancyApplications(
+              context,
+              clubName: scopedClub,
+            ),
+            icon: const Icon(Icons.assignment_outlined),
+            color: AppColors.gray700,
           ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: AppColors.gray200, height: 1),
         ),
       ),
+      body: scroll,
     );
   }
 

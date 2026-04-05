@@ -6,7 +6,6 @@ import '../../services/club_module_prefs.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 import 'club_event_detail_screen.dart';
-import 'club_events_screen.dart';
 import 'club_module_nav.dart';
 
 class MyRegisteredEventsScreen extends StatefulWidget {
@@ -88,10 +87,8 @@ class _MyRegisteredEventsScreenState extends State<MyRegisteredEventsScreen> {
                             const SizedBox(height: 20),
                             FilledButton(
                               onPressed: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute<void>(builder: (_) => const ClubEventsScreen()),
-                                );
+                                Navigator.pop(context);
+                                ClubModuleNav.openEvents(context);
                               },
                               child: const Text('Discover events'),
                             ),

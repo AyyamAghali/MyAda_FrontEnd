@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import '../../data/club_vacancies_mock.dart';
 import '../../models/club.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
-import '../../widgets/clubs/clubs_top_nav.dart';
 import 'join_club_sheet.dart';
 import 'event_registration.dart';
-import 'clubs_home.dart';
+import 'club_hub_deep_link.dart';
 import 'club_module_nav.dart';
-import 'my_memberships.dart';
 
 /// Club profile — aligned with MyAda_Front_Web `ClubDetail.jsx` (hero, tabs, sidebar content folded into scroll).
 class ClubDetails extends StatefulWidget {
@@ -39,58 +38,154 @@ class _ClubDetailsState extends State<ClubDetails> {
     }).toList();
   }
 
+  int get _openRolesCount {
+    final id = int.tryParse(club.id);
+    return kClubVacanciesMock
+        .where((v) {
+          if (id != null && v.clubId == id) return true;
+          return v.clubName.toLowerCase() == club.name.toLowerCase();
+        })
+        .length;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ClubUiColors.pageBg,
-      body: SafeArea(
-        bottom: false,
-        child: ResponsiveContainer(
-          backgroundColor: ClubUiColors.pageBg,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.gray900,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          club.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.gray900,
+          ),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_outlined),
+            color: AppColors.gray700,
+            onPressed: () => ClubModuleNav.openNotifications(context),
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: AppColors.gray200, height: 1),
+        ),
+      ),
+      body: ResponsiveContainer(
+        backgroundColor: ClubUiColors.pageBg,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 24),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ClubsTopNav(
-                active: ClubsNavSection.clubs,
-                onVacanciesTap: () => ClubModuleNav.openVacancies(context),
-                onMyApplicationsTap: () => ClubModuleNav.openMyVacancyApplications(context),
-                onEventsTap: () => ClubModuleNav.openEvents(context),
-                onClubsTap: () => Navigator.pop(context),
-                onProposeTap: () => ClubModuleNav.openProposeClub(context),
-                onNotificationsTap: () => ClubModuleNav.openNotifications(context),
-                onProfileTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(builder: (_) => const MyMemberships()),
-                  );
-                },
-                onLogoTap: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ClubsHome()),
-                    (route) => route.isFirst,
-                  );
-                },
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildHero(context),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _buildTabs(context),
-                      ),
-                    ],
-                  ),
+              _buildHero(context),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildClubQuickActions(context),
+                    _buildTabs(context),
+                  ],
                 ),
               ),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomButton(context),
+    );
+  }
+
+  Widget _buildClubQuickActions(BuildContext context) {
+    final roles = _openRolesCount;
+    final eventsN = _upcomingEvents.length;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'This club',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.04,
+              color: ClubNavColors.link,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _ClubQuickActionButton(
+                  icon: Icons.work_outline,
+                  label: 'Open roles',
+                  badge: roles > 0 ? roles.toString() : null,
+                  onTap: () {
+                    final id = int.tryParse(club.id);
+                    Navigator.pop(
+                      context,
+                      ClubHubDeepLink(
+                        tabIndex: ClubHubTabs.openings,
+                        clubId: id,
+                        clubName: club.name,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ClubQuickActionButton(
+                  icon: Icons.assignment_outlined,
+                  label: 'My applications',
+                  onTap: () {
+                    Navigator.pop(
+                      context,
+                      ClubHubDeepLink(
+                        tabIndex: ClubHubTabs.clubs,
+                        clubsPane: ClubsHomePane.myClubs,
+                        clubName: club.name,
+                        myClubsPrimaryTabIndex: 3,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ClubQuickActionButton(
+                  icon: Icons.event_outlined,
+                  label: 'Events',
+                  badge: eventsN > 0 ? eventsN.toString() : null,
+                  onTap: () {
+                    final id = int.tryParse(club.id);
+                    Navigator.pop(
+                      context,
+                      ClubHubDeepLink(
+                        tabIndex: ClubHubTabs.events,
+                        clubId: id,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -609,38 +704,78 @@ class _ClubDetailsState extends State<ClubDetails> {
     );
   }
 
-  Widget _buildBottomButton(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.gray200)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => JoinClubSheet(club: club),
-                ),
-              );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: ClubUiColors.ctaBlue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+}
+
+class _ClubQuickActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? badge;
+  final VoidCallback onTap;
+
+  const _ClubQuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.badge,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(icon, size: 22, color: ClubNavColors.activeText),
+                  if (badge != null)
+                    Positioned(
+                      right: -10,
+                      top: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: ClubUiColors.ctaBlue,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          badge!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ),
-            child: const Text(
-              'Join Club',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  height: 1.15,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
           ),
         ),
       ),

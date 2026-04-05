@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../utils/responsive.dart';
-import '../widgets/responsive_container.dart';
 import '../widgets/id_card.dart';
 import 'lost_found/home_screen.dart';
-import 'clubs/clubs_home.dart';
+import 'clubs/club_management_hub.dart';
 import 'support/support_module.dart';
 import 'account_page.dart';
 import 'login_page.dart';
@@ -230,7 +229,7 @@ class MasterHomePage extends StatelessWidget {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const ClubsHome()),
+                          MaterialPageRoute(builder: (context) => const ClubManagementHub()),
                         );
                       },
                     ),
