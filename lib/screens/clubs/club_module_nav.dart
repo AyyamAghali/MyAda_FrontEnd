@@ -54,7 +54,7 @@ class ClubModuleNav {
         tabIndex: ClubHubTabs.clubs,
         clubsPane: ClubsHomePane.myClubs,
         clubName: clubName,
-        myClubsPrimaryTabIndex: 3,
+        myClubsPrimaryTabIndex: 0,
       ),
     );
   }

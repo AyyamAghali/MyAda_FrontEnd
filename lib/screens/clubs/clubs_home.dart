@@ -103,6 +103,11 @@ class _ClubsHomeState extends State<ClubsHome> {
           time: '10:00 AM',
         ),
       ],
+      shortDescription:
+          'A student-led hub for gaming, digital media, and esports — open to everyone who wants to learn, compete, and create together.',
+      mainGoals:
+          '• Host semester tournaments and viewing events\n• Weekly workshops on content creation and game dev\n• Build mentorship between experienced members and newcomers',
+      contactEmail: 'digital_entertainment@ada.edu.az',
     ),
     Club(
       id: '2',
@@ -134,6 +139,11 @@ class _ClubsHomeState extends State<ClubsHome> {
           time: '02:00 PM',
         ),
       ],
+      shortDescription:
+          'Explore photography as art and craft — from campus walks to exhibitions and peer critique.',
+      mainGoals:
+          '• Monthly photo walks and themed challenges\n• Editing labs using Lightroom and Photoshop\n• End-of-semester gallery showcase',
+      contactEmail: 'photo_club@ada.edu.az',
     ),
     Club(
       id: '3',
@@ -159,6 +169,11 @@ class _ClubsHomeState extends State<ClubsHome> {
           time: '11:00 AM',
         ),
       ],
+      shortDescription:
+          'Learn how online businesses work — from stores and ads to analytics and side projects.',
+      mainGoals:
+          '• Guest talks from founders and marketers\n• Hands-on store setup workshops\n• Pitch nights for student business ideas',
+      contactEmail: 'ecommerce_club@ada.edu.az',
     ),
     Club(
       id: '4',
@@ -185,6 +200,11 @@ class _ClubsHomeState extends State<ClubsHome> {
           time: '09:00 AM',
         ),
       ],
+      shortDescription:
+          'Practice diplomacy, public speaking, and research through realistic UN-style committees.',
+      mainGoals:
+          '• Weekly resolution drafting sessions\n• Regional competition prep\n• Collaboration with debate and IR courses',
+      contactEmail: 'adamun@ada.edu.az',
     ),
     Club(
       id: '5',
@@ -211,6 +231,11 @@ class _ClubsHomeState extends State<ClubsHome> {
           time: '01:00 PM',
         ),
       ],
+      shortDescription:
+          'Friendly over-the-board play, tactics lessons, and rapid tournaments for all ratings.',
+      mainGoals:
+          '• Weekly ladder nights and puzzle rush\n• Guest coach sessions\n• Inter-university friendly matches',
+      contactEmail: 'chess_club@ada.edu.az',
     ),
     Club(
       id: '6',
@@ -236,6 +261,11 @@ class _ClubsHomeState extends State<ClubsHome> {
           time: '07:00 PM',
         ),
       ],
+      shortDescription:
+          'Perform, jam, or simply enjoy live music with peers across genres and skill levels.',
+      mainGoals:
+          '• Open mic and acoustic nights each term\n• Instrument skill circles (guitar, keys, vocals)\n• Collaboration with theater and cultural events',
+      contactEmail: 'music_club@ada.edu.az',
     ),
   ];
 
@@ -321,11 +351,9 @@ class _ClubsHomeState extends State<ClubsHome> {
   }
 
   Widget _buildPaneSwitcher(BuildContext context) {
-    return Material(
-      color: AppColors.white,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-        child: Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
+      child: Row(
           children: [
             Expanded(
               child: _paneToggle(
@@ -344,8 +372,7 @@ class _ClubsHomeState extends State<ClubsHome> {
                 onTap: () => widget.onClubsPaneChanged?.call(ClubsHomePane.myClubs),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -448,91 +475,80 @@ class _ClubsHomeState extends State<ClubsHome> {
     );
   }
 
-  /// Matches [HomeScreen] lost & found search row (height 40, padding, filter control).
   Widget _buildCompactSearchAndCategories(BuildContext context) {
-    final showCount = widget.embeddedInHub;
-    return Material(
-      color: AppColors.white,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: 40,
-              child: TextField(
-                focusNode: _searchFocus,
-                onChanged: (value) => setState(() => searchQuery = value),
-                style: const TextStyle(fontSize: 14, color: AppColors.gray900),
-                decoration: InputDecoration(
-                  hintText: 'Search by name or tag…',
-                  hintStyle: const TextStyle(fontSize: 13, color: AppColors.gray400),
-                  prefixIcon:
-                      const Icon(Icons.search, size: 20, color: AppColors.gray400),
-                  prefixIconConstraints:
-                      const BoxConstraints(minWidth: 40, minHeight: 0),
-                  suffixIcon: GestureDetector(
-                    onTap: () => _openCategoryFilterSheet(context),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          margin: const EdgeInsets.only(right: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.tune, size: 17, color: AppColors.primary),
-                        ),
-                        if (selectedCategory != 'All')
-                          Positioned(
-                            right: 2,
-                            top: 2,
-                            child: Container(
-                              width: 7,
-                              height: 7,
-                              decoration: const BoxDecoration(
-                                color: AppColors.primary,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                      ],
+    final hasFilter = selectedCategory != 'All';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      color: AppColors.backgroundLight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 40,
+            child: TextField(
+              focusNode: _searchFocus,
+              onChanged: (value) => setState(() => searchQuery = value),
+              style: const TextStyle(fontSize: 14, color: AppColors.gray900),
+              decoration: InputDecoration(
+                hintText: 'Search by name or tag…',
+                hintStyle: const TextStyle(fontSize: 13, color: AppColors.gray400),
+                prefixIcon:
+                    const Icon(Icons.search, size: 20, color: AppColors.gray400),
+                prefixIconConstraints:
+                    const BoxConstraints(minWidth: 40, minHeight: 0),
+                suffixIcon: GestureDetector(
+                  onTap: () => _openCategoryFilterSheet(context),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: const Icon(Icons.tune, size: 17, color: AppColors.primary),
                   ),
-                  suffixIconConstraints:
-                      const BoxConstraints(minWidth: 40, minHeight: 0),
-                  filled: true,
-                  fillColor: AppColors.gray50,
-                  contentPadding: EdgeInsets.zero,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.gray200),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.gray200),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-                  ),
+                ),
+                suffixIconConstraints:
+                    const BoxConstraints(minWidth: 40, minHeight: 0),
+                filled: true,
+                fillColor: AppColors.gray50,
+                contentPadding: EdgeInsets.zero,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.gray200),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.gray200),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                 ),
               ),
             ),
-            if (showCount) ...[
-              const SizedBox(height: 6),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
               Text(
-                '${filteredClubs.length} clubs',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: AppColors.gray500),
+                '${filteredClubs.length} club${filteredClubs.length == 1 ? '' : 's'}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.gray500),
               ),
+              if (hasFilter) ...[
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () => setState(() => selectedCategory = 'All'),
+                  child: const Text(
+                    'Clear filters',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.secondary),
+                  ),
+                ),
+              ],
             ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

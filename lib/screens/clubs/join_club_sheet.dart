@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/club.dart';
 import '../../utils/constants.dart';
-import '../../widgets/responsive_container.dart';
 
+/// Lightweight membership application — fields aligned with club join UX (letter, links, optional files).
 class JoinClubSheet extends StatefulWidget {
   final Club club;
 
@@ -14,58 +14,89 @@ class JoinClubSheet extends StatefulWidget {
 
 class _JoinClubSheetState extends State<JoinClubSheet> {
   final _formKey = GlobalKey<FormState>();
-  String fullName = '';
-  String major = '';
-  String graduationYear = '';
-  String email = '';
-  String phone = '';
-  String selectedPosition = 'Member';
-  String experience = '';
-  List<String> portfolioFiles = [];
-  bool _showValidationError = false;
+  final _letterCtrl = TextEditingController();
+  final _portfolioCtrl = TextEditingController();
 
-  final List<String> positions = [
-    'Member',
-    'Esports Player',
-    'Content Creator',
-    'Streamer',
-    'Tournament Organizer',
-    'Social Media Manager',
-    'Designer',
-  ];
+  InputDecoration _inputDeco([String? hint]) {
+    return InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: AppColors.gray50,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: AppColors.gray200),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: AppColors.gray200),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      hintStyle: const TextStyle(color: AppColors.gray400, fontSize: 14),
+    );
+  }
+
+  @override
+  void dispose() {
+    _letterCtrl.dispose();
+    _portfolioCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
-        child: ResponsiveContainer(
-          backgroundColor: AppColors.backgroundLight,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                _buildHeader(context),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildIntroText(),
-                        const SizedBox(height: 16),
-                        _buildInfoBanner(),
-                        const SizedBox(height: 24),
-                        _buildFormFields(),
-                        const SizedBox(height: 32),
-                      ],
-                    ),
+        child: Column(
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSection(
+                        number: 1,
+                        label: 'Letter of Purpose',
+                        isRequired: true,
+                        child: TextFormField(
+                          controller: _letterCtrl,
+                          decoration: _inputDeco('Explain why you want to join this club and what you hope to contribute…'),
+                          style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+                          maxLines: 6,
+                          validator: (v) => (v == null || v.trim().isEmpty) ? 'This field is required.' : null,
+                        ),
+                      ),
+                      _buildSection(
+                        number: 2,
+                        label: 'Any previous experience, works or portfolio links?',
+                        child: TextFormField(
+                          controller: _portfolioCtrl,
+                          decoration: _inputDeco('https://example.com/portfolio'),
+                          style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+                          keyboardType: TextInputType.url,
+                        ),
+                      ),
+                      _buildSection(
+                        number: 3,
+                        label: 'Any previous works or portfolio files?',
+                        subLabel: 'Optional',
+                        child: _filePicker(),
+                      ),
+                    ],
                   ),
                 ),
-                _buildSubmitButton(context),
-              ],
+              ),
             ),
-          ),
+            _buildSubmitBar(context),
+          ],
         ),
       ),
     );
@@ -73,30 +104,30 @@ class _JoinClubSheetState extends State<JoinClubSheet> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(8, 4, 16, 8),
       color: AppColors.white,
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
+            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.gray900, size: 18),
             onPressed: () => Navigator.pop(context),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            visualDensity: VisualDensity.compact,
           ),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${widget.club.name} Recruitment',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.gray900,
-                  ),
+                  'Join ${widget.club.name}',
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.gray900),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const Text(
-                  'Application Form',
-                  style: TextStyle(fontSize: 12, color: AppColors.gray500),
-                ),
+                const Text('Membership application', style: TextStyle(fontSize: 12, color: AppColors.gray500)),
               ],
             ),
           ),
@@ -105,242 +136,139 @@ class _JoinClubSheetState extends State<JoinClubSheet> {
     );
   }
 
-  Widget _buildIntroText() {
-    return const Text(
-      'Join us to express your creativity, grow your talent, and be part of an amazing community!',
-      style: TextStyle(fontSize: 14, color: AppColors.gray700, height: 1.5),
-    );
-  }
-
-  Widget _buildInfoBanner() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border.all(color: Colors.blue.shade200),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.info, color: Colors.blue, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'When you submit this form, club representatives will see your name and email address.',
-              style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFormFields() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildNumberedField(
-          number: 1,
-          label: 'Full Name *',
-          child: TextFormField(
-            decoration: const InputDecoration(hintText: 'Enter your full name'),
-            onChanged: (value) => setState(() => fullName = value),
-            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildNumberedField(
-          number: 2,
-          label: 'Major and Graduation year *',
-          child: TextFormField(
-            decoration: const InputDecoration(hintText: 'e.g., Computer Science, 2026'),
-            onChanged: (value) => setState(() => major = value),
-            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildNumberedField(
-          number: 3,
-          label: 'ADA Email *',
-          child: TextFormField(
-            decoration: const InputDecoration(hintText: 'student@ada.edu.az'),
-            keyboardType: TextInputType.emailAddress,
-            onChanged: (value) => setState(() => email = value),
-            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildNumberedField(
-          number: 4,
-          label: 'Phone Number *',
-          child: TextFormField(
-            decoration: const InputDecoration(hintText: '+994 XX XXX XX XX'),
-            keyboardType: TextInputType.phone,
-            onChanged: (value) => setState(() => phone = value),
-            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildNumberedField(
-          number: 5,
-          label: 'What position are you applying for?',
-          child: Column(
-            children: positions.map((position) {
-              return RadioListTile<String>(
-                title: Text(position),
-                value: position,
-                groupValue: selectedPosition,
-                onChanged: (value) => setState(() => selectedPosition = value!),
-                contentPadding: EdgeInsets.zero,
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildNumberedField(
-          number: 6,
-          label: 'Any previous experience, works or portfolio links?',
-          child: TextFormField(
-            decoration: const InputDecoration(
-              hintText: 'https://example.com/portfolio',
-            ),
-            maxLines: 3,
-            onChanged: (value) => setState(() => experience = value),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildNumberedField(
-          number: 7,
-          label: 'Any previous works or portfolio files? (optional)',
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.gray300, style: BorderStyle.solid),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                const Icon(Icons.upload_file, size: 48, color: AppColors.gray400),
-                const SizedBox(height: 8),
-                const Text(
-                  'Upload Files',
-                  style: TextStyle(fontSize: 14, color: AppColors.gray600),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '10 files, 1GB each',
-                  style: TextStyle(fontSize: 12, color: AppColors.gray500),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNumberedField({
+  Widget _buildSection({
     required int number,
     required String label,
+    bool isRequired = false,
+    String? subLabel,
     required Widget child,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  number.toString(),
-                  style: const TextStyle(
-                    color: AppColors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Center(
+                  child: Text(
+                    '$number',
+                    style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.gray900,
+              const SizedBox(width: 8),
+              Expanded(
+                child: RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.gray900),
+                    children: [
+                      TextSpan(text: label),
+                      if (isRequired)
+                        const TextSpan(text: ' *', style: TextStyle(color: AppColors.secondary)),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
+          ),
+          if (subLabel != null) ...[
+            const SizedBox(height: 2),
+            Text(subLabel, style: const TextStyle(fontSize: 12, color: AppColors.gray500)),
           ],
-        ),
-        const SizedBox(height: 8),
-        child,
-      ],
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
     );
   }
 
-  Widget _buildSubmitButton(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.gray200)),
-      ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    setState(() => _showValidationError = false);
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Application submitted successfully!')),
-                    );
-                  } else {
-                    setState(() => _showValidationError = true);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+  Widget _filePicker() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('File upload (mock) — ${widget.club.name}'))),
+        borderRadius: BorderRadius.circular(10),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.gray50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.gray200),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.upload_file, color: AppColors.primary, size: 24),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Upload files', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.gray900)),
+                      SizedBox(height: 2),
+                      Text('Up to 10 files (mock)', style: TextStyle(fontSize: 12, color: AppColors.gray500)),
+                    ],
                   ),
                 ),
-                child: const Text(
-                  'Submit Application',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
+                const Icon(Icons.chevron_right_rounded, color: AppColors.gray400, size: 22),
+              ],
             ),
-            if (_showValidationError) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Please fill in all required fields',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubmitBar(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, -3)),
           ],
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: () {
+              if (_formKey.currentState!.validate()) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Application submitted successfully.')),
+                );
+              }
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+            child: const Text('Submit Application', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          ),
         ),
       ),
     );
   }
 }
-

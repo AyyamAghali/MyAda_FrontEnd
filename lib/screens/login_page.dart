@@ -224,7 +224,9 @@ class _LoginPageState extends State<LoginPage> {
         prefixIcon: const Icon(Icons.lock_outlined, color: AppColors.primary),
         suffixIcon: IconButton(
           icon: Icon(
-            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            _obscurePassword
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
             color: AppColors.gray400,
           ),
           onPressed: () {
@@ -442,4 +444,3 @@ class _LoginPageState extends State<LoginPage> {
     return null;
   }
 }
-

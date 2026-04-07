@@ -47,7 +47,7 @@ class MasterHomePage extends StatelessWidget {
     final isMobile = Responsive.isMobile(context);
     final logoSize = isMobile ? 36.0 : 48.0;
     final iconSize = isMobile ? 20.0 : 24.0;
-    
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: isMobile ? 16 : 24,
@@ -62,16 +62,19 @@ class MasterHomePage extends StatelessWidget {
             height: logoSize,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
-              return Icon(Icons.school, size: logoSize, color: AppColors.primary);
+              return Icon(Icons.school,
+                  size: logoSize, color: AppColors.primary);
             },
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: Icon(Icons.settings, color: AppColors.primary, size: iconSize),
+                icon: Icon(Icons.settings,
+                    color: AppColors.primary, size: iconSize),
                 onPressed: () {
-                  _showSnackBar(context, 'Settings are mocked in this prototype.');
+                  _showSnackBar(
+                      context, 'Settings are mocked in this prototype.');
                 },
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -80,9 +83,11 @@ class MasterHomePage extends StatelessWidget {
               Stack(
                 children: [
                   IconButton(
-                    icon: Icon(Icons.notifications, color: AppColors.secondary, size: iconSize),
+                    icon: Icon(Icons.notifications,
+                        color: AppColors.secondary, size: iconSize),
                     onPressed: () {
-                      _showSnackBar(context, 'Notifications are mocked in this prototype.');
+                      _showSnackBar(context,
+                          'Notifications are mocked in this prototype.');
                     },
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -103,7 +108,8 @@ class MasterHomePage extends StatelessWidget {
               ),
               SizedBox(width: isMobile ? 8 : 16),
               IconButton(
-                icon: Icon(Icons.logout, color: AppColors.primary, size: iconSize),
+                icon: Icon(Icons.logout,
+                    color: AppColors.primary, size: iconSize),
                 onPressed: () {
                   Navigator.pushAndRemoveUntil(
                     context,
@@ -164,8 +170,9 @@ class MasterHomePage extends StatelessWidget {
             builder: (context, constraints) {
               final availableWidth = constraints.maxWidth;
               final buttonSpacing = 16.0;
-              final calculatedButtonWidth = (availableWidth - (buttonSpacing * 2)) / 3;
-              
+              final calculatedButtonWidth =
+                  (availableWidth - (buttonSpacing * 2)) / 3;
+
               return Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
@@ -199,7 +206,8 @@ class MasterHomePage extends StatelessWidget {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const HomeScreen()),
+                          MaterialPageRoute(
+                              builder: (context) => const HomeScreen()),
                         );
                       },
                     ),
@@ -214,8 +222,9 @@ class MasterHomePage extends StatelessWidget {
             builder: (context, constraints) {
               final availableWidth = constraints.maxWidth;
               final buttonSpacing = 16.0;
-              final calculatedButtonWidth = (availableWidth - (buttonSpacing * 2)) / 3;
-              
+              final calculatedButtonWidth =
+                  (availableWidth - (buttonSpacing * 2)) / 3;
+
               return Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
@@ -229,7 +238,8 @@ class MasterHomePage extends StatelessWidget {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const ClubManagementHub()),
+                          MaterialPageRoute(
+                              builder: (context) => const ClubManagementHub()),
                         );
                       },
                     ),
@@ -245,7 +255,8 @@ class MasterHomePage extends StatelessWidget {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const SupportModule()),
+                          MaterialPageRoute(
+                              builder: (context) => const SupportModule()),
                         );
                       },
                     ),
@@ -269,7 +280,7 @@ class MasterHomePage extends StatelessWidget {
     final isMobile = Responsive.isMobile(context);
     const pinkColor = Color(0xFFA54D66);
     const darkBlueColor = Color(0xFF3A6381);
-    
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -318,11 +329,10 @@ class MasterHomePage extends StatelessWidget {
     );
   }
 
-
   Widget _buildBottomNavigation(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
+
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.primary,
@@ -357,12 +367,13 @@ class MasterHomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(BuildContext context, IconData icon, String label, bool isActive) {
+  Widget _buildNavItem(
+      BuildContext context, IconData icon, String label, bool isActive) {
     final isMobile = Responsive.isMobile(context);
     final iconSize = isMobile ? 20.0 : 24.0;
     final containerSize = isMobile ? 40.0 : 48.0;
     final fontSize = Responsive.getFontSize(context, 12);
-    
+
     return InkWell(
       onTap: () {
         if (label == 'Account') {
@@ -372,7 +383,9 @@ class MasterHomePage extends StatelessWidget {
           );
         } else if (label == 'Search') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Search tab is a visual element only in this prototype.')),
+            const SnackBar(
+                content: Text(
+                    'Search tab is a visual element only in this prototype.')),
           );
         }
       },
@@ -389,7 +402,8 @@ class MasterHomePage extends StatelessWidget {
             ),
             child: Icon(
               icon,
-              color: isActive ? AppColors.white : AppColors.white.withOpacity(0.7),
+              color:
+                  isActive ? AppColors.white : AppColors.white.withOpacity(0.7),
               size: iconSize,
             ),
           ),
@@ -398,7 +412,8 @@ class MasterHomePage extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: fontSize,
-              color: isActive ? AppColors.white : AppColors.white.withOpacity(0.7),
+              color:
+                  isActive ? AppColors.white : AppColors.white.withOpacity(0.7),
             ),
           ),
         ],
@@ -411,7 +426,4 @@ class MasterHomePage extends StatelessWidget {
       SnackBar(content: Text(message)),
     );
   }
-
 }
-
-

@@ -24,7 +24,8 @@ class AccountPage extends StatelessWidget {
             _buildHeader(context),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Column(
                   children: [
                     _buildProfileSection(),
@@ -58,7 +59,8 @@ class AccountPage extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.white, size: 20),
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: AppColors.white, size: 20),
             onPressed: () => Navigator.pop(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -109,7 +111,8 @@ class AccountPage extends StatelessWidget {
                   ? Image.network(
                       photoUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildPlaceholderAvatar(),
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildPlaceholderAvatar(),
                     )
                   : _buildPlaceholderAvatar(),
             ),
@@ -139,7 +142,8 @@ class AccountPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -523,4 +527,3 @@ class AccountPage extends StatelessWidget {
     );
   }
 }
-

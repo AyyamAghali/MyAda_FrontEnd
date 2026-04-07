@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 import 'club_details.dart';
 import 'club_hub_deep_link.dart';
 import 'club_hub_scope.dart';
 import '../../models/club.dart';
-import 'vacancy_applications_body.dart';
 
 enum MembershipStatus {
   active,
@@ -34,7 +34,6 @@ class Membership {
 
 class MyMemberships extends StatefulWidget {
   final bool embeddedInHub;
-  /// Nested under [ClubsHome] "My clubs" — no duplicate page title / scaffold chrome.
   final bool embeddedInClubsTab;
   final int initialPrimaryTabIndex;
   final String? applicationsClubNameFilter;
@@ -53,7 +52,6 @@ class MyMemberships extends StatefulWidget {
 
 class _MyMembershipsState extends State<MyMemberships> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _selectedIndex = 0;
 
   final List<Membership> memberships = [
     Membership(
@@ -69,6 +67,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
         about: '',
         officers: [],
         events: [],
+        contactEmail: 'digital_entertainment@ada.edu.az',
       ),
       status: MembershipStatus.active,
       role: 'Member',
@@ -87,6 +86,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
         about: '',
         officers: [],
         events: [],
+        contactEmail: 'photo_club@ada.edu.az',
       ),
       status: MembershipStatus.active,
       role: 'Vice President',
@@ -105,11 +105,10 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
         about: '',
         officers: [],
         events: [],
+        contactEmail: 'ecommerce_club@ada.edu.az',
       ),
       status: MembershipStatus.pending,
       submittedDate: 'November 10, 2025',
-      role: null,
-      sinceDate: null,
     ),
     Membership(
       club: Club(
@@ -124,12 +123,11 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
         about: '',
         officers: [],
         events: [],
+        contactEmail: 'adamun@ada.edu.az',
       ),
       status: MembershipStatus.declined,
       declinedReason: 'Club has reached maximum capacity for this semester. You are welcome to apply again next semester.',
       submittedDate: 'October 28, 2025',
-      role: null,
-      sinceDate: null,
     ),
   ];
 
@@ -137,14 +135,13 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 4,
+      length: 3,
       vsync: this,
-      initialIndex: widget.initialPrimaryTabIndex.clamp(0, 3),
+      initialIndex: widget.initialPrimaryTabIndex.clamp(0, 2),
     );
     _tabController.addListener(() {
-      setState(() {
-        _selectedIndex = _tabController.index;
-      });
+      if (_tabController.indexIsChanging) return;
+      setState(() {});
     });
   }
 
@@ -154,46 +151,45 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
     super.dispose();
   }
 
-  List<Membership> get activeMemberships =>
-      memberships.where((m) => m.status == MembershipStatus.active).toList();
+  List<Membership> get _active => memberships.where((m) => m.status == MembershipStatus.active).toList();
+  List<Membership> get _pending => memberships.where((m) => m.status == MembershipStatus.pending).toList();
+  List<Membership> get _declined => memberships.where((m) => m.status == MembershipStatus.declined).toList();
 
-  List<Membership> get pendingMemberships =>
-      memberships.where((m) => m.status == MembershipStatus.pending).toList();
+  Future<void> _openClub(BuildContext context, Club club) async {
+    final link = await Navigator.push<ClubHubDeepLink?>(
+      context,
+      MaterialPageRoute<ClubHubDeepLink?>(builder: (_) => ClubDetails(club: club)),
+    );
+    if (!context.mounted || link == null) return;
+    ClubHubScope.maybeOf(context)?.applyDeepLink(link);
+  }
 
-  List<Membership> get declinedMemberships =>
-      memberships.where((m) => m.status == MembershipStatus.declined).toList();
+  Future<void> _emailClub(Membership m) async {
+    final email = m.club.contactEmail ?? 'clubs@ada.edu.az';
+    final uri = Uri(scheme: 'mailto', path: email, queryParameters: {'subject': 'Question about ${m.club.name}'});
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Email: $email')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final inner = ResponsiveContainer(
-      backgroundColor: ClubUiColors.pageBg,
+      backgroundColor: AppColors.backgroundLight,
       padding: widget.embeddedInClubsTab ? EdgeInsets.zero : null,
       child: Column(
         children: [
           if (!widget.embeddedInClubsTab) _buildHeader(context),
-          _buildTabs(context),
+          _buildSegmentedTabs(),
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildMembershipList(activeMemberships),
-                _buildMembershipList(pendingMemberships),
-                _buildMembershipList(declinedMemberships),
-                VacancyApplicationsBody(
-                  filterClubName: widget.applicationsClubNameFilter,
-                  showBrowseVacanciesAction:
-                      widget.embeddedInHub || widget.embeddedInClubsTab,
-                  onBrowseOpenings: (widget.embeddedInHub || widget.embeddedInClubsTab)
-                      ? () {
-                          ClubHubScope.maybeOf(context)?.applyDeepLink(
-                            ClubHubDeepLink(
-                              tabIndex: ClubHubTabs.openings,
-                              clubName: widget.applicationsClubNameFilter,
-                            ),
-                          );
-                        }
-                      : null,
-                ),
+                _buildList(_active, 'active'),
+                _buildList(_pending, 'pending'),
+                _buildList(_declined, 'declined'),
               ],
             ),
           ),
@@ -202,13 +198,10 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
     );
 
     if (widget.embeddedInClubsTab) {
-      return ColoredBox(color: ClubUiColors.pageBg, child: inner);
+      return ColoredBox(color: AppColors.backgroundLight, child: inner);
     }
 
-    return Scaffold(
-      backgroundColor: ClubUiColors.pageBg,
-      body: SafeArea(child: inner),
-    );
+    return Scaffold(backgroundColor: AppColors.backgroundLight, body: SafeArea(child: inner));
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -218,29 +211,11 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
       child: Row(
         children: [
           if (!widget.embeddedInHub)
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
-              onPressed: () => Navigator.pop(context),
-            ),
+            IconButton(icon: const Icon(Icons.arrow_back, color: AppColors.gray700), onPressed: () => Navigator.pop(context)),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.embeddedInHub ? 'My clubs' : 'My Memberships',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                Text(
-                  widget.embeddedInHub
-                      ? 'Memberships and vacancy applications'
-                      : 'Track all your club memberships',
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray500),
-                ),
-              ],
+            child: Text(
+              widget.embeddedInHub ? 'My clubs' : 'My Memberships',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
             ),
           ),
         ],
@@ -248,382 +223,287 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
     );
   }
 
-  Widget _buildTabs(BuildContext context) {
-    final entries = <({String label, int? count, int index})>[
-      (label: 'Active', count: activeMemberships.length, index: 0),
-      (label: 'Pending', count: pendingMemberships.length, index: 1),
-      (label: 'Declined', count: declinedMemberships.length, index: 2),
-      (label: 'Applications', count: null, index: 3),
+  Widget _buildSegmentedTabs() {
+    final tabs = [
+      (_active.length, 'Active', Icons.verified_outlined),
+      (_pending.length, 'Pending', Icons.hourglass_empty_rounded),
+      (_declined.length, 'Declined', Icons.cancel_outlined),
     ];
+
     return Material(
       color: AppColors.white,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: widget.embeddedInClubsTab ? 12 : 16,
-              vertical: 6,
-            ),
-            child: AnimatedBuilder(
-              animation: _tabController,
-              builder: (context, _) {
-                final idx = _tabController.index;
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final e in entries)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _MembershipFilterChip(
-                            label: e.label,
-                            count: e.count,
-                            selected: idx == e.index,
-                            onTap: () {
-                              if (_tabController.index != e.index) {
-                                _tabController.animateTo(e.index);
-                              }
-                            },
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+        child: Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: AppColors.gray100,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: List.generate(3, (i) {
+              final sel = _tabController.index == i;
+              final (count, label, icon) = tabs[i];
+              return Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _tabController.animateTo(i),
+                    borderRadius: BorderRadius.circular(8),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: sel ? AppColors.white : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: sel
+                            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 1))]
+                            : null,
+                      ),
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(icon, size: 15, color: sel ? AppColors.primary : AppColors.gray500),
+                              const SizedBox(width: 5),
+                              Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                  color: sel ? AppColors.primary : AppColors.gray600,
+                                ),
+                              ),
+                              Text(
+                                ' $count',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: sel ? AppColors.secondary : AppColors.gray400,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                    ],
+                      ),
+                    ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            }),
           ),
-          Divider(height: 1, thickness: 1, color: AppColors.gray200),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildMembershipList(List<Membership> memberships) {
-    if (memberships.isEmpty) {
+  Widget _buildList(List<Membership> items, String type) {
+    if (items.isEmpty) {
       return Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.inbox, size: 64, color: AppColors.gray300),
-            const SizedBox(height: 16),
-            Text(
-              'No memberships',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.gray900),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'You don\'t have any ${_getStatusText()} memberships',
-              style: TextStyle(fontSize: 14, color: AppColors.gray500),
-            ),
+            Icon(Icons.inbox_outlined, size: 48, color: AppColors.gray300),
+            const SizedBox(height: 12),
+            Text('No $type memberships', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
+            const SizedBox(height: 4),
+            const Text('Nothing to show here yet', style: TextStyle(fontSize: 13, color: AppColors.gray500)),
           ],
         ),
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.fromLTRB(
-        widget.embeddedInClubsTab ? 12 : 24,
-        widget.embeddedInClubsTab ? 8 : 24,
-        widget.embeddedInClubsTab ? 12 : 24,
-        20,
-      ),
-      itemCount: memberships.length,
-      itemBuilder: (context, index) {
-        return _buildMembershipCard(context, memberships[index]);
-      },
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (_, i) => _card(context, items[i]),
     );
   }
 
-  Widget _buildMembershipCard(BuildContext context, Membership membership) {
-    const cardRadius = 12.0;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(cardRadius),
-        border: Border.all(color: AppColors.gray200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
+  Widget _card(BuildContext context, Membership m) {
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(14),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (membership.status == MembershipStatus.pending)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(cardRadius)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.access_time, size: 16, color: Colors.orange.shade700),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Under Review',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else if (membership.status == MembershipStatus.declined)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(cardRadius)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.close, size: 16, color: Colors.red.shade700),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Application Declined',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red.shade700,
-                    ),
-                  ),
-                ],
-              ),
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              color: _statusColor(m.status),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 32,
-                  backgroundImage: CachedNetworkImageProvider(membership.club.logo),
-                  onBackgroundImageError: (_, __) {},
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
+          ),
+          InkWell(
+            onTap: () => _openClub(context, m.club),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        membership.club.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: CachedNetworkImage(
+                          imageUrl: m.club.logo,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(width: 48, height: 48, color: AppColors.gray100),
+                          errorWidget: (_, __, ___) => Container(
+                            width: 48,
+                            height: 48,
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            child: const Icon(Icons.groups, color: AppColors.primary, size: 24),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      if (membership.status == MembershipStatus.active && membership.role != null && membership.sinceDate != null)
-                        Text(
-                          '${membership.role} Since ${membership.sinceDate}',
-                          style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-                        )
-                      else if (membership.submittedDate != null)
-                        Text(
-                          'Submitted on ${membership.submittedDate}',
-                          style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-                        ),
-                      if (membership.status == MembershipStatus.active) ...[
-                        const SizedBox(height: 8),
-                        Row(
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.check_circle, size: 16, color: Colors.green.shade600),
-                            const SizedBox(width: 4),
                             Text(
-                              'Active Member',
-                              style: TextStyle(fontSize: 12, color: Colors.green.shade700),
+                              m.club.name,
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.gray900),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
+                            const SizedBox(height: 4),
+                            if (m.status == MembershipStatus.active)
+                              _activeSubtitle(m)
+                            else if (m.status == MembershipStatus.pending)
+                              _pendingSubtitle(m)
+                            else
+                              _declinedSubtitle(m),
                           ],
                         ),
-                      ],
-                      if (membership.status == MembershipStatus.pending) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Your application is being reviewed by club officers. You\'ll be notified once a decision is made.',
-                          style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-                        ),
-                      ],
-                      if (membership.status == MembershipStatus.declined) ...[
-                        const SizedBox(height: 8),
-                        if (membership.declinedReason != null) ...[
-                          const Text(
-                            'Reason:',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.gray700),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            membership.declinedReason!,
-                            style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-                          ),
-                        ],
-                      ],
+                      ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      final link = await Navigator.push<ClubHubDeepLink?>(
-                        context,
-                        MaterialPageRoute<ClubHubDeepLink?>(
-                          builder: (context) => ClubDetails(club: membership.club),
-                        ),
-                      );
-                      if (!context.mounted || link == null) return;
-                      ClubHubScope.maybeOf(context)?.applyDeepLink(link);
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('View Club'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                if (membership.status == MembershipStatus.declined)
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        _showSnackBar('Contact request sent (mock).');
-                      },
-                      icon: const Icon(Icons.email, size: 18),
-                      label: const Text('Contact Club Officers'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _statusBadge(m.status),
+                      const Spacer(),
+                      Tooltip(
+                        message: 'Email club',
+                        child: Material(
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          child: InkWell(
+                            onTap: () => _emailClub(m),
+                            borderRadius: BorderRadius.circular(10),
+                            child: const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: Icon(Icons.mail_outline, size: 20, color: AppColors.primary),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  )
-                else
-                  IconButton(
-                    icon: const Icon(Icons.email, color: AppColors.primary),
-                    onPressed: () {
-                      _showSnackBar('Contact request sent (mock).');
-                    },
+                    ],
                   ),
-              ],
+                ],
+              ),
             ),
           ),
+          if (m.status == MembershipStatus.declined && m.declinedReason != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red.shade100),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.red.shade400),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        m.declinedReason!,
+                        style: TextStyle(fontSize: 12, height: 1.45, color: Colors.red.shade800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  String _getStatusText() {
-    switch (_selectedIndex) {
-      case 0:
-        return 'active';
-      case 1:
-        return 'pending';
-      case 2:
-        return 'declined';
-      default:
-        return '';
-    }
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+  Widget _activeSubtitle(Membership m) {
+    final parts = <String>[];
+    if (m.role != null) parts.add(m.role!);
+    if (m.sinceDate != null) parts.add('Since ${m.sinceDate}');
+    return Text(
+      parts.join(' · '),
+      style: const TextStyle(fontSize: 12, color: AppColors.gray600, height: 1.35),
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
     );
   }
-}
 
-class _MembershipFilterChip extends StatelessWidget {
-  final String label;
-  final int? count;
-  final bool selected;
-  final VoidCallback onTap;
+  Widget _pendingSubtitle(Membership m) {
+    final t = m.submittedDate != null ? 'Submitted ${m.submittedDate}' : 'Under review';
+    return Text(
+      t,
+      style: TextStyle(fontSize: 12, color: Colors.orange.shade800, height: 1.35),
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
 
-  const _MembershipFilterChip({
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-  });
+  Widget _declinedSubtitle(Membership m) {
+    final t = m.submittedDate != null ? 'Submitted ${m.submittedDate}' : 'Application declined';
+    return Text(
+      t,
+      style: const TextStyle(fontSize: 12, color: AppColors.gray600, height: 1.35),
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primary.withOpacity(0.08) : AppColors.gray50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: selected ? AppColors.primary.withOpacity(0.35) : AppColors.gray200,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: selected ? AppColors.primary : AppColors.gray700,
-                ),
-              ),
-              if (count != null) ...[
-                const SizedBox(width: 6),
-                Container(
-                  constraints: const BoxConstraints(minWidth: 20),
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.primary.withOpacity(0.14)
-                        : AppColors.gray200,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '$count',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: selected ? AppColors.primary : AppColors.gray600,
-                      height: 1,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+  Widget _statusBadge(MembershipStatus status) {
+    final (Color bg, Color fg, String label, IconData icon) = switch (status) {
+      MembershipStatus.active => (const Color(0xFFECFDF5), const Color(0xFF059669), 'Active', Icons.check_circle_outline),
+      MembershipStatus.pending => (const Color(0xFFFFFBEB), const Color(0xFFD97706), 'Pending', Icons.schedule),
+      MembershipStatus.declined => (const Color(0xFFFEF2F2), const Color(0xFFDC2626), 'Declined', Icons.cancel_outlined),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+        ],
       ),
     );
   }
+
+  Color _statusColor(MembershipStatus s) => switch (s) {
+    MembershipStatus.active => const Color(0xFF059669),
+    MembershipStatus.pending => const Color(0xFFD97706),
+    MembershipStatus.declined => const Color(0xFFDC2626),
+  };
 }

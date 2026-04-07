@@ -52,6 +52,15 @@ class Club {
   final int? establishedYear;
   final String? location;
 
+  /// Short public blurb (mirrors registration form "Short Description").
+  final String? shortDescription;
+
+  /// Main goals from registration form; shown on club profile.
+  final String? mainGoals;
+
+  /// Public contact email for the club.
+  final String? contactEmail;
+
   Club({
     required this.id,
     required this.name,
@@ -66,7 +75,13 @@ class Club {
     required this.events,
     this.establishedYear,
     this.location,
+    this.shortDescription,
+    this.mainGoals,
+    this.contactEmail,
   });
+
+  /// Fallback when [shortDescription] is not set.
+  String get effectiveShortDescription => shortDescription ?? about;
 
   String get statusString {
     switch (status) {

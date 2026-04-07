@@ -42,4 +42,3 @@ class AdaApp extends StatelessWidget {
     );
   }
 }
-

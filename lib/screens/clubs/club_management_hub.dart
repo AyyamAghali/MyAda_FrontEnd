@@ -69,7 +69,7 @@ class ClubManagementHubState extends State<ClubManagementHub>
       case ClubHubTabs.clubs:
         _clubsPane = link.clubsPane ?? ClubsHomePane.browse;
         if (_clubsPane == ClubsHomePane.myClubs) {
-          _myClubsInnerTab = (link.myClubsPrimaryTabIndex ?? 0).clamp(0, 3);
+          _myClubsInnerTab = (link.myClubsPrimaryTabIndex ?? 0).clamp(0, 2);
           _myClubsApplicationsClubName = link.clubName;
         }
         break;
@@ -163,7 +163,7 @@ class ClubManagementHubState extends State<ClubManagementHub>
             unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
             tabs: const [
               Tab(text: 'Clubs'),
-              Tab(text: 'Openings'),
+              Tab(text: 'Vacancies'),
               Tab(text: 'Events'),
             ],
           ),
@@ -186,7 +186,7 @@ class ClubManagementHubState extends State<ClubManagementHub>
               ),
             ),
             ColoredBox(
-              color: ClubUiColors.pageBg,
+              color: AppColors.backgroundLight,
               child: ClubVacanciesScreen(
                 key: ValueKey('openings-$_openingsClubId-$_openingsClubName'),
                 embedInHub: true,
@@ -195,7 +195,7 @@ class ClubManagementHubState extends State<ClubManagementHub>
               ),
             ),
             ColoredBox(
-              color: ClubUiColors.pageBg,
+              color: AppColors.backgroundLight,
               child: ClubEventsScreen(
                 key: ValueKey('events-$_eventsClubId'),
                 embedInHub: true,
