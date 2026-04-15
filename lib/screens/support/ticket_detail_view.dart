@@ -5,10 +5,23 @@ import '../../models/support_ticket.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 
-class TicketDetailView extends StatelessWidget {
+class TicketDetailView extends StatefulWidget {
   final SupportTicket ticket;
 
   const TicketDetailView({super.key, required this.ticket});
+
+  @override
+  State<TicketDetailView> createState() => _TicketDetailViewState();
+}
+
+class _TicketDetailViewState extends State<TicketDetailView> {
+  late SupportTicket _ticket;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticket = widget.ticket;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,32 +35,24 @@ class TicketDetailView extends StatelessWidget {
               _buildHeader(context),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildTicketHeader(context),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 14),
                       _buildStatusSection(context),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 14),
                       _buildDetailsSection(context),
-                      const SizedBox(height: 24),
-                      _buildDescriptionSection(context),
-                      if (ticket.assignedTo != null) ...[
-                        const SizedBox(height: 24),
-                        _buildAssignedSection(context),
+                      const SizedBox(height: 12),
+                      _buildDescriptionSection(),
+                      if (_ticket.assignedTo != null) ...[
+                        const SizedBox(height: 12),
+                        _buildAssignedSection(),
                       ],
-                      if (ticket.completedAt != null) ...[
-                        const SizedBox(height: 24),
-                        _buildCompletedSection(context),
-                      ],
-                      if (ticket.cancelledReason != null) ...[
-                        const SizedBox(height: 24),
-                        _buildCancelledSection(context),
-                      ],
-                      const SizedBox(height: 24),
-                      _buildTimelineSection(context),
-                      const SizedBox(height: 100),
+                      const SizedBox(height: 12),
+                      _buildTimelineSection(),
+                      const SizedBox(height: 90),
                     ],
                   ),
                 ),
@@ -62,26 +67,14 @@ class TicketDetailView extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       color: AppColors.white,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
+            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.gray700, size: 18),
             onPressed: () => Navigator.pop(context),
-          ),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.share, color: AppColors.gray700),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Share ticket (mock)')),
-                  );
-                },
-              ),
-            ],
           ),
         ],
       ),
@@ -90,32 +83,32 @@ class TicketDetailView extends StatelessWidget {
 
   Widget _buildTicketHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: ticket.type == 'IT'
+          colors: _ticket.type == 'IT'
               ? [AppColors.primary, AppColors.primaryDark]
               : [AppColors.secondary, AppColors.secondaryDark],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '#${ticket.id}',
+            '#${_ticket.id}',
             style: const TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
               color: AppColors.white,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            ticket.title,
+            _ticket.title,
             style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
               color: AppColors.white,
             ),
           ),
@@ -127,7 +120,7 @@ class TicketDetailView extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              ticket.categoryString,
+              _ticket.categoryString,
               style: const TextStyle(fontSize: 12, color: AppColors.white),
             ),
           ),
@@ -140,11 +133,11 @@ class TicketDetailView extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _buildStatusCard('Status', ticket.statusString, _getStatusColor(ticket.status)),
+          child: _buildStatusCard('Status', _ticket.statusString, _getStatusColor(_ticket.status)),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _buildStatusCard('Priority', ticket.priorityString, _getPriorityColor(ticket.priority)),
+          child: _buildStatusCard('Priority', _ticket.priorityString, _getPriorityColor(_ticket.priority)),
         ),
       ],
     );
@@ -152,10 +145,10 @@ class TicketDetailView extends StatelessWidget {
 
   Widget _buildStatusCard(String label, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.gray200),
       ),
       child: Column(
@@ -170,7 +163,7 @@ class TicketDetailView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               value,
@@ -188,10 +181,10 @@ class TicketDetailView extends StatelessWidget {
 
   Widget _buildDetailsSection(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray200),
       ),
       child: Column(
@@ -200,18 +193,154 @@ class TicketDetailView extends StatelessWidget {
           const Text(
             'Ticket Details',
             style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
               color: AppColors.gray900,
             ),
           ),
           const SizedBox(height: 16),
-          _buildDetailRow(Icons.location_on, 'Location', ticket.location),
-          _buildDetailRow(Icons.access_time, 'Created', _formatDateTime(ticket.createdAt)),
-          if (ticket.completedAt != null)
-            _buildDetailRow(Icons.check_circle, 'Completed', _formatDateTime(ticket.completedAt!)),
+          _buildDetailRow(Icons.location_on, 'Location', _ticket.location),
+          _buildDetailRow(Icons.access_time, 'Created', _formatDateTime(_ticket.createdAt)),
+          if (_ticket.completedAt != null)
+            _buildDetailRow(Icons.check_circle, 'Completed', _formatDateTime(_ticket.completedAt!)),
         ],
       ),
+    );
+  }
+
+  Widget _buildDescriptionSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.gray200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.description_outlined, size: 18, color: AppColors.gray600),
+              SizedBox(width: 8),
+              Text(
+                'Description',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.gray900),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _ticket.description,
+            style: const TextStyle(fontSize: 14, color: AppColors.gray600, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssignedSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE6F6FB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBFE7F3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.person_outline, size: 20, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Assigned To',
+                  style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _ticket.assignedTo!,
+                  style: const TextStyle(fontSize: 16, color: AppColors.primary, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineSection() {
+    final doneAssigned = _ticket.status.index >= TicketStatus.assigned.index;
+    final doneProgress = _ticket.status == TicketStatus.inProgress || _ticket.status == TicketStatus.completed;
+    final doneCompleted = _ticket.status == TicketStatus.completed;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.gray200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.format_list_bulleted, size: 18, color: AppColors.gray600),
+              SizedBox(width: 8),
+              Text('Timeline', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.gray900)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _timelineItem('Created', _formatDateTime(_ticket.createdAt), true),
+          _timelineItem('Assigned', _ticket.assignedTo == null ? 'Pending assignment' : 'Assigned to ${_ticket.assignedTo}', doneAssigned),
+          _timelineItem('In Progress', 'Work started on ticket', doneProgress),
+          _timelineItem('Completed', 'Resolution and closure', doneCompleted, isLast: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _timelineItem(String title, String desc, bool active, {bool isLast = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: active ? AppColors.primary : AppColors.gray200,
+                shape: BoxShape.circle,
+              ),
+              child: active ? const Icon(Icons.check, size: 12, color: AppColors.white) : null,
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 28,
+                color: AppColors.gray200,
+              ),
+          ],
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.gray900)),
+                const SizedBox(height: 2),
+                Text(desc, style: const TextStyle(fontSize: 13, color: AppColors.gray500)),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -246,272 +375,8 @@ class TicketDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildDescriptionSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.description, color: AppColors.primary, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Description',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.gray900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            ticket.description,
-            style: const TextStyle(fontSize: 14, color: AppColors.gray600, height: 1.5),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAssignedSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border.all(color: Colors.blue.shade200),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.person, color: Colors.blue, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Assigned To',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.blue,
-                  ),
-                ),
-                Text(
-                  ticket.assignedTo!,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompletedSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        border: Border.all(color: Colors.green.shade200),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 24),
-              SizedBox(width: 8),
-              Text(
-                'Completed',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
-            ],
-          ),
-          if (ticket.rating != null) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Text(
-                  'Your Rating: ',
-                  style: TextStyle(fontSize: 14, color: Colors.green),
-                ),
-                ...List.generate(5, (index) {
-                  return Icon(
-                    Icons.star,
-                    size: 20,
-                    color: index < ticket.rating! ? Colors.amber : AppColors.gray300,
-                  );
-                }),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCancelledSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.gray100,
-        border: Border.all(color: AppColors.gray300),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.cancel, color: AppColors.gray700, size: 24),
-              SizedBox(width: 8),
-              Text(
-                'Cancelled',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.gray700,
-                ),
-              ),
-            ],
-          ),
-          if (ticket.cancelledReason != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Reason: ${ticket.cancelledReason}',
-              style: const TextStyle(fontSize: 14, color: AppColors.gray600),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimelineSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.timeline, color: AppColors.primary, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Timeline',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.gray900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildTimelineItem('Created', _formatDateTime(ticket.createdAt), true),
-          if (ticket.assignedTo != null)
-            _buildTimelineItem('Assigned', 'Assigned to ${ticket.assignedTo}', 
-                ticket.status == TicketStatus.assigned || 
-                ticket.status == TicketStatus.inProgress || 
-                ticket.status == TicketStatus.completed),
-          if (ticket.status == TicketStatus.inProgress || ticket.status == TicketStatus.completed)
-            _buildTimelineItem('In Progress', 'Work started on ticket', 
-                ticket.status == TicketStatus.inProgress),
-          if (ticket.status == TicketStatus.completed && ticket.completedAt != null)
-            _buildTimelineItem('Completed', _formatDateTime(ticket.completedAt!), true),
-          if (ticket.status == TicketStatus.cancelled)
-            _buildTimelineItem('Cancelled', ticket.cancelledReason ?? 'Ticket cancelled', true),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimelineItem(String title, String description, bool isActive) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: isActive ? AppColors.primary : AppColors.gray200,
-                  shape: BoxShape.circle,
-                ),
-                child: isActive
-                    ? const Icon(Icons.check, color: AppColors.white, size: 16)
-                    : Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: AppColors.gray400,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-              ),
-              Container(
-                width: 2,
-                height: 32,
-                color: AppColors.gray200,
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: isActive ? AppColors.gray900 : AppColors.gray600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isActive ? AppColors.gray600 : AppColors.gray500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBottomActions(BuildContext context) {
-    if (ticket.status == TicketStatus.completed) {
+    if (_ticket.status == TicketStatus.completed) {
       return Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
@@ -536,12 +401,12 @@ class TicketDetailView extends StatelessWidget {
       );
     }
 
-    if (ticket.status == TicketStatus.cancelled) {
+    if (_ticket.status == TicketStatus.cancelled) {
       return const SizedBox.shrink();
     }
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       decoration: BoxDecoration(
         color: AppColors.white,
         border: Border(top: BorderSide(color: AppColors.gray200)),
@@ -554,10 +419,13 @@ class TicketDetailView extends StatelessWidget {
                 onPressed: () {
                   _showContactDialog(context);
                 },
-                icon: const Icon(Icons.message),
-                label: const Text('Contact Staff'),
+                icon: const Icon(Icons.call_outlined),
+                label: const Text('Call Staff'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  foregroundColor: AppColors.gray700,
+                  side: const BorderSide(color: AppColors.gray300),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                 ),
               ),
             ),
@@ -570,9 +438,10 @@ class TicketDetailView extends StatelessWidget {
                 icon: const Icon(Icons.cancel),
                 label: const Text('Cancel Ticket'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
+                  backgroundColor: const Color(0xFFEF4444),
                   foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                 ),
               ),
             ),
@@ -586,20 +455,19 @@ class TicketDetailView extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Contact Support Staff'),
+        title: const Text('Call Support Staff'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (ticket.assignedTo != null) ...[
-              Text('Assigned to: ${ticket.assignedTo}'),
+            if (_ticket.assignedTo != null) ...[
+              Text('Assigned to: ${_ticket.assignedTo}'),
               const SizedBox(height: 16),
             ],
-            const Text('You can contact support via:'),
+            const Text('Start an in-app voice call with support:'),
             const SizedBox(height: 8),
-            const Text('• Email: support@ada.edu.az'),
-            const Text('• Phone: +994 12 437 32 35'),
-            const Text('• Chat: Available in app'),
+            const Text('• Staff line: +994 12 437 32 35'),
+            const Text('• Available now'),
           ],
         ),
         actions: [
@@ -609,13 +477,17 @@ class TicketDetailView extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              final uri = Uri.parse('mailto:support@ada.edu.az?subject=Ticket ${ticket.id}');
+              final uri = Uri.parse('tel:+994124373235');
               if (await canLaunchUrl(uri)) {
                 await launchUrl(uri);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Starting in-app call (mock)...')),
+                );
               }
               Navigator.pop(context);
             },
-            child: const Text('Send Email'),
+            child: const Text('Call now'),
           ),
         ],
       ),
@@ -623,29 +495,91 @@ class TicketDetailView extends StatelessWidget {
   }
 
   void _showCancelDialog(BuildContext context) {
+    final controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cancel Ticket'),
-        content: const Text('Are you sure you want to cancel this ticket? This action cannot be undone.'),
+        title: const Text('Cancel Request'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Please provide a reason for cancelling this request.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                minLines: 3,
+                maxLines: 6,
+                decoration: InputDecoration(
+                  hintText: 'Enter reason...',
+                  filled: true,
+                  fillColor: AppColors.gray50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.gray200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('No'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              final reason = controller.text.trim();
+              if (reason.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Please enter a cancellation reason'),
+                    backgroundColor: Colors.red.shade700,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                );
+                return;
+              }
+              setState(() {
+                _ticket = SupportTicket(
+                  id: _ticket.id,
+                  title: _ticket.title,
+                  description: _ticket.description,
+                  category: _ticket.category,
+                  status: TicketStatus.cancelled,
+                  priority: _ticket.priority,
+                  location: _ticket.location,
+                  createdAt: _ticket.createdAt,
+                  assignedTo: _ticket.assignedTo,
+                  completedAt: _ticket.completedAt,
+                  cancelledReason: reason,
+                  rating: _ticket.rating,
+                  type: _ticket.type,
+                );
+              });
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Ticket cancelled (mock)'),
+                  content: Text('Request cancelled (mock)'),
                   backgroundColor: Colors.orange,
+                  behavior: SnackBarBehavior.floating,
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Yes, Cancel'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            child: const Text('Confirm Cancel'),
           ),
         ],
       ),
@@ -653,7 +587,7 @@ class TicketDetailView extends StatelessWidget {
   }
 
   void _showRatingDialog(BuildContext context) {
-    int rating = ticket.rating ?? 0;
+    int rating = _ticket.rating ?? 0;
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(

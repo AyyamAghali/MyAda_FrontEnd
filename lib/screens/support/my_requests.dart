@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/support_ticket.dart';
 import '../../utils/constants.dart';
-import '../../widgets/responsive_container.dart';
 import 'ticket_detail_view.dart';
 
 class MyRequests extends StatefulWidget {
@@ -14,6 +13,10 @@ class MyRequests extends StatefulWidget {
 
 class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String _searchQuery = '';
+  String _typeFilter = 'all'; // all | IT | FM
+  String _urgencyFilter = 'all'; // all | urgent | not_urgent
+  final FocusNode _searchFocus = FocusNode();
 
   final List<SupportTicket> mockTickets = [
     SupportTicket(
@@ -38,7 +41,7 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
       location: 'Lecture Hall 101',
       createdAt: DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
       assignedTo: 'Leyla Huseynova',
-      type: 'Technical',
+      type: 'FM',
     ),
     SupportTicket(
       id: 'T-1145',
@@ -78,7 +81,7 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
       completedAt: DateTime(2025, 11, 10).toIso8601String(),
       assignedTo: 'Rashad Hasanov',
       rating: 5,
-      type: 'Technical',
+      type: 'FM',
     ),
     SupportTicket(
       id: 'T-0856',
@@ -103,6 +106,7 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
   @override
   void dispose() {
     _tabController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -116,6 +120,26 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
   List<SupportTicket> get cancelledTickets =>
       mockTickets.where((t) => t.status == TicketStatus.cancelled).toList();
 
+  bool get _hasFilters => _typeFilter != 'all' || _urgencyFilter != 'all';
+
+  List<SupportTicket> _applySearchAndFilters(List<SupportTicket> tickets) {
+    final q = _searchQuery.trim().toLowerCase();
+    return tickets.where((t) {
+      final matchQuery = q.isEmpty ||
+          t.id.toLowerCase().contains(q) ||
+          t.title.toLowerCase().contains(q) ||
+          t.location.toLowerCase().contains(q);
+
+      final matchType = _typeFilter == 'all' || t.type.toLowerCase() == _typeFilter.toLowerCase();
+
+      final matchUrgency = _urgencyFilter == 'all' ||
+          (_urgencyFilter == 'urgent' && t.priority == TicketPriority.high) ||
+          (_urgencyFilter == 'not_urgent' && t.priority != TicketPriority.high);
+
+      return matchQuery && matchType && matchUrgency;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -124,14 +148,15 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
         child: Column(
           children: [
             _buildHeader(context),
-            _buildTabs(context),
+            _buildSearchRow(context),
+            _buildSegmentedTabs(),
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildTicketsList(openTickets),
-                  _buildTicketsList(completedTickets),
-                  _buildTicketsList(cancelledTickets),
+                  _buildTicketsList(_applySearchAndFilters(openTickets)),
+                  _buildTicketsList(_applySearchAndFilters(completedTickets)),
+                  _buildTicketsList(_applySearchAndFilters(cancelledTickets)),
                 ],
               ),
             ),
@@ -161,8 +186,8 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                 Text(
                   'My Requests',
                   style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.gray900,
                     letterSpacing: -0.5,
                   ),
@@ -184,75 +209,286 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildTabs(BuildContext context) {
+  Widget _buildSearchRow(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
       color: AppColors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: TabBar(
-        controller: _tabController,
-        labelColor: AppColors.gray900,
-        unselectedLabelColor: AppColors.gray600,
-        indicatorColor: AppColors.gray900,
-        indicatorWeight: 2.5,
-        indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          letterSpacing: -0.2,
-        ),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-        tabs: [
-          _buildTabWithBadge('Open', openTickets.length, 0),
-          _buildTabWithBadge('Completed', completedTickets.length, 1),
-          _buildTabWithBadge('Cancelled', cancelledTickets.length, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 40,
+            child: TextField(
+              focusNode: _searchFocus,
+              onChanged: (v) => setState(() => _searchQuery = v),
+              style: const TextStyle(fontSize: 14, color: AppColors.gray900),
+              decoration: InputDecoration(
+                hintText: 'Search by name or tag...',
+                hintStyle: const TextStyle(fontSize: 13, color: AppColors.gray400),
+                prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.gray400),
+                prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 0),
+                suffixIcon: GestureDetector(
+                  onTap: () => _openFilterSheet(context),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.tune, size: 17, color: AppColors.primary),
+                  ),
+                ),
+                suffixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 0),
+                filled: true,
+                fillColor: AppColors.gray50,
+                contentPadding: EdgeInsets.zero,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.gray200),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.gray200),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                '${_currentTabTickets.length} ticket${_currentTabTickets.length == 1 ? '' : 's'}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.gray500),
+              ),
+              if (_hasFilters) ...[
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _typeFilter = 'all';
+                    _urgencyFilter = 'all';
+                  }),
+                  child: const Text(
+                    'Clear filters',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.secondary),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTabWithBadge(String label, int count, int index) {
-    return Tab(
-      child: AnimatedBuilder(
-        animation: _tabController,
-        builder: (context, child) {
-          final isSelected = _tabController.index == index;
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+  List<SupportTicket> get _currentTabTickets {
+    if (_tabController.index == 1) return _applySearchAndFilters(completedTickets);
+    if (_tabController.index == 2) return _applySearchAndFilters(cancelledTickets);
+    return _applySearchAndFilters(openTickets);
+  }
+
+  void _openFilterSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        var tmpType = _typeFilter;
+        var tmpUrg = _urgencyFilter;
+
+        Widget chip(String id, String label, String group, void Function(String) setModal) {
+          final sel = id == group;
+          return GestureDetector(
+            onTap: () => setModal(id),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: sel ? AppColors.primary : AppColors.gray100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: sel ? AppColors.white : AppColors.gray700,
                 ),
               ),
-              const SizedBox(width: 5),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.gray900.withOpacity(0.15)
-                      : AppColors.gray600.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? AppColors.gray900 : AppColors.gray700,
+            ),
+          );
+        }
+
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, MediaQuery.of(ctx).padding.bottom + 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.gray300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Filters',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.gray900),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(ctx),
+                        child: const Icon(Icons.close, size: 22, color: AppColors.gray500),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Type',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gray600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      chip('all', 'All', tmpType, (v) => setModal(() => tmpType = v)),
+                      chip('IT', 'IT', tmpType, (v) => setModal(() => tmpType = v)),
+                      chip('FM', 'FM', tmpType, (v) => setModal(() => tmpType = v)),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Urgency',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gray600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      chip('all', 'All', tmpUrg, (v) => setModal(() => tmpUrg = v)),
+                      chip('urgent', 'Urgent', tmpUrg, (v) => setModal(() => tmpUrg = v)),
+                      chip('not_urgent', 'Not urgent', tmpUrg, (v) => setModal(() => tmpUrg = v)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _typeFilter = tmpType;
+                          _urgencyFilter = tmpUrg;
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 0,
+                      ),
+                      child: const Text('Apply', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSegmentedTabs() {
+    final tabs = [
+      (openTickets.length, 'Open', Icons.settings_outlined),
+      (completedTickets.length, 'Completed', Icons.check_circle_outline),
+      (cancelledTickets.length, 'Canceled', Icons.cancel_outlined),
+    ];
+
+    return Material(
+      color: AppColors.backgroundLight,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+        child: Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: AppColors.gray100,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: List.generate(3, (i) {
+              final sel = _tabController.index == i;
+              final (count, label, icon) = tabs[i];
+              return Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      _tabController.animateTo(i);
+                      setState(() {});
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: sel ? AppColors.white : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            children: [
+                              Icon(icon, size: 15, color: sel ? AppColors.primary : AppColors.gray500),
+                              const SizedBox(width: 5),
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                  color: sel ? AppColors.primary : AppColors.gray600,
+                                ),
+                              ),
+                              Text(
+                                ' $count',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: sel ? AppColors.secondary : AppColors.gray400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+              );
+            }),
+          ),
+        ),
       ),
     );
   }
@@ -286,234 +522,94 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       itemCount: tickets.length,
-      itemBuilder: (context, index) {
-        return _buildTicketCard(context, tickets[index]);
-      },
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) => _buildTicketCard(context, tickets[index]),
     );
   }
 
   Widget _buildTicketCard(BuildContext context, SupportTicket ticket) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 300 + (ticket.hashCode % 100)),
-      curve: Curves.easeOut,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - value)),
-            child: child,
-          ),
-        );
-      },
-      child: GestureDetector(
-        onTapDown: (_) {
-          // Scale animation handled by Material
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => TicketDetailView(ticket: ticket)),
+          );
         },
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    '#${ticket.id}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.gray600),
+                  ),
+                  const Spacer(),
+                  _buildPriorityBadge(ticket.priority),
+                  const SizedBox(width: 6),
+                  _buildStatusBadge(ticket.status),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: const Text(
+                  'IT SERVICES',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF2563EB),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                ticket.title,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.gray900, height: 1.2),
+              ),
+              const SizedBox(height: 8),
+              _meta(Icons.location_on_outlined, ticket.location),
+              _meta(Icons.access_time_outlined, 'Opened ${_getTimeAgo(ticket.createdAt)}'),
+              _meta(
+                Icons.person_outline,
+                ticket.assignedTo == null ? 'Pending assignment' : 'Assigned to ${ticket.assignedTo}',
               ),
             ],
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => TicketDetailView(ticket: ticket),
-                  ),
-                );
-              },
-              borderRadius: BorderRadius.circular(18),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top row: Ticket ID and badges
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '#${ticket.id}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.gray600,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            _buildStatusBadge(ticket.status),
-                            const SizedBox(width: 6),
-                            _buildPriorityBadge(ticket.priority),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    // Title
-                    Text(
-                      ticket.title,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.gray900,
-                        height: 1.3,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // Category tag
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: AppColors.gray100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        ticket.categoryString,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.gray600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Divider
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: AppColors.gray200,
-                    ),
-                    const SizedBox(height: 14),
-                    // Metadata row
-                    Row(
-                      children: [
-                        Icon(Icons.location_on_outlined, size: 16, color: AppColors.gray500),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            ticket.location,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.gray600,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Icon(Icons.access_time_outlined, size: 16, color: AppColors.gray500),
-                        const SizedBox(width: 6),
-                        Text(
-                          _getTimeAgo(ticket.createdAt),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppColors.gray600,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Assigned to or waiting
-                    if (ticket.assignedTo != null) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Icon(Icons.person_outline, size: 16, color: AppColors.gray500),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Assigned to ${ticket.assignedTo}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.gray600,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    // Completed date
-                    if (ticket.completedAt != null) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Icon(Icons.check_circle_outline, size: 16, color: const Color(0xFF10B981)),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Completed ${_formatDate(ticket.completedAt!)}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF10B981),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    // Rating stars
-                    if (ticket.rating != null) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          ...List.generate(5, (index) {
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 2),
-                              child: Icon(
-                                Icons.star_rounded,
-                                size: 16,
-                                color: index < ticket.rating!
-                                    ? const Color(0xFFFFB800)
-                                    : AppColors.gray300,
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    ],
-                    // Cancelled reason
-                    if (ticket.cancelledReason != null) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Icon(Icons.cancel_outlined, size: 16, color: AppColors.gray500),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Reason: ${ticket.cancelledReason}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.gray600,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+        ),
+      ),
+    );
+  }
+
+  Widget _meta(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: AppColors.gray400),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 12, color: AppColors.gray500, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -553,9 +649,13 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
         borderRadius: BorderRadius.circular(20), // Pill-shaped
       ),
       child: Text(
-        status == TicketStatus.pending || status == TicketStatus.assigned ? 'Assigned' :
-        status == TicketStatus.inProgress ? 'In Progress' :
-        status == TicketStatus.completed ? 'Completed' : 'Cancelled',
+        status == TicketStatus.pending || status == TicketStatus.assigned
+            ? 'Assigned'
+            : status == TicketStatus.inProgress
+                ? 'In Progress'
+                : status == TicketStatus.completed
+                    ? 'Completed'
+                    : 'Canceled',
         style: TextStyle(
           fontSize: 11,
           color: textColor,
@@ -630,12 +730,4 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
     }
   }
 
-  String _formatDate(String dateStr) {
-    try {
-      final date = DateTime.parse(dateStr);
-      return DateFormat('MMM d').format(date);
-    } catch (e) {
-      return dateStr;
-    }
-  }
 }

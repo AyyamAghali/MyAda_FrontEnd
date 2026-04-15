@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
-import '../../widgets/responsive_container.dart';
 import 'my_requests.dart';
 import 'new_issue_form.dart';
 
@@ -14,6 +13,7 @@ class ITSupportHome extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             _buildHeader(context),
@@ -26,11 +26,11 @@ class ITSupportHome extends StatelessWidget {
                       _buildMyRequestsCard(context),
                       const SizedBox(height: 12),
                     ],
+                    _buildImmediateHelpCard(context),
+                    const SizedBox(height: 12),
                     _buildITSupportCard(context),
                     const SizedBox(height: 12),
                     _buildFMSupportCard(context),
-                    const SizedBox(height: 16),
-                    _buildQuickTips(context),
                   ],
                 ),
               ),
@@ -42,8 +42,9 @@ class ITSupportHome extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: EdgeInsets.fromLTRB(20, top + 12, 20, 14),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [AppColors.primary, AppColors.primaryDark],
@@ -66,17 +67,17 @@ class ITSupportHome extends StatelessWidget {
                 Text(
                   'IT & FM Support',
                   style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.white,
-                    letterSpacing: -0.3,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 SizedBox(height: 2),
                 Text(
                   'Get help with campus IT and FM issues',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: AppColors.white,
                     fontWeight: FontWeight.w400,
                   ),
@@ -86,6 +87,154 @@ class ITSupportHome extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildImmediateHelpCard(BuildContext context) {
+    const phone = '+994 (50) 123-45-67';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF9A3D50), Color(0xFFAE485E)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFAE485E).withOpacity(0.30),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Need immediate help?',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.white,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'For emergencies or campus-wide outages, please contact the Student Services desk directly.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: AppColors.white.withOpacity(0.78),
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: () => _showInAppCallSheet(context, phone),
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.call, size: 16, color: AppColors.secondary),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Start in-app call',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.secondary,
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.white.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.support_agent, color: AppColors.white, size: 22),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showInAppCallSheet(BuildContext context, String phone) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.gray300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'In-app support call',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.gray900),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  phone,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.gray600),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Starting in-app call (mock)...')),
+                      );
+                    },
+                    icon: const Icon(Icons.call, size: 18),
+                    label: const Text('Call now'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -101,8 +250,8 @@ class ITSupportHome extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.blue.shade50,
-          border: Border.all(color: Colors.blue.shade200, width: 1),
+          color: AppColors.white,
+          border: Border.all(color: AppColors.gray200, width: 1),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -114,14 +263,14 @@ class ITSupportHome extends StatelessWidget {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.description, color: AppColors.white, size: 22),
+              child: const Icon(Icons.assignment_outlined, color: AppColors.white, size: 22),
             ),
             const SizedBox(width: 12),
             const Expanded(
               child: Row(
                 children: [
                   Text(
-                    'My Requests',
+                    'Track Requests',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -130,7 +279,7 @@ class ITSupportHome extends StatelessWidget {
                   ),
                   SizedBox(width: 8),
                   Text(
-                    '3 open tickets',
+                    '3 active tickets',
                     style: TextStyle(
                       fontSize: 13,
                       color: AppColors.gray600,
@@ -471,65 +620,6 @@ class ITSupportHome extends StatelessWidget {
           color: AppColors.gray700,
           fontWeight: FontWeight.w400,
         ),
-      ),
-    );
-  }
-
-  Widget _buildQuickTips(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade50,
-        border: Border.all(color: Colors.amber.shade200, width: 1),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.lightbulb_outline, color: Colors.amber.shade700, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                'Quick Tips',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.amber.shade800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _buildTipItem('Check FAQs before submitting a request'),
-          _buildTipItem('Include photos/videos for faster resolution'),
-          _buildTipItem('Urgent requests are prioritized within 1 hour'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTipItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '• ',
-            style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
-          ),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.amber.shade800,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
