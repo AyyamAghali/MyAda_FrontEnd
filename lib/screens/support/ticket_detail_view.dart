@@ -23,36 +23,57 @@ class _TicketDetailViewState extends State<TicketDetailView> {
     _ticket = widget.ticket;
   }
 
+  // ── Accent color helpers ──────────────────────────────────────────────
+
+  Color get _accentColor =>
+      _ticket.type == 'IT' ? AppColors.primary : AppColors.secondary;
+
+  Color get _accentDark =>
+      _ticket.type == 'IT' ? AppColors.primaryDark : AppColors.secondaryDark;
+
+  // ── Build ──────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: AppColors.white,
       body: SafeArea(
+        top: false,
         child: ResponsiveContainer(
-          backgroundColor: AppColors.backgroundLight,
+          backgroundColor: AppColors.white,
           child: Column(
             children: [
-              _buildHeader(context),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildTicketHeader(context),
-                      const SizedBox(height: 14),
-                      _buildStatusSection(context),
-                      const SizedBox(height: 14),
-                      _buildDetailsSection(context),
-                      const SizedBox(height: 12),
-                      _buildDescriptionSection(),
-                      if (_ticket.assignedTo != null) ...[
-                        const SizedBox(height: 12),
-                        _buildAssignedSection(),
-                      ],
-                      const SizedBox(height: 12),
-                      _buildTimelineSection(),
-                      const SizedBox(height: 90),
+                      _buildHeroHeader(context),
+                      _buildTitleSection(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildStatusRow(),
+                            _buildDivider(),
+                            _buildDetailsSection(),
+                            _buildDivider(),
+                            _buildDescriptionSection(),
+                            if (_ticket.assignedTo != null) ...[
+                              _buildDivider(),
+                              _buildAssignedSection(),
+                            ],
+                            if (_ticket.cancelledReason != null) ...[
+                              _buildDivider(),
+                              _buildCancelReasonSection(),
+                            ],
+                            _buildDivider(),
+                            _buildTimelineSection(),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -65,63 +86,83 @@ class _TicketDetailViewState extends State<TicketDetailView> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-      color: AppColors.white,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.gray700, size: 18),
-            onPressed: () => Navigator.pop(context),
+  // ── Hero header ────────────────────────────────────────────────────────
+
+  Widget _buildHeroHeader(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          height: 170 + topPadding,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [_accentColor, _accentDark],
+            ),
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(28),
+            ),
           ),
-        ],
-      ),
+        ),
+        // Back button
+        Positioned(
+          top: topPadding + 8,
+          left: 16,
+          child: _CircleButton(
+            icon: Icons.arrow_back_ios_new,
+            onTap: () => Navigator.pop(context),
+          ),
+        ),
+        // Type badge + ticket ID at bottom of hero
+        Positioned(
+          left: 20,
+          bottom: 18,
+          child: Row(
+            children: [
+              _HeroChip(
+                label: _ticket.type == 'IT' ? 'IT Support' : 'FM Support',
+                color: Colors.white.withOpacity(0.25),
+              ),
+              const SizedBox(width: 8),
+              _HeroChip(
+                label: '#${_ticket.id}',
+                color: Colors.black.withOpacity(0.18),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildTicketHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: _ticket.type == 'IT'
-              ? [AppColors.primary, AppColors.primaryDark]
-              : [AppColors.secondary, AppColors.secondaryDark],
-        ),
-        borderRadius: BorderRadius.circular(18),
-      ),
+  // ── Title ──────────────────────────────────────────────────────────────
+
+  Widget _buildTitleSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '#${_ticket.id}',
-            style: const TextStyle(
-              fontSize: 18,
+            _ticket.categoryString.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: AppColors.white,
+              color: _accentColor,
+              letterSpacing: 1.0,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             _ticket.title,
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppColors.white,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              _ticket.categoryString,
-              style: const TextStyle(fontSize: 12, color: AppColors.white),
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.gray900,
+              letterSpacing: -0.3,
             ),
           ),
         ],
@@ -129,242 +170,293 @@ class _TicketDetailViewState extends State<TicketDetailView> {
     );
   }
 
-  Widget _buildStatusSection(BuildContext context) {
+  // ── Status & Priority row ──────────────────────────────────────────────
+
+  Widget _buildStatusRow() {
     return Row(
       children: [
-        Expanded(
-          child: _buildStatusCard('Status', _ticket.statusString, _getStatusColor(_ticket.status)),
+        _StatusChip(
+          label: _ticket.statusString,
+          color: _getStatusColor(_ticket.status),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatusCard('Priority', _ticket.priorityString, _getPriorityColor(_ticket.priority)),
+        const SizedBox(width: 8),
+        _StatusChip(
+          label: _ticket.priorityString,
+          color: _getPriorityColor(_ticket.priority),
+          prefix: 'Priority: ',
         ),
       ],
     );
   }
 
-  Widget _buildStatusCard(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: AppColors.gray500),
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ── Details section ────────────────────────────────────────────────────
 
-  Widget _buildDetailsSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Ticket Details',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: AppColors.gray900,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildDetailRow(Icons.location_on, 'Location', _ticket.location),
-          _buildDetailRow(Icons.access_time, 'Created', _formatDateTime(_ticket.createdAt)),
-          if (_ticket.completedAt != null)
-            _buildDetailRow(Icons.check_circle, 'Completed', _formatDateTime(_ticket.completedAt!)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDescriptionSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.description_outlined, size: 18, color: AppColors.gray600),
-              SizedBox(width: 8),
-              Text(
-                'Description',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.gray900),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _ticket.description,
-            style: const TextStyle(fontSize: 14, color: AppColors.gray600, height: 1.4),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAssignedSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE6F6FB),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFBFE7F3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.person_outline, size: 20, color: AppColors.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Assigned To',
-                  style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  _ticket.assignedTo!,
-                  style: const TextStyle(fontSize: 16, color: AppColors.primary, fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimelineSection() {
-    final doneAssigned = _ticket.status.index >= TicketStatus.assigned.index;
-    final doneProgress = _ticket.status == TicketStatus.inProgress || _ticket.status == TicketStatus.completed;
-    final doneCompleted = _ticket.status == TicketStatus.completed;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.format_list_bulleted, size: 18, color: AppColors.gray600),
-              SizedBox(width: 8),
-              Text('Timeline', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.gray900)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _timelineItem('Created', _formatDateTime(_ticket.createdAt), true),
-          _timelineItem('Assigned', _ticket.assignedTo == null ? 'Pending assignment' : 'Assigned to ${_ticket.assignedTo}', doneAssigned),
-          _timelineItem('In Progress', 'Work started on ticket', doneProgress),
-          _timelineItem('Completed', 'Resolution and closure', doneCompleted, isLast: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _timelineItem(String title, String desc, bool active, {bool isLast = false}) {
-    return Row(
+  Widget _buildDetailsSection() {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: active ? AppColors.primary : AppColors.gray200,
-                shape: BoxShape.circle,
-              ),
-              child: active ? const Icon(Icons.check, size: 12, color: AppColors.white) : null,
-            ),
-            if (!isLast)
-              Container(
-                width: 2,
-                height: 28,
-                color: AppColors.gray200,
-              ),
-          ],
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.gray900)),
-                const SizedBox(height: 2),
-                Text(desc, style: const TextStyle(fontSize: 13, color: AppColors.gray500)),
-              ],
-            ),
+        _buildSectionTitle('Ticket Details'),
+        const SizedBox(height: 14),
+        _buildDetailRow('Location', _ticket.location,
+            icon: Icons.location_on_outlined),
+        _buildDetailRow('Created', _formatDateTime(_ticket.createdAt),
+            icon: Icons.access_time_outlined),
+        if (_ticket.completedAt != null)
+          _buildDetailRow('Completed', _formatDateTime(_ticket.completedAt!),
+              icon: Icons.check_circle_outline),
+      ],
+    );
+  }
+
+  // ── Description ────────────────────────────────────────────────────────
+
+  Widget _buildDescriptionSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Description'),
+        const SizedBox(height: 10),
+        Text(
+          _ticket.description,
+          style: const TextStyle(
+            fontSize: 15,
+            color: AppColors.gray600,
+            height: 1.6,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
+  // ── Assigned staff ─────────────────────────────────────────────────────
+
+  Widget _buildAssignedSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Assigned Staff'),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: _accentColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.person_outline,
+                  size: 20, color: _accentColor),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              _ticket.assignedTo!,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.gray900,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ── Cancel reason ──────────────────────────────────────────────────────
+
+  Widget _buildCancelReasonSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Cancellation Reason'),
+        const SizedBox(height: 10),
+        Text(
+          _ticket.cancelledReason!,
+          style: const TextStyle(
+            fontSize: 15,
+            color: AppColors.gray600,
+            height: 1.6,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Timeline ───────────────────────────────────────────────────────────
+
+  Widget _buildTimelineSection() {
+    final doneAssigned =
+        _ticket.status.index >= TicketStatus.assigned.index;
+    final doneProgress = _ticket.status == TicketStatus.inProgress ||
+        _ticket.status == TicketStatus.completed;
+    final doneCompleted = _ticket.status == TicketStatus.completed;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Timeline'),
+        const SizedBox(height: 14),
+        _buildTimelineItem(
+          'Created',
+          _formatDateTime(_ticket.createdAt),
+          isActive: true,
+        ),
+        _buildTimelineItem(
+          'Assigned',
+          _ticket.assignedTo == null
+              ? 'Pending assignment'
+              : 'Assigned to ${_ticket.assignedTo}',
+          isActive: doneAssigned,
+        ),
+        _buildTimelineItem(
+          'In Progress',
+          'Work started on ticket',
+          isActive: doneProgress,
+        ),
+        _buildTimelineItem(
+          'Completed',
+          'Resolution and closure',
+          isActive: doneCompleted,
+          isLast: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimelineItem(
+    String title,
+    String description, {
+    required bool isActive,
+    bool isLast = false,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 4),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 24,
+              child: Column(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: isActive ? _accentColor : AppColors.gray200,
+                      shape: BoxShape.circle,
+                    ),
+                    child: isActive
+                        ? const Icon(Icons.check,
+                            color: AppColors.white, size: 13)
+                        : Center(
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: AppColors.gray400,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                  ),
+                  if (!isLast)
+                    Expanded(
+                      child: Container(
+                        width: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        color: AppColors.gray200,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isActive
+                            ? AppColors.gray900
+                            : AppColors.gray600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.gray500),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Shared helpers ─────────────────────────────────────────────────────
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        color: AppColors.gray900,
+        letterSpacing: -0.2,
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Divider(color: AppColors.gray200, height: 1),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value,
+      {IconData? icon}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: AppColors.primary),
-          const SizedBox(width: 12),
+          if (icon != null) ...[
+            Icon(icon, size: 16, color: AppColors.gray400),
+            const SizedBox(width: 8),
+          ],
           Expanded(
-            child: Column(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray500),
-                ),
-                Text(
-                  value,
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.gray900,
+                      fontSize: 14, color: AppColors.gray500),
+                ),
+                const SizedBox(width: 16),
+                Flexible(
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.gray900,
+                    ),
                   ),
                 ),
               ],
@@ -375,25 +467,35 @@ class _TicketDetailViewState extends State<TicketDetailView> {
     );
   }
 
+  // ── Bottom actions ─────────────────────────────────────────────────────
+
   Widget _buildBottomActions(BuildContext context) {
     if (_ticket.status == TicketStatus.completed) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          border: Border(top: BorderSide(color: AppColors.gray200)),
-        ),
-        child: SafeArea(
+      return SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            border:
+                Border(top: BorderSide(color: AppColors.gray200, width: 1)),
+          ),
           child: SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
-                _showRatingDialog(context);
-              },
-              icon: const Icon(Icons.star),
-              label: const Text('Rate This Ticket'),
+              onPressed: () => _showRatingDialog(context),
+              icon: const Icon(Icons.star_outline),
+              label: const Text(
+                'Rate This Ticket',
+                style:
+                    TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -405,43 +507,52 @@ class _TicketDetailViewState extends State<TicketDetailView> {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.gray200)),
-      ),
-      child: SafeArea(
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          border:
+              Border(top: BorderSide(color: AppColors.gray200, width: 1)),
+        ),
         child: Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () {
-                  _showContactDialog(context);
-                },
-                icon: const Icon(Icons.call_outlined),
-                label: const Text('Call Staff'),
+                onPressed: () => _showContactDialog(context),
+                icon: const Icon(Icons.call_outlined, size: 17),
+                label: const Text(
+                  'Call Staff',
+                  style: TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600),
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.gray700,
                   side: const BorderSide(color: AppColors.gray300),
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () {
-                  _showCancelDialog(context);
-                },
-                icon: const Icon(Icons.cancel),
-                label: const Text('Cancel Ticket'),
+                onPressed: () => _showCancelDialog(context),
+                icon: const Icon(Icons.cancel_outlined, size: 17),
+                label: const Text(
+                  'Cancel Ticket',
+                  style: TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFEF4444),
                   foregroundColor: AppColors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
@@ -450,6 +561,8 @@ class _TicketDetailViewState extends State<TicketDetailView> {
       ),
     );
   }
+
+  // ── Dialogs ────────────────────────────────────────────────────────────
 
   void _showContactDialog(BuildContext context) {
     showDialog(
@@ -482,7 +595,8 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                 await launchUrl(uri);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Starting in-app call (mock)...')),
+                  const SnackBar(
+                      content: Text('Starting in-app call (mock)...')),
                 );
               }
               Navigator.pop(context);
@@ -506,7 +620,8 @@ class _TicketDetailViewState extends State<TicketDetailView> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Please provide a reason for cancelling this request.'),
+              const Text(
+                  'Please provide a reason for cancelling this request.'),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
@@ -526,7 +641,8 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    borderSide:
+                        const BorderSide(color: AppColors.primary, width: 1.5),
                   ),
                 ),
               ),
@@ -536,7 +652,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Back'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -547,7 +663,8 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                     content: const Text('Please enter a cancellation reason'),
                     backgroundColor: Colors.red.shade700,
                     behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 );
                 return;
@@ -578,7 +695,8 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Confirm Cancel'),
           ),
         ],
@@ -605,7 +723,9 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                     icon: Icon(
                       Icons.star,
                       size: 40,
-                      color: index < rating ? Colors.amber : AppColors.gray300,
+                      color: index < rating
+                          ? Colors.amber
+                          : AppColors.gray300,
                     ),
                     onPressed: () {
                       setState(() => rating = index + 1);
@@ -638,10 +758,11 @@ class _TicketDetailViewState extends State<TicketDetailView> {
     );
   }
 
+  // ── Color helpers ──────────────────────────────────────────────────────
+
   Color _getStatusColor(TicketStatus status) {
     switch (status) {
       case TicketStatus.pending:
-        // Treat pending as assigned (pending is deprecated for IT/FM requests)
         return Colors.blue;
       case TicketStatus.assigned:
         return Colors.blue;
@@ -675,3 +796,87 @@ class _TicketDetailViewState extends State<TicketDetailView> {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// Private helper widgets
+// ══════════════════════════════════════════════════════════════════════
+
+class _CircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CircleButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.22),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 18),
+      ),
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _HeroChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final String prefix;
+
+  const _StatusChip({
+    required this.label,
+    required this.color,
+    this.prefix = '',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Text(
+        '$prefix$label',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+}

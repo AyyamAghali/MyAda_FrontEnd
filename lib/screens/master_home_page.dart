@@ -5,6 +5,7 @@ import '../widgets/id_card.dart';
 import 'lost_found/home_screen.dart';
 import 'clubs/club_management_hub.dart';
 import 'support/support_module.dart';
+import 'attendance/qr_scanner_screen.dart';
 import 'account_page.dart';
 import 'login_page.dart';
 
@@ -183,6 +184,14 @@ class MasterHomePage extends StatelessWidget {
                       'attendance check',
                       Icons.assignment_turned_in,
                       calculatedButtonWidth,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const QrScannerScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   SizedBox(width: buttonSpacing),
