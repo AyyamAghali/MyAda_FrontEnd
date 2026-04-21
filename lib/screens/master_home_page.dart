@@ -50,80 +50,103 @@ class MasterHomePage extends StatelessWidget {
     final iconSize = isMobile ? 20.0 : 24.0;
 
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 24,
-        vertical: isMobile ? 12 : 16,
-      ),
-      color: AppColors.white,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Image.asset(
-            'assets/images/ada_logo.png',
-            height: logoSize,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              return Icon(Icons.school,
-                  size: logoSize, color: AppColors.primary);
-            },
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: Icon(Icons.settings,
-                    color: AppColors.primary, size: iconSize),
-                onPressed: () {
-                  _showSnackBar(
-                      context, 'Settings are mocked in this prototype.');
-                },
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              SizedBox(width: isMobile ? 8 : 16),
-              Stack(
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.notifications,
-                        color: AppColors.secondary, size: iconSize),
-                    onPressed: () {
-                      _showSnackBar(context,
-                          'Notifications are mocked in this prototype.');
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  Positioned(
-                    right: 4,
-                    top: 4,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.secondary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(width: isMobile ? 8 : 16),
-              IconButton(
-                icon: Icon(Icons.logout,
-                    color: AppColors.primary, size: iconSize),
-                onPressed: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LoginPage()),
-                    (route) => false,
-                  );
-                },
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.background,
+            AppColors.white,
+          ],
+          stops: const [0.0, 1.0],
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 24,
+          vertical: isMobile ? 10 : 14,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Image.asset(
+              'assets/images/ada_logo.png',
+              height: logoSize,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(Icons.school,
+                    size: logoSize, color: AppColors.primary);
+              },
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.settings,
+                      color: AppColors.primary, size: iconSize),
+                  onPressed: () {
+                    _showSnackBar(
+                        context, 'Settings are mocked in this prototype.');
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                SizedBox(width: isMobile ? 8 : 16),
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.notifications,
+                          color: AppColors.secondary, size: iconSize),
+                      onPressed: () {
+                        _showSnackBar(context,
+                            'Notifications are mocked in this prototype.');
+                      },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.secondary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(width: isMobile ? 8 : 16),
+                IconButton(
+                  icon: Icon(Icons.logout,
+                      color: AppColors.primary, size: iconSize),
+                  onPressed: () {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginPage()),
+                      (route) => false,
+                    );
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -150,125 +173,68 @@ class MasterHomePage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'More',
-            style: TextStyle(
-              fontSize: Responsive.isMobile(context) ? 18 : 20,
-              fontWeight: FontWeight.w900,
-              color: AppColors.gray900,
-            ),
-          ),
-          Container(
-            height: 1,
-            width: 40,
-            decoration: const BoxDecoration(
-              color: Color(0xFFA54D66),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // First row - 3 buttons
           LayoutBuilder(
             builder: (context, constraints) {
-              final availableWidth = constraints.maxWidth;
-              final buttonSpacing = 16.0;
-              final calculatedButtonWidth =
-                  (availableWidth - (buttonSpacing * 2)) / 3;
+              final crossAxisCount = isMobile ? 2 : 4;
+              final spacing = isMobile ? 14.0 : 16.0;
 
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.start,
+              return GridView.count(
+                crossAxisCount: crossAxisCount,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+                childAspectRatio: isMobile ? 1.35 : 1.45,
                 children: [
-                  SizedBox(
-                    width: calculatedButtonWidth,
-                    child: _buildMoreButton(
-                      context,
-                      'attendance check',
-                      Icons.assignment_turned_in,
-                      calculatedButtonWidth,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const QrScannerScreen(),
-                          ),
-                        );
-                      },
-                    ),
+                  _buildMoreButton(
+                    context,
+                    'attendance check',
+                    Icons.assignment_turned_in,
+                    0,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const QrScannerScreen(),
+                        ),
+                      );
+                    },
                   ),
-                  SizedBox(width: buttonSpacing),
-                  SizedBox(
-                    width: calculatedButtonWidth,
-                    child: _buildMoreButton(
-                      context,
-                      'room reservation',
-                      Icons.event_seat,
-                      calculatedButtonWidth,
-                    ),
+                  _buildMoreButton(
+                    context,
+                    'Lost &\nFound',
+                    Icons.inventory_2_outlined,
+                    0,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const HomeScreen()),
+                      );
+                    },
                   ),
-                  SizedBox(width: buttonSpacing),
-                  SizedBox(
-                    width: calculatedButtonWidth,
-                    child: _buildMoreButton(
-                      context,
-                      'Lost &\nFound',
-                      Icons.inventory_2_outlined,
-                      calculatedButtonWidth,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const HomeScreen()),
-                        );
-                      },
-                    ),
+                  _buildMoreButton(
+                    context,
+                    'Club\nManagement',
+                    Icons.groups,
+                    0,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ClubManagementHub()),
+                      );
+                    },
                   ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          // Second row - 2 buttons
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final availableWidth = constraints.maxWidth;
-              final buttonSpacing = 16.0;
-              final calculatedButtonWidth =
-                  (availableWidth - (buttonSpacing * 2)) / 3;
-
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: calculatedButtonWidth,
-                    child: _buildMoreButton(
-                      context,
-                      'Club\nManagement',
-                      Icons.groups,
-                      calculatedButtonWidth,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const ClubManagementHub()),
-                        );
-                      },
-                    ),
-                  ),
-                  SizedBox(width: buttonSpacing),
-                  SizedBox(
-                    width: calculatedButtonWidth,
-                    child: _buildMoreButton(
-                      context,
-                      'IT & FM\nSupport',
-                      Icons.build,
-                      calculatedButtonWidth,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const SupportModule()),
-                        );
-                      },
-                    ),
+                  _buildMoreButton(
+                    context,
+                    'IT & FM\nSupport',
+                    Icons.build,
+                    0,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SupportModule()),
+                      );
+                    },
                   ),
                 ],
               );
@@ -294,7 +260,7 @@ class MasterHomePage extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: SizedBox(
-        width: width,
+        width: width == 0 ? null : width,
         height: 100,
         child: Container(
           padding: EdgeInsets.symmetric(
@@ -308,6 +274,13 @@ class MasterHomePage extends StatelessWidget {
               color: pinkColor,
               width: 0.5,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -339,38 +312,38 @@ class MasterHomePage extends StatelessWidget {
   }
 
   Widget _buildBottomNavigation(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, -2),
-          ),
-        ],
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 10,
+        bottom: (bottomPadding > 0 ? bottomPadding : 10) + 6,
       ),
-      child: Padding(
-        padding: EdgeInsets.only(
-          top: isMobile ? 8 : 12,
-          bottom: bottomPadding > 0 ? bottomPadding : (isMobile ? 8 : 12),
-          left: 0,
-          right: 0,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildNavItem(context, Icons.home, 'Home', true),
-            _buildNavItem(context, Icons.search, 'Search', false),
-            _buildNavItem(context, Icons.person, 'Account', false),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            children: [
+              Expanded(child: _buildNavItem(context, Icons.home, 'Home', true)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildNavItem(context, Icons.person, 'Account', false),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -380,7 +353,6 @@ class MasterHomePage extends StatelessWidget {
       BuildContext context, IconData icon, String label, bool isActive) {
     final isMobile = Responsive.isMobile(context);
     final iconSize = isMobile ? 20.0 : 24.0;
-    final containerSize = isMobile ? 40.0 : 48.0;
     final fontSize = Responsive.getFontSize(context, 12);
 
     return InkWell(
@@ -390,42 +362,38 @@ class MasterHomePage extends StatelessWidget {
             context,
             MaterialPageRoute(builder: (context) => const AccountPage()),
           );
-        } else if (label == 'Search') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text(
-                    'Search tab is a visual element only in this prototype.')),
-          );
         }
       },
-      borderRadius: BorderRadius.circular(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: containerSize,
-            height: containerSize,
-            decoration: BoxDecoration(
-              color: isActive ? AppColors.secondary : Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
+      borderRadius: BorderRadius.circular(22),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 10 : 14,
+          vertical: isMobile ? 10 : 12,
+        ),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.secondary : Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
               icon,
-              color:
-                  isActive ? AppColors.white : AppColors.white.withOpacity(0.7),
+              color: isActive ? AppColors.white : AppColors.white.withOpacity(0.75),
               size: iconSize,
             ),
-          ),
-          SizedBox(height: isMobile ? 2 : 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: fontSize,
-              color:
-                  isActive ? AppColors.white : AppColors.white.withOpacity(0.7),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w700,
+                color: isActive ? AppColors.white : AppColors.white.withOpacity(0.75),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
