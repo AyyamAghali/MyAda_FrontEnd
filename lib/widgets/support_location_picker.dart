@@ -147,11 +147,11 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
       fillColor: AppColors.gray50,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: AppColors.gray200),
+        borderSide: const BorderSide(color: AppColors.gray200),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: AppColors.gray200),
+        borderSide: const BorderSide(color: AppColors.gray200),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -249,7 +249,7 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
         const SizedBox(height: 12),
         if (_type == SupportLocationType.building) ...[
           DropdownButtonFormField<String>(
-            value: _building,
+            initialValue: _building,
             decoration: _field(label: 'Building'),
             style: const TextStyle(fontSize: 15, color: AppColors.gray900),
             dropdownColor: AppColors.white,
@@ -265,7 +265,7 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
           if (_building != null) ...[
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
-              value: _isRoom == null ? null : (_isRoom == true ? 'yes' : 'no'),
+              initialValue: _isRoom == null ? null : (_isRoom == true ? 'yes' : 'no'),
               decoration: _field(label: 'Is it a room?'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               dropdownColor: AppColors.white,
@@ -285,7 +285,7 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
           if (_isRoom == true) ...[
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
-              value: _room,
+              initialValue: _room,
               decoration: _field(label: 'Room'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               dropdownColor: AppColors.white,

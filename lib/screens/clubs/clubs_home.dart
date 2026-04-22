@@ -516,11 +516,11 @@ class _ClubsHomeState extends State<ClubsHome> {
                 contentPadding: EdgeInsets.zero,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
+                  borderSide: const BorderSide(color: AppColors.gray200),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
+                  borderSide: const BorderSide(color: AppColors.gray200),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -672,17 +672,17 @@ class _ClubsHomeState extends State<ClubsHome> {
 
   Widget _buildClubsList(BuildContext context) {
     if (filteredClubs.isEmpty) {
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.groups, size: 64, color: AppColors.gray300),
-            const SizedBox(height: 16),
-            const Text('No clubs found',
+            Icon(Icons.groups, size: 64, color: AppColors.gray300),
+            SizedBox(height: 16),
+            Text('No clubs found',
                 style:
                     TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               'Try adjusting your search or filter criteria',
               style: TextStyle(fontSize: 14, color: AppColors.gray500),
             ),

@@ -143,14 +143,14 @@ class ITSupportHome extends StatelessWidget {
                       color: AppColors.white,
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.call, size: 16, color: AppColors.secondary),
-                        const SizedBox(width: 8),
+                        Icon(Icons.call, size: 16, color: AppColors.secondary),
+                        SizedBox(width: 8),
                         Text(
                           'Start in-app call',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppColors.secondary,
@@ -331,7 +331,7 @@ class ITSupportHome extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Common Issues',
                             style: TextStyle(
                               fontSize: 11,
@@ -347,7 +347,7 @@ class ITSupportHome extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    Expanded(
+                    const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -359,8 +359,8 @@ class ITSupportHome extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          const Text(
+                          SizedBox(height: 6),
+                          Text(
                             '2-4 hours',
                             style: TextStyle(
                               fontSize: 15,
@@ -386,12 +386,12 @@ class ITSupportHome extends StatelessWidget {
                     );
                   },
                   borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Submit IT Request',
                           style: TextStyle(
                             fontSize: 14,
@@ -399,7 +399,7 @@ class ITSupportHome extends StatelessWidget {
                             color: AppColors.gray700,
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: AppColors.primary, size: 20),
+                        Icon(Icons.chevron_right, color: AppColors.primary, size: 20),
                       ],
                     ),
                   ),
@@ -488,7 +488,7 @@ class ITSupportHome extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Common Issues',
                             style: TextStyle(
                               fontSize: 11,
@@ -504,7 +504,7 @@ class ITSupportHome extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    Expanded(
+                    const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -516,8 +516,8 @@ class ITSupportHome extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          const Text(
+                          SizedBox(height: 6),
+                          Text(
                             '4-8 hours',
                             style: TextStyle(
                               fontSize: 15,
@@ -543,12 +543,12 @@ class ITSupportHome extends StatelessWidget {
                     );
                   },
                   borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Submit FM Request',
                           style: TextStyle(
                             fontSize: 14,
@@ -556,7 +556,7 @@ class ITSupportHome extends StatelessWidget {
                             color: AppColors.gray700,
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: AppColors.secondary, size: 20),
+                        Icon(Icons.chevron_right, color: AppColors.secondary, size: 20),
                       ],
                     ),
                   ),

@@ -323,7 +323,7 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
           Switch(
             value: _onDuty,
             onChanged: (value) => setState(() => _onDuty = value),
-            activeColor: AppColors.primary,
+            activeThumbColor: AppColors.primary,
           ),
         ],
       ),

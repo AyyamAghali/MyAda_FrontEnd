@@ -419,10 +419,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             child: const Icon(Icons.person, color: AppColors.primary, size: 24),
           ),
           const SizedBox(width: 12),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
                   'Admin User',
                   style: TextStyle(

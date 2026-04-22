@@ -109,7 +109,7 @@ class ClubCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(
+                const Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.gray400,
                   size: 26,

@@ -190,11 +190,11 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
                     Expanded(
                       child: _miniCard(
                         label: 'ENTRY FEE',
-                        content: Column(
+                        content: const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Free', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.gray900)),
-                            const SizedBox(height: 2),
+                            Text('Free', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.gray900)),
+                            SizedBox(height: 2),
                             Text('for students', style: TextStyle(fontSize: 12, color: AppColors.gray500)),
                           ],
                         ),
@@ -275,7 +275,7 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('HOSTED BY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.gray400, letterSpacing: 0.5)),
+                        const Text('HOSTED BY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.gray400, letterSpacing: 0.5)),
                         const SizedBox(height: 2),
                         Text(event.clubName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.gray900)),
                       ],
@@ -382,7 +382,7 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.gray400)),
+              Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.gray400)),
               const SizedBox(height: 2),
               Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.gray900)),
             ],
@@ -427,7 +427,7 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.gray400, letterSpacing: 0.5)),
+          Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.gray400, letterSpacing: 0.5)),
           const SizedBox(height: 8),
           content,
         ],

@@ -121,9 +121,9 @@ class StaffJobDetail extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray200),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Text(
             'Notes',
             style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.gray900),

@@ -53,14 +53,14 @@ class MasterHomePage extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
             AppColors.background,
             AppColors.white,
           ],
-          stops: const [0.0, 1.0],
+          stops: [0.0, 1.0],
         ),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(28),
@@ -158,7 +158,7 @@ class MasterHomePage extends StatelessWidget {
   }
 
   Widget _buildIdCard(BuildContext context) {
-    return IdCard(
+    return const IdCard(
       name: 'Rəşad',
       surname: 'Mirzəyev',
       status: 'Student',

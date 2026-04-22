@@ -420,8 +420,8 @@ class _TicketDetailViewState extends State<TicketDetailView> {
   }
 
   Widget _buildDivider() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
       child: Divider(color: AppColors.gray200, height: 1),
     );
   }
@@ -475,7 +475,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
         top: false,
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AppColors.white,
             border:
                 Border(top: BorderSide(color: AppColors.gray200, width: 1)),
@@ -511,7 +511,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.white,
           border:
               Border(top: BorderSide(color: AppColors.gray200, width: 1)),
@@ -633,11 +633,11 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                   fillColor: AppColors.gray50,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.gray200),
+                    borderSide: const BorderSide(color: AppColors.gray200),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.gray200),
+                    borderSide: const BorderSide(color: AppColors.gray200),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),

@@ -413,7 +413,7 @@ class _EventRegistrationState extends State<EventRegistration> {
   Widget _buildSubmitButton(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(top: BorderSide(color: AppColors.gray200)),
       ),

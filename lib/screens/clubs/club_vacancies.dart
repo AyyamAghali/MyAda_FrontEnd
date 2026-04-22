@@ -455,11 +455,11 @@ class _VacanciesTabState extends State<VacanciesTab> {
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.gray200),
+                      borderSide: const BorderSide(color: AppColors.gray200),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.gray200),
+                      borderSide: const BorderSide(color: AppColors.gray200),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -585,17 +585,17 @@ class _VacanciesTabState extends State<VacanciesTab> {
   }
 
   Widget _buildEmpty() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.work_off_outlined, size: 56, color: AppColors.gray300),
-          const SizedBox(height: 16),
-          const Text('No vacancies found',
+          SizedBox(height: 16),
+          Text('No vacancies found',
               style:
                   TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Try adjusting your search or filters',
+          SizedBox(height: 8),
+          Text('Try adjusting your search or filters',
               style: TextStyle(fontSize: 13, color: AppColors.gray500)),
         ],
       ),
@@ -711,7 +711,7 @@ class _VacancyCard extends StatelessWidget {
                           color: AppColors.primary,
                         ),
                         const Spacer(),
-                        Icon(Icons.access_time,
+                        const Icon(Icons.access_time,
                             size: 12, color: AppColors.gray400),
                         const SizedBox(width: 3),
                         Text(

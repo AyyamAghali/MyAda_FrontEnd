@@ -335,8 +335,8 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
             filled: true,
             fillColor: AppColors.gray50,
             contentPadding: EdgeInsets.zero,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gray200)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gray200)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.gray200)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.gray200)),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
           ),
         ),
@@ -418,15 +418,15 @@ class _TicketsPaneState extends State<_TicketsPane> {
               final items = (snap.data ?? []);
 
               if (items.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 40),
+                return const Padding(
+                  padding: EdgeInsets.only(top: 40),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.confirmation_number_outlined,
+                      Icon(Icons.confirmation_number_outlined,
                           size: 52, color: AppColors.gray300),
-                      const SizedBox(height: 12),
-                      const Text(
+                      SizedBox(height: 12),
+                      Text(
                         'No tickets yet',
                         style: TextStyle(
                           fontSize: 16,
@@ -434,8 +434,8 @@ class _TicketsPaneState extends State<_TicketsPane> {
                           color: AppColors.gray900,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      const Text(
+                      SizedBox(height: 6),
+                      Text(
                         'Register for an event to generate a ticket.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 13, color: AppColors.gray600),
@@ -571,7 +571,7 @@ class _TicketCard extends StatelessWidget {
                     label: const Text('View Ticket'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
-                      side: BorderSide(color: AppColors.gray300),
+                      side: const BorderSide(color: AppColors.gray300),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -647,11 +647,11 @@ class _EventListItem extends StatelessWidget {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.gray400),
+                          const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.gray400),
                           const SizedBox(width: 4),
                           Text(formatDate(event.date), style: const TextStyle(fontSize: 11, color: AppColors.gray500)),
                           const SizedBox(width: 10),
-                          Icon(Icons.schedule, size: 13, color: AppColors.gray400),
+                          const Icon(Icons.schedule, size: 13, color: AppColors.gray400),
                           const SizedBox(width: 4),
                           Text(formatTime(event.time), style: const TextStyle(fontSize: 11, color: AppColors.gray500)),
                         ],

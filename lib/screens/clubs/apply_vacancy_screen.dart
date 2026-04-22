@@ -14,7 +14,7 @@ class ApplyVacancyScreen extends StatefulWidget {
 class _ApplyVacancyScreenState extends State<ApplyVacancyScreen> {
   final TextEditingController _purposeController = TextEditingController();
   String? _attachedFileName;
-  bool _submitted = false;
+  final bool _submitted = false;
 
   static const int _minWords = 100;
 
@@ -94,7 +94,7 @@ class _ApplyVacancyScreenState extends State<ApplyVacancyScreen> {
             _PositionCard(vacancy: v),
             const SizedBox(height: 20),
             // ── Purpose field ───────────────────────────────────────
-            _SectionLabel(
+            const _SectionLabel(
               label: 'Purpose of Application',
               required: true,
             ),
@@ -122,11 +122,11 @@ class _ApplyVacancyScreenState extends State<ApplyVacancyScreen> {
                 contentPadding: const EdgeInsets.all(14),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.gray200),
+                  borderSide: const BorderSide(color: AppColors.gray200),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.gray200),
+                  borderSide: const BorderSide(color: AppColors.gray200),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -167,7 +167,7 @@ class _ApplyVacancyScreenState extends State<ApplyVacancyScreen> {
             ),
             const SizedBox(height: 20),
             // ── CV upload ───────────────────────────────────────────
-            _SectionLabel(label: 'CV / Resume', required: true),
+            const _SectionLabel(label: 'CV / Resume', required: true),
             const SizedBox(height: 10),
             _attachedFileName == null
                 ? _UploadArea(onTap: _pickFile)
@@ -375,15 +375,15 @@ class _UploadArea extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: Column(
+        child: const Column(
           children: [
             Icon(
               Icons.upload_file_outlined,
               size: 40,
               color: AppColors.gray400,
             ),
-            const SizedBox(height: 10),
-            const Text(
+            SizedBox(height: 10),
+            Text(
               'Tap to upload your CV',
               style: TextStyle(
                 fontSize: 14,
@@ -391,8 +391,8 @@ class _UploadArea extends StatelessWidget {
                 color: AppColors.gray700,
               ),
             ),
-            const SizedBox(height: 4),
-            const Text(
+            SizedBox(height: 4),
+            Text(
               'PDF, DOC, DOCX — max 10 MB',
               style: TextStyle(
                 fontSize: 12,

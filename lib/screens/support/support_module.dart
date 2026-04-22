@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../utils/constants.dart';
-import '../../widgets/responsive_container.dart';
 import 'it_support_home.dart';
 
 class SupportModule extends StatelessWidget {

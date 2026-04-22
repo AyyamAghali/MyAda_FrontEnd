@@ -273,7 +273,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.inbox_outlined, size: 48, color: AppColors.gray300),
+            const Icon(Icons.inbox_outlined, size: 48, color: AppColors.gray300),
             const SizedBox(height: 12),
             Text('No $type memberships', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
             const SizedBox(height: 4),

@@ -178,7 +178,7 @@ class _EventTicketScreenState extends State<EventTicketScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
+          const Text(
             'Ticket JWT',
             style: TextStyle(
               fontSize: 11,

@@ -68,7 +68,7 @@ class ItemCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.location_on_outlined,
+                      const Icon(Icons.location_on_outlined,
                           size: 13, color: AppColors.gray400),
                       const SizedBox(width: 3),
                       Expanded(

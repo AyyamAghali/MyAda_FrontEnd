@@ -160,18 +160,18 @@ class MyApplicationsScreen extends StatelessWidget {
   }
 
   Widget _buildEmpty() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.assignment_outlined, size: 64, color: AppColors.gray300),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: 16),
+          Text(
             'No applications yet',
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             'Browse open vacancies and apply\nto positions you\'re interested in.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: AppColors.gray500),
@@ -259,7 +259,7 @@ class _ApplicationCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Divider(height: 1, color: AppColors.gray100),
+            const Divider(height: 1, color: AppColors.gray100),
             const SizedBox(height: 10),
             Row(
               children: [

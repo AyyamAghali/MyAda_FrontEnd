@@ -22,7 +22,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
   final _otherCategoryController = TextEditingController();
   final _descriptionController = TextEditingController();
   TicketPriority _urgencyLevel = TicketPriority.low; // Default to "Not Urgent"
-  List<String> _attachments = [];
+  final List<String> _attachments = [];
   bool _isOtherCategorySelected = false;
   late String _module; // IT | FM
   SupportLocationValue? _locationValue;
@@ -92,11 +92,11 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                   fillColor: AppColors.gray50,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(color: AppColors.gray200),
+                                    borderSide: const BorderSide(color: AppColors.gray200),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(color: AppColors.gray200),
+                                    borderSide: const BorderSide(color: AppColors.gray200),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
@@ -105,7 +105,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                   hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
                                   suffixIcon: PopupMenuButton<String>(
-                                    icon: Icon(Icons.keyboard_arrow_down, color: AppColors.gray400, size: 20),
+                                    icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.gray400, size: 20),
                                     onSelected: (value) {
                                       setState(() {
                                         _categoryController.text = value;
@@ -139,11 +139,11 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                     fillColor: AppColors.gray50,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide(color: AppColors.gray200),
+                                      borderSide: const BorderSide(color: AppColors.gray200),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide(color: AppColors.gray200),
+                                      borderSide: const BorderSide(color: AppColors.gray200),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
@@ -187,11 +187,11 @@ class _NewIssueFormState extends State<NewIssueForm> {
                               fillColor: AppColors.gray50,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: AppColors.gray200),
+                                borderSide: const BorderSide(color: AppColors.gray200),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: AppColors.gray200),
+                                borderSide: const BorderSide(color: AppColors.gray200),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -199,7 +199,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
                               ),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-                              helperStyle: TextStyle(fontSize: 11, color: AppColors.gray500),
+                              helperStyle: const TextStyle(fontSize: 11, color: AppColors.gray500),
                             ),
                             style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                             maxLines: 5,
@@ -333,7 +333,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
+                const Text(
                   'Step 1 of 1',
                   style: TextStyle(fontSize: 12, color: AppColors.gray500),
                 ),
@@ -513,7 +513,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             '• ',
             style: TextStyle(fontSize: 12, color: AppColors.gray500),
           ),

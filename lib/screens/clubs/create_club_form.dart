@@ -52,11 +52,11 @@ class _CreateClubFormState extends State<CreateClubForm> {
       fillColor: AppColors.gray50,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: AppColors.gray200),
+        borderSide: const BorderSide(color: AppColors.gray200),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: AppColors.gray200),
+        borderSide: const BorderSide(color: AppColors.gray200),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -277,21 +277,21 @@ class _CreateClubFormState extends State<CreateClubForm> {
             ),
             child: Theme(
               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
+              child: const ExpansionTile(
                 initiallyExpanded: false,
-                tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-                childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                tilePadding: EdgeInsets.symmetric(horizontal: 14),
+                childrenPadding: EdgeInsets.fromLTRB(14, 0, 14, 12),
                 title: Row(
                   children: [
                     Icon(Icons.info_outline, size: 18, color: AppColors.primary),
-                    const SizedBox(width: 10),
-                    const Text(
+                    SizedBox(width: 10),
+                    Text(
                       'Eligibility requirements',
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
                     ),
                   ],
                 ),
-                children: const [
+                children: [
                   _BulletLine('Only currently enrolled, active students can propose a new club.'),
                   _BulletLine('Good academic standing required (no Honor Code violations).'),
                   _BulletLine('Minimum two core leaders (President and Vice President).'),
@@ -556,11 +556,11 @@ class _CreateClubFormState extends State<CreateClubForm> {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
+          const Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.fact_check_outlined, size: 20, color: AppColors.gray500),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Please double-check your answers before submitting. Student Services may follow up if clarification is needed.',
@@ -636,7 +636,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
             color: AppColors.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(Icons.person_outline, size: 14, color: AppColors.primary),
+          child: const Icon(Icons.person_outline, size: 14, color: AppColors.primary),
         ),
         const SizedBox(width: 10),
         Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.gray900)),

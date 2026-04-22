@@ -247,7 +247,7 @@ class ItemDetailView extends StatelessWidget {
         children: [
           Text(
             item.categoryString.toUpperCase(),
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: AppColors.primary,
@@ -328,8 +328,8 @@ class ItemDetailView extends StatelessWidget {
   }
 
   Widget _buildDivider() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
       child: Divider(color: AppColors.gray200, height: 1),
     );
   }
@@ -437,7 +437,7 @@ class ItemDetailView extends StatelessWidget {
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.white,
           border:
               Border(top: BorderSide(color: AppColors.gray200, width: 1)),
@@ -589,7 +589,7 @@ class _ExpandableLocationBlockState extends State<_ExpandableLocationBlock>
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 250),
-                    child: Icon(
+                    child: const Icon(
                       Icons.keyboard_arrow_down,
                       size: 20,
                       color: AppColors.gray400,

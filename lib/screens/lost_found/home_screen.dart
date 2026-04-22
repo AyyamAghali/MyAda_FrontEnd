@@ -276,11 +276,11 @@ class _HomeScreenState extends State<HomeScreen>
                 const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppColors.gray200),
+              borderSide: const BorderSide(color: AppColors.gray200),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppColors.gray200),
+              borderSide: const BorderSide(color: AppColors.gray200),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -468,7 +468,7 @@ class _HomeScreenState extends State<HomeScreen>
                             fontSize: 14, fontWeight: FontWeight.w500)),
                     value: tmpActive,
                     onChanged: (v) => setModal(() => tmpActive = v),
-                    activeColor: AppColors.primary,
+                    activeThumbColor: AppColors.primary,
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
@@ -510,19 +510,19 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildList(BuildContext context, List<LostItem> items) {
     if (items.isEmpty) {
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.search_off, size: 48, color: AppColors.gray300),
-            const SizedBox(height: 12),
-            const Text('No items found',
+            SizedBox(height: 12),
+            Text('No items found',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: AppColors.gray700)),
-            const SizedBox(height: 4),
-            const Text('Try adjusting your search or filters',
+            SizedBox(height: 4),
+            Text('Try adjusting your search or filters',
                 style: TextStyle(fontSize: 13, color: AppColors.gray500)),
           ],
         ),

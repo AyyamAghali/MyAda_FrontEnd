@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../services/attendance_service.dart';
 import '../../services/auth_service.dart';
@@ -36,7 +38,8 @@ class QrScannerScreen extends StatefulWidget {
   State<QrScannerScreen> createState() => _QrScannerScreenState();
 }
 
-class _QrScannerScreenState extends State<QrScannerScreen> {
+class _QrScannerScreenState extends State<QrScannerScreen>
+    with WidgetsBindingObserver {
   // ── Camera ───────────────────────────────────────────────────────────────
   // null on platforms where camera scanning is not supported.
   MobileScannerController? _cameraController;
@@ -49,6 +52,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   String? _scannedAt;
   String? _attendanceStatus;
   String? _maskedToken; // shown in result, never the full token
+  String? _errorCode;
+  int? _round;
+  int? _validScanCount;
+
+  // ── Anti-spam (camera only): ignore duplicate frame reads of the same raw string.
+  String? _lastCameraRaw;
+  DateTime? _lastCameraRawAt;
 
   // ── UI toggles ───────────────────────────────────────────────────────────
   bool _manualExpanded = false;
@@ -66,7 +76,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   /// mobile_scanner supports: Android, iOS, macOS, Web.
   /// Windows and Linux fall back to manual-only input.
   bool get _canUseCamera {
-    if (kIsWeb) return false;
+    if (kIsWeb) return true;
     return Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
   }
 
@@ -75,6 +85,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (_canUseCamera) {
       _cameraController = MobileScannerController(
         detectionSpeed: DetectionSpeed.noDuplicates,
@@ -88,24 +99,78 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cameraController?.dispose();
     _manualTokenCtrl.dispose();
     _studentIdCtrl.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      if (_cameraActive) {
+        unawaited(_stopCamera());
+      }
+    }
+  }
+
   // ── Camera control ────────────────────────────────────────────────────────
 
-  void _startCamera() {
+  Future<void> _startCamera() async {
     if (!_canUseCamera || _cameraActive || _state == _ScanState.processing) {
       return;
     }
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      var status = await Permission.camera.status;
+      if (!status.isGranted) {
+        status = await Permission.camera.request();
+      }
+      if (!status.isGranted) {
+        if (mounted) {
+          setState(() {
+            _manualExpanded = true;
+          });
+          await _showCameraPermissionDialog();
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
     setState(() {
       _cameraActive = true;
       // Clear previous result so the viewfinder feels fresh.
       _state = _ScanState.idle;
       _statusMessage = '';
     });
+  }
+
+  Future<void> _showCameraPermissionDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Camera access'),
+        content: const Text(
+          'Enable camera in Settings to scan attendance, or use manual entry below.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+          TextButton(
+            onPressed: () {
+              openAppSettings();
+              Navigator.pop(ctx);
+            },
+            child: const Text('Open settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _stopCamera() async {
@@ -121,8 +186,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     final raw = capture.barcodes.firstOrNull?.rawValue;
     if (raw == null || raw.isEmpty) return;
 
-    // Remove the camera widget from the tree immediately to prevent further
-    // callbacks, then fire the submit asynchronously.
+    // Debounce identical reads within ~2.5s (mobile_scanner can fire many times).
+    final now = DateTime.now();
+    if (_lastCameraRaw == raw &&
+        _lastCameraRawAt != null &&
+        now.difference(_lastCameraRawAt!) < const Duration(milliseconds: 2500)) {
+      return;
+    }
+    _lastCameraRaw = raw;
+    _lastCameraRawAt = now;
+
+    // Pause scanning immediately to prevent double submits, then submit.
     _cameraController?.stop();
     setState(() => _cameraActive = false);
     _submit(raw);
@@ -144,19 +218,16 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       _scannedAt = null;
       _attendanceStatus = null;
       _maskedToken = null;
+      _errorCode = null;
+      _round = null;
+      _validScanCount = null;
     });
 
     try {
-      // 1. Parse QR payload (JSON object or plain token string).
-      final parsed = AttendanceService.parseQrPayload(rawInput);
+      // Ensure session is loaded from storage before reading studentId / token in sendAuthorized.
+      await AuthService.instance.loadSession();
 
-      // 2. Validate token format before hitting the network.
-      AttendanceService.validateToken(parsed.token);
-
-      // Store masked version for the result card. Never store the full token.
-      _maskedToken = _maskToken(parsed.token);
-
-      // 3. Resolve student ID: explicit override > auth session > error.
+      // Resolve student ID: explicit override > auth session > error.
       final override = _studentIdCtrl.text.trim();
       final studentId =
           override.isNotEmpty ? override : AuthService.instance.studentId;
@@ -167,21 +238,38 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         );
       }
 
-      // 4. POST to backend.
+      final raw = rawInput.trim();
+      // Raw QR: opaque JWT string only (or paste including optional "|guid")
+      AttendanceService.validateRawQrInput(raw);
+
+      // Recommended: `rawJwt|currentUserStudentGuid` (matches path / server checks)
+      final token = AttendanceService.buildScanTokenForRequest(
+        rawFromReader: raw,
+        studentId: studentId,
+      );
+      AttendanceService.validateComposedRequestToken(token);
+
+      // Store masked version for the result card. Never the full token.
+      _maskedToken = _maskComposedToken(token);
+
       final result = await _service.submitQrScan(
         studentId: studentId,
-        token: parsed.token,
-        qrContext: parsed.qrContext,
+        token: token,
       );
 
       if (mounted) {
         setState(() {
-          _state = _ScanState.success;
-          _statusMessage = result.message;
+          _state = result.success ? _ScanState.success : _ScanState.error;
+          _statusMessage = result.message.isNotEmpty
+              ? result.message
+              : (result.success ? 'Checked in' : 'Scan was rejected.');
           _attendanceStatus = result.status;
           _scannedAt = result.scannedAt != null
               ? DateFormat('MMM d, yyyy • h:mm a').format(result.scannedAt!)
               : null;
+          _errorCode = result.errorCode;
+          _round = result.round;
+          _validScanCount = result.validScanCount;
         });
       }
     } on AttendanceServiceException catch (e) {
@@ -189,6 +277,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         setState(() {
           _state = _ScanState.error;
           _statusMessage = e.message;
+          _errorCode = e.errorCode;
         });
       }
     } catch (_) {
@@ -217,10 +306,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     await _submit(token);
   }
 
-  // Shows first 4 + bullets + last 4 chars; never exposes the full token in UI.
-  String _maskToken(String token) {
-    if (token.length <= 8) return '•' * token.length;
-    return '${token.substring(0, 4)}••••${token.substring(token.length - 4)}';
+  /// Masks the JWT part only; never show full token or the appended student id.
+  String _maskComposedToken(String token) {
+    final pipe = token.indexOf('|');
+    final jwt = pipe == -1 ? token : token.substring(0, pipe);
+    if (jwt.length <= 8) {
+      return '${'•' * jwt.length} | (hidden)';
+    }
+    return '${jwt.substring(0, 4)}••••${jwt.substring(jwt.length - 4)} | (hidden)';
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -301,7 +394,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   child: Icon(
                     Icons.qr_code_scanner_rounded,
                     size: 72,
-                    color: Colors.white.withOpacity(0.12),
+                    color: Colors.white.withValues(alpha: 0.12),
                   ),
                 ),
         ),
@@ -317,10 +410,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.45),
+                    Colors.black.withValues(alpha: 0.45),
                     Colors.transparent,
                     Colors.transparent,
-                    Colors.black.withOpacity(0.35),
+                    Colors.black.withValues(alpha: 0.35),
                   ],
                   stops: const [0.0, 0.25, 0.72, 1.0],
                 ),
@@ -364,7 +457,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   child: CustomPaint(
                     painter: _CornerGuidesPainter(
                       color: _state == _ScanState.processing
-                          ? Colors.white.withOpacity(0.35)
+                          ? Colors.white.withValues(alpha: 0.35)
                           : Colors.white,
                     ),
                   ),
@@ -416,7 +509,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               child: Icon(
                 Icons.qr_code_2_rounded,
                 size: 80,
-                color: Colors.white.withOpacity(0.18),
+                color: Colors.white.withValues(alpha: 0.18),
               ),
             ),
           ),
@@ -429,7 +522,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             onTap: () => Navigator.pop(context),
           ),
         ),
-        Positioned(
+        const Positioned(
           left: 20,
           bottom: 18,
           child: _HeroChip(label: 'Manual Entry'),
@@ -531,11 +624,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   Widget _buildStatusSection() {
     // Processing spinner row.
     if (_state == _ScanState.processing) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            const SizedBox(
+            SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
@@ -543,8 +636,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
             ),
-            const SizedBox(width: 14),
-            const Text(
+            SizedBox(width: 14),
+            Text(
               'Submitting attendance…',
               style: TextStyle(fontSize: 14, color: AppColors.gray600),
             ),
@@ -607,6 +700,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 _attendanceStatus!,
               ),
             ],
+            if (_round != null)
+              _buildResultDetail(
+                Icons.numbers,
+                'Round',
+                '$_round',
+              ),
+            if (_validScanCount != null)
+              _buildResultDetail(
+                Icons.fact_check_outlined,
+                'Rounds completed',
+                _validScanCount.toString(),
+              ),
             if (_scannedAt != null)
               _buildResultDetail(
                 Icons.access_time_outlined,
@@ -619,6 +724,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 'Token',
                 _maskedToken!,
               ),
+          ],
+          if (!isSuccess && _errorCode != null) ...[
+            const SizedBox(height: 10),
+            _buildResultDetail(
+              Icons.info_outline_rounded,
+              'Error',
+              _errorCode!,
+            ),
           ],
         ],
       ),
@@ -708,7 +821,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 color: AppColors.gray900,
               ),
               decoration: _inputDecoration(
-                hint: 'Paste or type attendance token',
+                hint: 'Paste JWT, or full jwt|guid if testing',
                 prefixIcon: Icons.token_outlined,
               ),
             ),
@@ -786,8 +899,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   // ── Shared helpers ─────────────────────────────────────────────────────────
 
   Widget _buildDivider() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
       child: Divider(color: AppColors.gray200, height: 1),
     );
   }
@@ -829,7 +942,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.white,
           border: Border(top: BorderSide(color: AppColors.gray200, width: 1)),
         ),
@@ -845,6 +958,56 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   /// (appears only when the manual field has content).
   Widget _buildCameraBottomBar() {
     final isProcessing = _state == _ScanState.processing;
+
+    if (!isProcessing && _state == _ScanState.error) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () {
+            setState(() {
+              _state = _ScanState.idle;
+              _statusMessage = '';
+              _errorCode = null;
+            });
+            unawaited(_startCamera());
+          },
+          icon: const Icon(Icons.refresh_rounded, size: 17),
+          label: const Text('Try again',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            elevation: 0,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      );
+    }
+
+    if (!isProcessing && _state == _ScanState.success) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () async {
+            await _stopCamera();
+            if (mounted) Navigator.pop(context);
+          },
+          icon: const Icon(Icons.check_rounded, size: 17),
+          label: const Text('Done',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF16A34A),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            elevation: 0,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      );
+    }
 
     Widget cameraButton;
     if (isProcessing) {
@@ -880,7 +1043,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       );
     } else {
       cameraButton = ElevatedButton.icon(
-        onPressed: _startCamera,
+        onPressed: () => unawaited(_startCamera()),
         icon: const Icon(Icons.qr_code_scanner_rounded, size: 17),
         label: const Text('Start Scanner',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
@@ -930,6 +1093,50 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   /// Bottom bar for Windows / Linux: single full-width submit button.
   Widget _buildManualOnlyBottomBar() {
     final isProcessing = _state == _ScanState.processing;
+    if (!isProcessing && _state == _ScanState.error) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () {
+            setState(() {
+              _state = _ScanState.idle;
+              _statusMessage = '';
+              _errorCode = null;
+            });
+          },
+          icon: const Icon(Icons.refresh_rounded, size: 17),
+          label: const Text('Try again',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            elevation: 0,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      );
+    }
+    if (!isProcessing && _state == _ScanState.success) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.check_rounded, size: 17),
+          label: const Text('Done',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF16A34A),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            elevation: 0,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      );
+    }
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
@@ -976,7 +1183,7 @@ class _CircleButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.35),
+          color: Colors.black.withValues(alpha: 0.35),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: Colors.white, size: 18),
@@ -995,7 +1202,7 @@ class _HeroChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.22),
+        color: Colors.white.withValues(alpha: 0.22),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -1029,8 +1236,8 @@ class _CornerGuidesPainter extends CustomPainter {
     final h = size.height;
 
     // Top-left
-    canvas.drawLine(Offset(0, arm), Offset.zero, paint);
-    canvas.drawLine(Offset.zero, Offset(arm, 0), paint);
+    canvas.drawLine(const Offset(0, arm), Offset.zero, paint);
+    canvas.drawLine(Offset.zero, const Offset(arm, 0), paint);
     // Top-right
     canvas.drawLine(Offset(w - arm, 0), Offset(w, 0), paint);
     canvas.drawLine(Offset(w, 0), Offset(w, arm), paint);

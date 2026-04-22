@@ -89,9 +89,9 @@ class IdCard extends StatelessWidget {
                     final topSpacing = isMobile ? 16.0 : 20.0;
                     final nameHeight = (isMobile ? 20.0 : 22.0) * 1.2; // name line height
                     final surnameHeight = (isMobile ? 20.0 : 22.0) * 1.2; // surname line height
-                    final nameGap = 2.0;
-                    final statusHeight = 28.0; // approximate status badge height
-                    final statusGap = 8.0;
+                    const nameGap = 2.0;
+                    const statusHeight = 28.0; // approximate status badge height
+                    const statusGap = 8.0;
                     
                     // Center of name block = logo height + top spacing + (name block total height / 2)
                     final nameBlockCenter = logoHeight + topSpacing + (nameHeight + nameGap + surnameHeight + statusGap + statusHeight) / 2;
@@ -260,7 +260,7 @@ class IdCard extends StatelessWidget {
     return Container(
       width: width,
       height: height,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

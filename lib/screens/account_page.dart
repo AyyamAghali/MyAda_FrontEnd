@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
-import '../widgets/responsive_container.dart';
 import 'login_page.dart';
 
 class AccountPage extends StatelessWidget {

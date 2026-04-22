@@ -54,11 +54,11 @@ class _ReportItemFormState extends State<ReportItemForm> {
       fillColor: AppColors.gray50,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: AppColors.gray200),
+        borderSide: const BorderSide(color: AppColors.gray200),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: AppColors.gray200),
+        borderSide: const BorderSide(color: AppColors.gray200),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -129,7 +129,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<ItemCategory>(
-                    value: category,
+                    initialValue: category,
                     decoration: _field(label: 'Category *'),
                     style: const TextStyle(fontSize: 15, color: AppColors.gray900),
                     dropdownColor: AppColors.white,
@@ -235,8 +235,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
   }
 
   Widget _divider() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
       child: Divider(color: AppColors.gray200, height: 1),
     );
   }
@@ -273,7 +273,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
         const SizedBox(height: 14),
         if (_locationType == 'building') ...[
           DropdownButtonFormField<String>(
-            value: _selectedBuilding,
+            initialValue: _selectedBuilding,
             decoration: _field(label: 'Building'),
             style: const TextStyle(fontSize: 15, color: AppColors.gray900),
             dropdownColor: AppColors.white,
@@ -290,7 +290,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
           if (_selectedBuilding != null) ...[
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
-              value: _isRoomSelection,
+              initialValue: _isRoomSelection,
               decoration: _field(label: 'Is it a room?'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               dropdownColor: AppColors.white,
@@ -310,7 +310,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
           if (_isRoomSelection == 'yes') ...[
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
-              value: _selectedRoom,
+              initialValue: _selectedRoom,
               decoration: _field(label: 'Room'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               dropdownColor: AppColors.white,
@@ -424,11 +424,11 @@ class _ReportItemFormState extends State<ReportItemForm> {
           border: Border.all(
               color: AppColors.gray300, width: 1.5, style: BorderStyle.solid),
         ),
-        child: Column(
+        child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.add_circle_outline, color: AppColors.primary, size: 22),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Text('Add',
                 style: TextStyle(
                     fontSize: 10,
@@ -467,7 +467,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
                 ListTile(
                   leading: CircleAvatar(
                     backgroundColor: AppColors.primary.withOpacity(0.1),
-                    child: Icon(Icons.camera_alt,
+                    child: const Icon(Icons.camera_alt,
                         color: AppColors.primary, size: 20),
                   ),
                   title: const Text('Take Photo',
@@ -481,7 +481,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
                 ListTile(
                   leading: CircleAvatar(
                     backgroundColor: AppColors.primary.withOpacity(0.1),
-                    child: Icon(Icons.photo_library,
+                    child: const Icon(Icons.photo_library,
                         color: AppColors.primary, size: 20),
                   ),
                   title: const Text('Choose from Library',

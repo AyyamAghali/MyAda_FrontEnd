@@ -135,7 +135,7 @@ class _ClubDetailsState extends State<ClubDetails> {
                     const SizedBox(height: 24),
                     _sectionHeading('Events'),
                     const SizedBox(height: 6),
-                    Text(
+                    const Text(
                       'Upcoming activities hosted by this club.',
                       style: TextStyle(fontSize: 13, color: AppColors.gray500),
                     ),
@@ -387,10 +387,10 @@ class _ClubDetailsState extends State<ClubDetails> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.gray200),
         ),
-        child: Column(
+        child: const Column(
           children: [
             Icon(Icons.event_available_outlined, size: 40, color: AppColors.gray400),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Text(
               'No upcoming events yet.',
               style: TextStyle(fontSize: 14, color: AppColors.gray500),
@@ -413,7 +413,7 @@ class _ClubDetailsState extends State<ClubDetails> {
   Widget _buildContactCard(BuildContext context) {
     final email = club.contactEmail;
     if (email == null || email.trim().isEmpty) {
-      return Text(
+      return const Text(
         'Contact details will be shared by the club.',
         style: TextStyle(fontSize: 14, height: 1.45, color: AppColors.gray500),
       );
@@ -523,7 +523,7 @@ class _ClubDetailsState extends State<ClubDetails> {
                   color: AppColors.secondary.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(Icons.work_outline, color: AppColors.secondary, size: 22),
+                child: const Icon(Icons.work_outline, color: AppColors.secondary, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -579,7 +579,7 @@ class _ClubDetailsState extends State<ClubDetails> {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     colors: [AppColors.primary, AppColors.primaryDark],
                   ),
                   borderRadius: BorderRadius.circular(12),

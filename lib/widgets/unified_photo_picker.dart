@@ -32,9 +32,9 @@ class UnifiedPhotoPicker extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AppColors.white,
-            borderRadius: const BorderRadius.only(
+            borderRadius: BorderRadius.only(
               topLeft: Radius.circular(20),
               topRight: Radius.circular(20),
             ),
@@ -61,7 +61,7 @@ class UnifiedPhotoPicker extends StatelessWidget {
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.camera_alt,
                       color: AppColors.primary,
                       size: 20,
@@ -87,7 +87,7 @@ class UnifiedPhotoPicker extends StatelessWidget {
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.photo_library,
                       color: AppColors.primary,
                       size: 20,
@@ -139,7 +139,7 @@ class UnifiedPhotoPicker extends StatelessWidget {
           ),
           style: OutlinedButton.styleFrom(
             backgroundColor: defaultBgColor,
-            side: BorderSide(color: AppColors.gray300),
+            side: const BorderSide(color: AppColors.gray300),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -178,7 +178,7 @@ class UnifiedPhotoPicker extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                const Text(
                   'PNG or JPG, Min: 200x200px',
                   style: TextStyle(
                     fontSize: 12,

@@ -246,11 +246,11 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                 contentPadding: EdgeInsets.zero,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
+                  borderSide: const BorderSide(color: AppColors.gray200),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.gray200),
+                  borderSide: const BorderSide(color: AppColors.gray200),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -495,12 +495,12 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
 
   Widget _buildTicketsList(List<SupportTicket> tickets) {
     if (tickets.isEmpty) {
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.inbox_outlined, size: 64, color: AppColors.gray300),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text(
               'No tickets',
               style: TextStyle(
@@ -509,7 +509,7 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                 color: AppColors.gray900,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               'You don\'t have any tickets in this category',
               style: TextStyle(

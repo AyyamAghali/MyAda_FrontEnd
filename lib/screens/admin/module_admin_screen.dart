@@ -283,7 +283,7 @@ class ModuleAdminScreen extends StatelessWidget {
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.gray700,
-                          side: BorderSide(color: AppColors.gray300),
+                          side: const BorderSide(color: AppColors.gray300),
                         ),
                         child: Text(item.secondaryAction!),
                       ),
@@ -424,7 +424,7 @@ class ModuleAdminScreen extends StatelessWidget {
             ),
           ),
           backgroundColor: AppColors.white,
-          side: BorderSide(color: AppColors.gray200),
+          side: const BorderSide(color: AppColors.gray200),
           onPressed: () {
             _showSnackBar(context, '${action.label} (mock)');
           },
@@ -494,29 +494,29 @@ class ModuleAdminScreen extends StatelessWidget {
   _ModuleConfig _moduleConfig(AdminModule module) {
     switch (module) {
       case AdminModule.club:
-        return _ModuleConfig(
+        return const _ModuleConfig(
           title: 'Club Management',
           subtitle: 'Memberships, requests, and events',
           icon: Icons.groups_outlined,
-          stats: const [
+          stats: [
             _Stat('Total Clubs', '28', '+1'),
             _Stat('Active Members', '1,140', '+4%'),
             _Stat('Pending Requests', '12', '+2'),
             _Stat('Events', '6', '+1'),
           ],
-          actions: const [
+          actions: [
             _ActionItem(Icons.group_add_outlined, 'Approve Member'),
             _ActionItem(Icons.event_outlined, 'Create Event'),
             _ActionItem(Icons.visibility_outlined, 'Review Requests'),
             _ActionItem(Icons.edit_outlined, 'Edit Club Info'),
             _ActionItem(Icons.campaign_outlined, 'Post Announcement'),
           ],
-          metrics: const [
+          metrics: [
             _Metric('Membership approvals', '78%', 0.78, Colors.green),
             _Metric('Event readiness', '62%', 0.62, Colors.orange),
             _Metric('New club requests', '34%', 0.34, Colors.blue),
           ],
-          queue: const [
+          queue: [
             _QueueItem(
               Icons.person_add_alt,
               'Membership request',
@@ -542,36 +542,36 @@ class ModuleAdminScreen extends StatelessWidget {
               secondaryAction: 'Archive',
             ),
           ],
-          activity: const [
+          activity: [
             _ActivityItem('Member approved', 'Leyla Abbasova joined Robotics', '10m ago'),
             _ActivityItem('Event updated', 'AI Meetup time changed', '1h ago'),
             _ActivityItem('Club suspended', 'Inactive club archived', '3h ago'),
           ],
         );
       case AdminModule.support:
-        return _ModuleConfig(
+        return const _ModuleConfig(
           title: 'IT & FM Support',
           subtitle: 'Tickets, incidents, and updates',
           icon: Icons.support_agent_outlined,
-          stats: const [
+          stats: [
             _Stat('Open Tickets', '8', '-1'),
             _Stat('In Progress', '5', '+1'),
             _Stat('Resolved Today', '12', '+3'),
             _Stat('Avg. SLA', '3h', '-0.5h'),
           ],
-          actions: const [
+          actions: [
             _ActionItem(Icons.assignment_ind_outlined, 'Assign Ticket'),
             _ActionItem(Icons.priority_high_outlined, 'Escalate'),
             _ActionItem(Icons.check_circle_outline, 'Resolve Ticket'),
             _ActionItem(Icons.local_activity_outlined, 'Create Incident'),
             _ActionItem(Icons.analytics_outlined, 'SLA Report'),
           ],
-          metrics: const [
+          metrics: [
             _Metric('SLA compliance', '91%', 0.91, Colors.green),
             _Metric('Escalations', '18%', 0.18, Colors.red),
             _Metric('Resolved today', '60%', 0.6, Colors.blue),
           ],
-          queue: const [
+          queue: [
             _QueueItem(
               Icons.wifi_off,
               'Wi-Fi outage',
@@ -597,36 +597,36 @@ class ModuleAdminScreen extends StatelessWidget {
               secondaryAction: 'Schedule',
             ),
           ],
-          activity: const [
+          activity: [
             _ActivityItem('Ticket resolved', 'Printer issue closed', '20m ago'),
             _ActivityItem('SLA warning', 'Wi-Fi outage pending', '45m ago'),
             _ActivityItem('Assignment', 'Ticket assigned to FM', '2h ago'),
           ],
         );
       case AdminModule.lostFound:
-        return _ModuleConfig(
+        return const _ModuleConfig(
           title: 'Lost & Found',
           subtitle: 'Reported items and claims',
           icon: Icons.inventory_2_outlined,
-          stats: const [
+          stats: [
             _Stat('Active Items', '42', '+5'),
             _Stat('Claims', '9', '+1'),
             _Stat('Pending Review', '15', '+2'),
             _Stat('Resolved', '120', '+6'),
           ],
-          actions: const [
+          actions: [
             _ActionItem(Icons.add_box_outlined, 'Add Item'),
             _ActionItem(Icons.verified_outlined, 'Verify Claim'),
             _ActionItem(Icons.assignment_return_outlined, 'Mark Claimed'),
             _ActionItem(Icons.photo_library_outlined, 'Attach Photos'),
             _ActionItem(Icons.filter_alt_outlined, 'Filter Items'),
           ],
-          metrics: const [
+          metrics: [
             _Metric('Claims verified', '56%', 0.56, Colors.green),
             _Metric('Pending reviews', '36%', 0.36, Colors.orange),
             _Metric('Resolved items', '74%', 0.74, Colors.blue),
           ],
-          queue: const [
+          queue: [
             _QueueItem(
               Icons.assignment,
               'New report',
@@ -652,36 +652,36 @@ class ModuleAdminScreen extends StatelessWidget {
               secondaryAction: 'Archive',
             ),
           ],
-          activity: const [
+          activity: [
             _ActivityItem('Item claimed', 'Wallet handed to owner', '30m ago'),
             _ActivityItem('Report added', 'Blue jacket found', '1h ago'),
             _ActivityItem('Verification', 'ID card verified', '4h ago'),
           ],
         );
       case AdminModule.room:
-        return _ModuleConfig(
+        return const _ModuleConfig(
           title: 'Room Reservation',
           subtitle: 'Bookings and approvals queue',
           icon: Icons.event_seat_outlined,
-          stats: const [
+          stats: [
             _Stat('Today Bookings', '18', '+2'),
             _Stat('Pending', '5', '-1'),
             _Stat('Approved', '22', '+4'),
             _Stat('Declined', '3', '+1'),
           ],
-          actions: const [
+          actions: [
             _ActionItem(Icons.check_circle_outline, 'Approve Booking'),
             _ActionItem(Icons.cancel_outlined, 'Decline Booking'),
             _ActionItem(Icons.schedule_outlined, 'Reschedule'),
             _ActionItem(Icons.meeting_room_outlined, 'Block Room'),
             _ActionItem(Icons.calendar_today_outlined, 'View Calendar'),
           ],
-          metrics: const [
+          metrics: [
             _Metric('Approval rate', '82%', 0.82, Colors.green),
             _Metric('Conflicts', '12%', 0.12, Colors.red),
             _Metric('Utilization', '68%', 0.68, Colors.blue),
           ],
-          queue: const [
+          queue: [
             _QueueItem(
               Icons.meeting_room,
               'Room request',
@@ -707,36 +707,36 @@ class ModuleAdminScreen extends StatelessWidget {
               secondaryAction: 'Request Info',
             ),
           ],
-          activity: const [
+          activity: [
             _ActivityItem('Booking approved', 'Room B102 confirmed', '15m ago'),
             _ActivityItem('Booking declined', 'Room A201 conflict', '1h ago'),
             _ActivityItem('Schedule updated', 'Lab C updated', '5h ago'),
           ],
         );
       case AdminModule.attendance:
-        return _ModuleConfig(
+        return const _ModuleConfig(
           title: 'Attendance Check',
           subtitle: 'Sessions and attendance logs',
           icon: Icons.assignment_turned_in_outlined,
-          stats: const [
+          stats: [
             _Stat('Sessions Today', '24', '+2'),
             _Stat('Check-ins', '520', '+12%'),
             _Stat('Missing', '16', '-4'),
             _Stat('Late', '9', '+1'),
           ],
-          actions: const [
+          actions: [
             _ActionItem(Icons.how_to_reg_outlined, 'Mark Present'),
             _ActionItem(Icons.person_off_outlined, 'Mark Absent'),
             _ActionItem(Icons.timer_outlined, 'Mark Late'),
             _ActionItem(Icons.sync_outlined, 'Sync Logs'),
             _ActionItem(Icons.file_download_outlined, 'Export CSV'),
           ],
-          metrics: const [
+          metrics: [
             _Metric('Attendance rate', '88%', 0.88, Colors.green),
             _Metric('Late arrivals', '14%', 0.14, Colors.orange),
             _Metric('Missing records', '8%', 0.08, Colors.red),
           ],
-          queue: const [
+          queue: [
             _QueueItem(
               Icons.assignment_late,
               'Missing attendance',
@@ -762,7 +762,7 @@ class ModuleAdminScreen extends StatelessWidget {
               secondaryAction: 'Review',
             ),
           ],
-          activity: const [
+          activity: [
             _ActivityItem('Attendance synced', 'CS101 updated', '25m ago'),
             _ActivityItem('Late record', 'Math201 logged', '2h ago'),
             _ActivityItem('Session closed', 'Physics Lab ended', '4h ago'),
@@ -1037,7 +1037,7 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
-                  side: BorderSide(color: AppColors.gray300),
+                  side: const BorderSide(color: AppColors.gray300),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1283,7 +1283,7 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _vacancyCategory,
+                          initialValue: _vacancyCategory,
                           isExpanded: true,
                           items: const [
                             DropdownMenuItem(
@@ -1405,14 +1405,14 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
             SwitchListTile(
               value: _clubEmailNotifications,
               onChanged: (value) => setState(() => _clubEmailNotifications = value),
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
               title: const Text('Email notifications'),
               subtitle: const Text('Get updates on applications and events'),
             ),
             SwitchListTile(
               value: _clubAutoApprove,
               onChanged: (value) => setState(() => _clubAutoApprove = value),
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
               title: const Text('Auto-approve members'),
               subtitle: const Text('Automatically approve new member requests'),
             ),
@@ -1494,7 +1494,7 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _eventVenuePreference,
+                          initialValue: _eventVenuePreference,
                           isExpanded: true,
                           items: const [
                             DropdownMenuItem(
@@ -1686,11 +1686,11 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
         fillColor: AppColors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.gray200),
+          borderSide: const BorderSide(color: AppColors.gray200),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.gray200),
+          borderSide: const BorderSide(color: AppColors.gray200),
         ),
       ),
       onSubmitted: (_) => _showSnackBar('Search is mocked.'),
@@ -1815,9 +1815,9 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
         color: const Color(0xFFEAF3FF),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Icon(Icons.lightbulb_outline, color: AppColors.primary),
           SizedBox(height: 8),
           Text(
@@ -1842,9 +1842,9 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray200),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Text(
             'System Status',
             style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.gray900),
@@ -1894,7 +1894,7 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
             fillColor: AppColors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.gray200),
+              borderSide: const BorderSide(color: AppColors.gray200),
             ),
           ),
           onSubmitted: (_) => _showSnackBar('Search is mocked.'),
@@ -1904,7 +1904,7 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: 'All',
+                initialValue: 'All',
                 items: const [
                   DropdownMenuItem(value: 'All', child: Text('Status: All')),
                   DropdownMenuItem(value: 'Pending', child: Text('Status: Pending')),
@@ -1916,7 +1916,7 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: 'All',
+                initialValue: 'All',
                 items: const [
                   DropdownMenuItem(value: 'All', child: Text('Role: All')),
                   DropdownMenuItem(value: 'Member', child: Text('Role: Member')),
@@ -2194,7 +2194,7 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
                   fillColor: AppColors.gray50,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.gray200),
+                    borderSide: const BorderSide(color: AppColors.gray200),
                   ),
                 ),
                 onSubmitted: (_) {
@@ -2216,12 +2216,12 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        return const Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
                 'Notifications',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -2469,9 +2469,9 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
         appBar: AppBar(
           elevation: 0,
           backgroundColor: AppColors.white,
-          title: Column(
+          title: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
                 'IT/FM Admin',
                 style: TextStyle(
@@ -2553,7 +2553,7 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
                 fillColor: AppColors.white,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.gray200),
+                  borderSide: const BorderSide(color: AppColors.gray200),
                 ),
               ),
               onSubmitted: (_) => _showSnackBar('Search is mocked.'),
@@ -2698,14 +2698,14 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
             SwitchListTile(
               value: _supportEmailNotifications,
               onChanged: (value) => setState(() => _supportEmailNotifications = value),
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
               title: const Text('Email notifications'),
               subtitle: const Text('Get updates on tickets and SLA alerts'),
             ),
             SwitchListTile(
               value: _supportAutoAssign,
               onChanged: (value) => setState(() => _supportAutoAssign = value),
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
               title: const Text('Auto-assign tickets'),
               subtitle: const Text('Auto-assign based on workload'),
             ),
@@ -2762,7 +2762,7 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
                   fillColor: AppColors.gray50,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.gray200),
+                    borderSide: const BorderSide(color: AppColors.gray200),
                   ),
                 ),
                 onSubmitted: (_) {
@@ -2784,12 +2784,12 @@ class _SupportAdminMobileScreenState extends State<SupportAdminMobileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        return const Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
                 'Notifications',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),

@@ -180,9 +180,16 @@ class AuthService {
     }
 
     var response = await sendRequest(token);
-    if (response.statusCode == 400) {
-      token = await refreshAccessToken();
-      response = await sendRequest(token);
+
+    // One retry after refresh when the access token is rejected (common: expired JWT).
+    if (response.statusCode == 401) {
+      try {
+        token = await refreshAccessToken();
+        response = await sendRequest(token);
+      } catch (_) {
+        await clearSession();
+        rethrow;
+      }
     }
 
     if (response.statusCode == 401) {
