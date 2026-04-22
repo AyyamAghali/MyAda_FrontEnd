@@ -56,8 +56,11 @@ class AttendanceServiceException implements Exception {
 // ── Service ───────────────────────────────────────────────────────────────────
 
 class AttendanceService {
-  /// TODO: Replace with the real base URL from your environment config.
-  static const String _baseUrl = 'https://myada-api.example.com';
+  /// Attendance service base URL (always via API gateway).
+  ///
+  /// Every attendance endpoint must be prefixed with `/attendance` as per
+  /// `ATTENDANCE_API_DOC.md`.
+  static const String _baseUrl = 'http://13.60.31.141:5000/attendance';
 
   static final _tokenPattern = RegExp(r'^[A-Za-z0-9._~\-]{6,512}$');
   static final _urlPattern = RegExp(r'^https?://', caseSensitive: false);
@@ -137,6 +140,7 @@ class AttendanceService {
 
   /// Submits a QR scan to the backend and returns the parsed response.
   ///
+  /// Endpoint: `POST /attendance/api/students/{studentId}/attendance/qr/scan`
   /// All network and HTTP errors are wrapped as [AttendanceServiceException].
   Future<QrScanResult> submitQrScan({
     required String studentId,
@@ -163,6 +167,7 @@ class AttendanceService {
                   headers: {
                     'Authorization': 'Bearer $accessToken',
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                   },
                   body: jsonEncode(body),
                 )
@@ -182,6 +187,73 @@ class AttendanceService {
     } catch (e) {
       throw AttendanceServiceException(
           message: 'Unexpected error (${e.runtimeType}). Please try again.');
+    }
+  }
+
+  /// Fetches the signed-in student's enrolled lessons and aggregate
+  /// attendance stats.
+  ///
+  /// Endpoint: `GET /attendance/api/students/{studentId}/enrollments`
+  /// Returns the raw JSON object/list as delivered by the gateway.
+  Future<Object?> fetchStudentEnrollments({required String studentId}) async {
+    final uri = Uri.parse('$_baseUrl/api/students/$studentId/enrollments');
+    return _authorizedGetJson(uri);
+  }
+
+  /// Fetches per-session attendance for a single lesson.
+  ///
+  /// Endpoint: `GET /attendance/api/students/{studentId}/lessons/{lessonId}/attendance`
+  Future<Object?> fetchStudentLessonAttendance({
+    required String studentId,
+    required int lessonId,
+  }) async {
+    final uri = Uri.parse(
+      '$_baseUrl/api/students/$studentId/lessons/$lessonId/attendance',
+    );
+    return _authorizedGetJson(uri);
+  }
+
+  Future<Object?> _authorizedGetJson(Uri uri) async {
+    try {
+      final response = await AuthService.instance
+          .sendAuthorized(
+            (accessToken) => http
+                .get(
+                  uri,
+                  headers: {
+                    'Authorization': 'Bearer $accessToken',
+                    'Accept': 'application/json',
+                  },
+                )
+                .timeout(const Duration(seconds: 30)),
+          )
+          .timeout(const Duration(seconds: 35));
+
+      if (response.statusCode == 200) {
+        if (response.body.isEmpty) return null;
+        return jsonDecode(response.body);
+      }
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        throw AttendanceServiceException(
+          statusCode: response.statusCode,
+          message: 'Unauthorized request. Please sign in again.',
+        );
+      }
+      final serverMsg = _extractServerMessage(response.body);
+      throw AttendanceServiceException(
+        statusCode: response.statusCode,
+        message: serverMsg ?? 'Could not load attendance data.',
+      );
+    } on AttendanceServiceException {
+      rethrow;
+    } on SocketException {
+      throw const AttendanceServiceException(
+        message: 'No internet connection. Check your network and try again.',
+      );
+    } on TimeoutException {
+      throw const AttendanceServiceException(
+        message: 'Request timed out. Please try again.',
+      );
     }
   }
 
