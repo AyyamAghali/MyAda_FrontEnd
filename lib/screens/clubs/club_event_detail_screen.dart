@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../data/club_events_discovery_mock.dart';
-import '../../services/club_module_prefs.dart';
+import '../../models/event_tickets_models.dart';
+import '../../services/event_tickets_local_repository.dart';
+import '../../services/event_tickets_repository.dart';
 import '../../utils/constants.dart';
+import 'event_ticket_screen.dart';
 
 Color _eventCatColor(String category) {
   switch (category) {
@@ -28,6 +31,9 @@ class ClubEventDetailScreen extends StatefulWidget {
 class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
   bool _loading = true;
   bool _registered = false;
+  bool _full = false;
+  EventSnapshot? _snapshot;
+  final EventTicketsRepository _repo = LocalEventTicketsRepository();
 
   @override
   void initState() {
@@ -36,9 +42,23 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
   }
 
   Future<void> _load() async {
-    final r = await ClubModulePrefs.isRegisteredForEvent(widget.eventId);
+    final eventId = widget.eventId.toString();
+    final snap = await _repo.getEventSnapshot(eventId);
+    var registered = false;
+    try {
+      await _repo.getTicket(eventId);
+      registered = true;
+    } catch (_) {
+      registered = false;
+    }
+    final full = snap.registeredCount >= snap.seatLimit;
     if (!mounted) return;
-    setState(() { _registered = r; _loading = false; });
+    setState(() {
+      _snapshot = snap;
+      _registered = registered;
+      _full = full;
+      _loading = false;
+    });
   }
 
   String _fmtDate(String dateStr) => DateFormat('MMMM d, yyyy').format(DateTime.parse(dateStr));
@@ -187,11 +207,39 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
                         content: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('42 / 150', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.gray900)),
+                            Builder(
+                              builder: (context) {
+                                final snap = _snapshot;
+                                final count = snap?.registeredCount ?? 0;
+                                final limit = snap?.seatLimit ?? 0;
+                                final remaining = (limit - count).clamp(0, limit);
+                                return Text(
+                                  '$remaining / $limit',
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.gray900,
+                                  ),
+                                );
+                              },
+                            ),
                             const SizedBox(height: 8),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(3),
-                              child: LinearProgressIndicator(value: 42 / 150, minHeight: 5, backgroundColor: AppColors.gray200, color: AppColors.primary),
+                              child: Builder(
+                                builder: (context) {
+                                  final snap = _snapshot;
+                                  final count = snap?.registeredCount ?? 0;
+                                  final limit = snap?.seatLimit ?? 0;
+                                  final safeLimit = limit == 0 ? 1 : limit;
+                                  return LinearProgressIndicator(
+                                    value: (count / safeLimit).clamp(0, 1),
+                                    minHeight: 5,
+                                    backgroundColor: AppColors.gray200,
+                                    color: AppColors.primary,
+                                  );
+                                },
+                              ),
                             ),
                           ],
                         ),
@@ -255,15 +303,59 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: _registered
-                        ? null
-                        : () async {
-                            await ClubModulePrefs.registerForEvent(event.id);
-                            if (!context.mounted) return;
-                            setState(() => _registered = true);
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are registered!')));
-                          },
-                    icon: Icon(_registered ? Icons.check_circle_outline : Icons.event_available, size: 20),
-                    label: Text(_registered ? 'Registered' : 'Register for Event', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => EventTicketScreen(eventId: event.id),
+                              ),
+                            );
+                          }
+                        : (_full
+                            ? null
+                            : () async {
+                                try {
+                                  await _repo.registerForEvent(event.id.toString());
+                                  final snap = await _repo.getEventSnapshot(event.id.toString());
+                                  if (!context.mounted) return;
+                                  setState(() {
+                                    _snapshot = snap;
+                                    _registered = true;
+                                    _full = snap.registeredCount >= snap.seatLimit;
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Registered. Ticket created.')),
+                                  );
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => EventTicketScreen(eventId: event.id),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  if (!context.mounted) return;
+                                  if (e is RegistrationConflict) {
+                                    setState(() => _full = true);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e.message)),
+                                    );
+                                    return;
+                                  }
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Could not register.')),
+                                  );
+                                }
+                              }),
+                    icon: Icon(
+                      _registered
+                          ? Icons.qr_code_2
+                          : (_full ? Icons.event_busy : Icons.event_available),
+                      size: 20,
+                    ),
+                    label: Text(
+                      _registered ? 'View Ticket' : (_full ? 'Event Full' : 'Register'),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       disabledBackgroundColor: AppColors.gray300,

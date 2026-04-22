@@ -52,12 +52,34 @@ class MyMemberships extends StatefulWidget {
 class _MyMembershipsState extends State<MyMemberships> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  // Local-only memberships for UI. Replace with API later.
   final List<Membership> memberships = [
+    Membership(
+      club: Club(
+        id: '2',
+        name: 'ADA Photo Club',
+        logo:
+            'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=200&h=200&fit=crop',
+        banner: '',
+        category: 'Arts',
+        tags: [],
+        memberCount: 89,
+        status: ClubStatus.paused,
+        about: '',
+        officers: [],
+        events: [],
+        contactEmail: 'photo_club@ada.edu.az',
+      ),
+      status: MembershipStatus.active,
+      role: 'Event Manager',
+      sinceDate: 'Aug 2024',
+    ),
     Membership(
       club: Club(
         id: '1',
         name: 'ADA Digital Entertainment Club',
-        logo: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=200&h=200&fit=crop',
+        logo:
+            'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=200&h=200&fit=crop',
         banner: '',
         category: 'Technology',
         tags: [],
@@ -71,62 +93,6 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
       status: MembershipStatus.active,
       role: 'Member',
       sinceDate: 'Sep 2024',
-    ),
-    Membership(
-      club: Club(
-        id: '2',
-        name: 'ADA Photo Club',
-        logo: 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=200&h=200&fit=crop',
-        banner: '',
-        category: 'Arts',
-        tags: [],
-        memberCount: 89,
-        status: ClubStatus.paused,
-        about: '',
-        officers: [],
-        events: [],
-        contactEmail: 'photo_club@ada.edu.az',
-      ),
-      status: MembershipStatus.active,
-      role: 'Vice President',
-      sinceDate: 'Aug 2024',
-    ),
-    Membership(
-      club: Club(
-        id: '3',
-        name: 'E-Commerce Club',
-        logo: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=200&h=200&fit=crop',
-        banner: '',
-        category: 'Business',
-        tags: [],
-        memberCount: 134,
-        status: ClubStatus.open,
-        about: '',
-        officers: [],
-        events: [],
-        contactEmail: 'ecommerce_club@ada.edu.az',
-      ),
-      status: MembershipStatus.pending,
-      submittedDate: 'November 10, 2025',
-    ),
-    Membership(
-      club: Club(
-        id: '4',
-        name: 'ADAMUN',
-        logo: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=200&h=200&fit=crop',
-        banner: '',
-        category: 'Academic',
-        tags: [],
-        memberCount: 112,
-        status: ClubStatus.open,
-        about: '',
-        officers: [],
-        events: [],
-        contactEmail: 'adamun@ada.edu.az',
-      ),
-      status: MembershipStatus.declined,
-      declinedReason: 'Club has reached maximum capacity for this semester. You are welcome to apply again next semester.',
-      submittedDate: 'October 28, 2025',
     ),
   ];
 

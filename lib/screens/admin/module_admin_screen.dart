@@ -6,6 +6,8 @@ import '../login_page.dart';
 import 'support_staff_dashboard.dart';
 import 'club_application_detail.dart';
 import 'support_ticket_detail.dart';
+import '../clubs/club_events_screen.dart';
+import '../clubs/entrance_scan_flow.dart';
 
 enum AdminModule {
   club,
@@ -964,74 +966,196 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 5,
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundLight,
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: AppColors.white,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(
-                'Club Admin',
-                style: TextStyle(
-                  color: AppColors.gray900,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                ),
-              ),
-              Text(
-                'Command Center',
-                style: TextStyle(
-                  color: AppColors.gray500,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: AppColors.white,
+        title: const Text(
+          'Club Admin',
+          style: TextStyle(
+            color: AppColors.gray900,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search, color: AppColors.gray600),
-              onPressed: () => _openSearchSheet(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: AppColors.gray600),
+            onPressed: _logout,
+          ),
+        ],
+      ),
+      body: ResponsiveContainer(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+          children: [
+            _buildSectionTitle('Event Manager Tools'),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SelectClubForScanScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.qr_code_scanner, size: 18),
+                label: const Text(
+                  'Scan at entrance',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.secondary,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.notifications_none, color: AppColors.gray600),
-              onPressed: () => _openNotificationsSheet(),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ClubEventsScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.confirmation_number_outlined, size: 18),
+                label: const Text(
+                  'Tickets (My Tickets)',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(color: AppColors.gray300),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.settings_outlined, color: AppColors.gray600),
-              onPressed: () => _openSettingsSheet(),
+            const SizedBox(height: 18),
+            _buildSectionTitle('Keepable'),
+            const SizedBox(height: 10),
+            _quickLink(
+              context,
+              icon: Icons.assignment_outlined,
+              title: 'Applications',
+              subtitle: 'Review membership/vacancy requests',
+              onTap: () => _openApplicationsQuick(context),
             ),
-            IconButton(
-              icon: const Icon(Icons.logout, color: AppColors.gray600),
-              onPressed: () => _logout(),
+            const SizedBox(height: 10),
+            _quickLink(
+              context,
+              icon: Icons.event_outlined,
+              title: 'Events',
+              subtitle: 'View upcoming club events',
+              onTap: () => _openEventsQuick(context),
             ),
           ],
-          bottom: const TabBar(
-            isScrollable: true,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.gray500,
-            indicatorColor: AppColors.primary,
-            tabs: [
-              Tab(icon: Icon(Icons.dashboard_outlined, size: 18), text: 'Overview'),
-              Tab(icon: Icon(Icons.assignment_outlined, size: 18), text: 'Applications'),
-              Tab(icon: Icon(Icons.event_outlined, size: 18), text: 'Events'),
-              Tab(icon: Icon(Icons.work_outline, size: 18), text: 'Vacancies'),
-              Tab(icon: Icon(Icons.settings_outlined, size: 18), text: 'Settings'),
+        ),
+      ),
+    );
+  }
+
+  Widget _quickLink(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.gray900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(fontSize: 12, color: AppColors.gray600),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.gray400),
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            _buildOverviewTab(context),
-            _buildApplicationsTab(context),
-            _buildEventsTab(context),
-            _buildVacanciesTab(context),
-            _buildSettingsTab(context),
-          ],
+      ),
+    );
+  }
+
+  void _openApplicationsQuick(BuildContext context) {
+    // Reuse the existing applications tab content in a simple scaffold.
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: AppColors.backgroundLight,
+          appBar: AppBar(
+            backgroundColor: AppColors.white,
+            foregroundColor: AppColors.gray900,
+            elevation: 0,
+            title: const Text('Applications'),
+          ),
+          body: _buildApplicationsTab(context),
+        ),
+      ),
+    );
+  }
+
+  void _openEventsQuick(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: AppColors.backgroundLight,
+          appBar: AppBar(
+            backgroundColor: AppColors.white,
+            foregroundColor: AppColors.gray900,
+            elevation: 0,
+            title: const Text('Events'),
+          ),
+          body: _buildEventsTab(context),
         ),
       ),
     );
@@ -1371,18 +1495,31 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: _eventVenuePreference,
+                          isExpanded: true,
                           items: const [
                             DropdownMenuItem(
                               value: 'Main Auditorium',
-                              child: Text('Main Auditorium'),
+                              child: Text(
+                                'Main Auditorium',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'Hall B',
-                              child: Text('Hall B'),
+                              child: Text(
+                                'Hall B',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'Lab C',
-                              child: Text('Lab C'),
+                              child: Text(
+                                'Lab C',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                           onChanged: (value) {

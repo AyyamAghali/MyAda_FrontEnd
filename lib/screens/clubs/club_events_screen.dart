@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../data/club_events_discovery_mock.dart';
 import '../../models/club_public_event.dart';
-import '../../services/club_module_prefs.dart';
+import '../../models/event_tickets_models.dart';
+import '../../services/event_tickets_local_repository.dart';
+import '../../services/event_tickets_repository.dart';
 import '../../utils/constants.dart';
 import 'club_event_detail_screen.dart';
+import 'entrance_scan_flow.dart';
+import 'event_ticket_screen.dart';
 
 const _kCategories = ['All', 'Technology', 'Social', 'Academic', 'Sports', 'Arts', 'Business'];
 
@@ -29,17 +33,10 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
   String _category = 'All';
   _EventsPane _pane = _EventsPane.discover;
   final _searchFocus = FocusNode();
-  Set<int> _registeredIds = {};
 
   @override
   void initState() {
     super.initState();
-    _loadRegistered();
-  }
-
-  Future<void> _loadRegistered() async {
-    final ids = await ClubModulePrefs.registeredEventIds();
-    if (mounted) setState(() => _registeredIds = ids);
   }
 
   @override
@@ -57,7 +54,8 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
       list = list.where((e) => e.clubId == hubClub).toList();
     }
     if (_pane == _EventsPane.myRegistrations) {
-      list = list.where((e) => _registeredIds.contains(e.id)).toList();
+      // Tickets pane uses its own data source (mock registrations). Keep this list empty.
+      list = const <ClubPublicEvent>[];
     }
     if (_category != 'All') {
       list = list.where((e) => e.category.toLowerCase() == _category.toLowerCase()).toList();
@@ -168,51 +166,81 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
     final body = Column(
       children: [
         _buildPaneSwitcher(),
-        _buildSearchRow(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-          child: Row(
-            children: [
-              Text('${list.length} event${list.length == 1 ? '' : 's'}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.gray500)),
-              if (_hasFilter) ...[
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () => setState(() => _category = 'All'),
-                  child: const Text('Clear filters', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.secondary)),
+        if (_pane == _EventsPane.discover) ...[
+          _buildSearchRow(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+            child: Row(
+              children: [
+                Text(
+                  '${list.length} event${list.length == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.gray500,
+                  ),
                 ),
+                if (_hasFilter) ...[
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: () => setState(() => _category = 'All'),
+                    child: const Text(
+                      'Clear filters',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        Expanded(
-          child: list.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.event_busy, size: 48, color: AppColors.gray300),
-                      SizedBox(height: 12),
-                      Text('No events found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
-                      SizedBox(height: 4),
-                      Text('Try adjusting your search or filters', style: TextStyle(fontSize: 13, color: AppColors.gray500)),
-                    ],
+          Expanded(
+            child: list.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.event_busy,
+                            size: 48, color: AppColors.gray300),
+                        SizedBox(height: 12),
+                        Text('No events found',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.gray700)),
+                        SizedBox(height: 4),
+                        Text('Try adjusting your search or filters',
+                            style:
+                                TextStyle(fontSize: 13, color: AppColors.gray500)),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) => _EventListItem(
+                      event: list[i],
+                      formatDate: _fmtDate,
+                      formatTime: _fmtTime,
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                ClubEventDetailScreen(eventId: list[i].id),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _EventListItem(
-                    event: list[i],
-                    formatDate: _fmtDate,
-                    formatTime: _fmtTime,
-                    onTap: () async {
-                      await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ClubEventDetailScreen(eventId: list[i].id)));
-                      _loadRegistered();
-                    },
-                  ),
-                ),
-        ),
+          ),
+        ] else ...[
+          Expanded(child: _TicketsPane(filterClubId: widget.filterClubId)),
+        ],
       ],
     );
 
@@ -241,7 +269,7 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
         children: [
           Expanded(child: _paneToggle('Discover', Icons.travel_explore_outlined, _pane == _EventsPane.discover, () => setState(() => _pane = _EventsPane.discover))),
           const SizedBox(width: 8),
-          Expanded(child: _paneToggle('My registrations', Icons.calendar_month_outlined, _pane == _EventsPane.myRegistrations, () => setState(() => _pane = _EventsPane.myRegistrations))),
+          Expanded(child: _paneToggle('Tickets', Icons.confirmation_number_outlined, _pane == _EventsPane.myRegistrations, () => setState(() => _pane = _EventsPane.myRegistrations))),
         ],
       ),
     );
@@ -311,6 +339,263 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gray200)),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketsPane extends StatefulWidget {
+  final int? filterClubId;
+
+  const _TicketsPane({this.filterClubId});
+
+  @override
+  State<_TicketsPane> createState() => _TicketsPaneState();
+}
+
+class _TicketsPaneState extends State<_TicketsPane> {
+  late Future<List<MyRegistrationItem>> _future;
+  final EventTicketsRepository _repo = LocalEventTicketsRepository();
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _repo.listMyRegistrations();
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _future = _repo.listMyRegistrations();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 90),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SelectClubForScanScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.qr_code_scanner, size: 18),
+                label: const Text(
+                  'Scan at entrance',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.secondary,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          FutureBuilder<List<MyRegistrationItem>>(
+            future: _future,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 24),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final items = (snap.data ?? []);
+
+              if (items.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.confirmation_number_outlined,
+                          size: 52, color: AppColors.gray300),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No tickets yet',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.gray900,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Register for an event to generate a ticket.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: AppColors.gray600),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                children: [
+                  for (final t in items) ...[
+                    _TicketCard(ticket: t),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TicketCard extends StatelessWidget {
+  final MyRegistrationItem ticket;
+
+  const _TicketCard({required this.ticket});
+
+  @override
+  Widget build(BuildContext context) {
+    final e = ticket.event;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.gray200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: (e.imageUrl == null || e.imageUrl!.isEmpty)
+                      ? Container(
+                          width: 62,
+                          height: 62,
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                          child: const Icon(Icons.event,
+                              color: AppColors.primary),
+                        )
+                      : Image.asset(
+                          e.imageUrl!,
+                          width: 62,
+                          height: 62,
+                          fit: BoxFit.cover,
+                        ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        e.name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.gray900,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(Icons.schedule,
+                              size: 14, color: AppColors.gray500),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${e.startTime ?? ''}${(e.endTime != null && e.endTime!.isNotEmpty) ? ' - ${e.endTime}' : ''}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.gray600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.place_outlined,
+                              size: 14, color: AppColors.gray500),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              e.location ?? '',
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.gray600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => EventTicketScreen(eventId: int.tryParse(ticket.eventId) ?? 0),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.qr_code_2, size: 18),
+                    label: const Text('View Ticket'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: BorderSide(color: AppColors.gray300),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => ClubEventDetailScreen(eventId: int.tryParse(ticket.eventId) ?? 0),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.open_in_new,
+                      color: AppColors.gray600),
+                  tooltip: 'Event details',
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
