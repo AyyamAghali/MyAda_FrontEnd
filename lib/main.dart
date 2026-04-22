@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/login_page.dart';
+import 'widgets/call_overlay_host.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +40,11 @@ class AdaApp extends StatelessWidget {
         fontFamily: 'Roboto',
       ),
       home: const LoginPage(),
+      builder: (context, child) {
+        return CallOverlayHost(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

@@ -1,0 +1,690 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+import '../auth_service.dart';
+import 'call_api.dart';
+import 'call_signaling.dart';
+
+/// High-level state of the in-app voice call feature. Mirrors the phases used
+/// by the web client so the UI can react in the same way on all platforms.
+enum CallPhase {
+  idle,
+  connecting,
+  connected,
+  ringing,
+  incoming,
+  accepted,
+  inCall,
+  ended,
+  rejected,
+  cancelled,
+  timeout,
+  error,
+}
+
+class CallParticipant {
+  final String connectionId;
+  final String? userId;
+  final String? displayName;
+
+  const CallParticipant({
+    required this.connectionId,
+    this.userId,
+    this.displayName,
+  });
+
+  factory CallParticipant.fromMap(Map map) => CallParticipant(
+        connectionId: map['connectionId']?.toString() ?? '',
+        userId: map['userId']?.toString(),
+        displayName: map['displayName']?.toString(),
+      );
+}
+
+class IncomingCallInfo {
+  final String callId;
+  final String roomId;
+  final String fromUserId;
+  final String fromConnectionId;
+  final String? fromDisplayName;
+  final DateTime? expiresAtUtc;
+
+  const IncomingCallInfo({
+    required this.callId,
+    required this.roomId,
+    required this.fromUserId,
+    required this.fromConnectionId,
+    this.fromDisplayName,
+    this.expiresAtUtc,
+  });
+
+  factory IncomingCallInfo.fromMap(Map map) {
+    DateTime? parse(Object? v) {
+      if (v is! String || v.isEmpty) return null;
+      try {
+        return DateTime.parse(v).toUtc();
+      } catch (_) {
+        return null;
+      }
+    }
+
+    return IncomingCallInfo(
+      callId: map['callId']?.toString() ?? '',
+      roomId: map['roomId']?.toString() ?? '',
+      fromUserId: map['fromUserId']?.toString() ?? '',
+      fromConnectionId: map['fromConnectionId']?.toString() ?? '',
+      fromDisplayName: map['fromDisplayName']?.toString(),
+      expiresAtUtc: parse(map['expiresAtUtc']),
+    );
+  }
+}
+
+/// Singleton [ChangeNotifier] that owns SignalR signaling + a single WebRTC
+/// peer connection for the active call, and exposes a small action surface to
+/// the UI.
+class CallController extends ChangeNotifier {
+  CallController._();
+
+  static final CallController instance = CallController._();
+
+  final CallSignaling _signaling = CallSignaling();
+
+  CallPhase _phase = CallPhase.idle;
+  String? _errorMessage;
+  String? _selfConnectionId;
+  String? _selfUserId;
+  String? _selfDisplayName;
+
+  IncomingCallInfo? _incomingCall;
+  String? _callId;
+  String? _roomId;
+  CallParticipant? _peer;
+
+  CallIceConfig? _cachedIceConfig;
+  RTCPeerConnection? _peerConnection;
+  MediaStream? _localStream;
+  MediaStream? _remoteStream;
+
+  bool _isMuted = false;
+  bool _isSpeakerOn = true;
+  DateTime? _callStartedAt;
+  Timer? _durationTicker;
+  Duration _callDuration = Duration.zero;
+
+  bool _listenersAttached = false;
+
+  // ---- Public getters -------------------------------------------------------
+
+  CallPhase get phase => _phase;
+  String? get errorMessage => _errorMessage;
+  IncomingCallInfo? get incomingCall => _incomingCall;
+  String? get callId => _callId;
+  String? get roomId => _roomId;
+  CallParticipant? get peer => _peer;
+  MediaStream? get localStream => _localStream;
+  MediaStream? get remoteStream => _remoteStream;
+  bool get isMuted => _isMuted;
+  bool get isSpeakerOn => _isSpeakerOn;
+  Duration get callDuration => _callDuration;
+  bool get isHubConnected => _signaling.isConnected;
+
+  /// True if an incoming call modal should be shown over any screen.
+  bool get shouldShowIncoming =>
+      _incomingCall != null &&
+      _phase != CallPhase.inCall &&
+      _phase != CallPhase.accepted;
+
+  /// True if the active call overlay (mute / speaker / hang-up) should be
+  /// shown over any screen.
+  bool get shouldShowActiveCall =>
+      _phase == CallPhase.ringing ||
+      _phase == CallPhase.accepted ||
+      _phase == CallPhase.inCall;
+
+  // ---- Lifecycle ------------------------------------------------------------
+
+  /// Opens the SignalR connection. Safe to call every time the user lands on
+  /// an authenticated screen; it is a no-op when already connected.
+  Future<void> connect() async {
+    if (_signaling.isConnected) return;
+    _setPhase(CallPhase.connecting);
+    _errorMessage = null;
+    try {
+      _attachListenersOnce();
+      await _signaling.connect();
+      _selfConnectionId = _signaling.connectionId;
+      if (_phase == CallPhase.connecting) {
+        _setPhase(CallPhase.connected);
+      }
+    } catch (err) {
+      _setError('Could not connect to call service: ${_stringify(err)}');
+      rethrow;
+    }
+  }
+
+  /// Stops the hub and tears down any in-flight call. Called on logout.
+  Future<void> disconnect() async {
+    await _cleanupPeer();
+    await _signaling.disconnect();
+    _incomingCall = null;
+    _callId = null;
+    _roomId = null;
+    _peer = null;
+    _selfConnectionId = null;
+    _cachedIceConfig = null;
+    _setPhase(CallPhase.idle);
+  }
+
+  // ---- Actions --------------------------------------------------------------
+
+  /// Starts an outbound call to the given dispatcher (their JWT `sub`).
+  Future<void> requestCall(String dispatcherUserId) async {
+    final trimmed = dispatcherUserId.trim();
+    if (trimmed.isEmpty) {
+      _setError('Please provide the dispatcher user id.');
+      return;
+    }
+    try {
+      await _ensureMicrophonePermission();
+      await connect();
+      await _signaling.invoke('RequestCall', args: [trimmed]);
+    } catch (err) {
+      _setError(_stringify(err));
+    }
+  }
+
+  /// Dispatcher-side accept for an incoming call.
+  Future<void> acceptIncomingCall() async {
+    final info = _incomingCall;
+    if (info == null) return;
+    try {
+      await _ensureMicrophonePermission();
+      await connect();
+      // Activate microphone immediately so we have a track ready when the
+      // peer sends its offer.
+      await _ensurePeerConnection();
+      await _signaling.invoke('AcceptCall', args: [info.callId]);
+      _incomingCall = null;
+      _setPhase(CallPhase.accepted);
+    } catch (err) {
+      _setError(_stringify(err));
+    }
+  }
+
+  /// Dispatcher-side reject for an incoming call.
+  Future<void> rejectIncomingCall({String? reason}) async {
+    final info = _incomingCall;
+    if (info == null) return;
+    try {
+      await _signaling
+          .invoke('RejectCall', args: [info.callId, reason]);
+    } catch (err) {
+      _setError(_stringify(err));
+    } finally {
+      _incomingCall = null;
+      _clearCallIdentity();
+      _setPhase(CallPhase.connected);
+    }
+  }
+
+  /// Caller-side cancel of a pending outbound call (before it is accepted).
+  Future<void> cancelOutgoingCall({String? reason}) async {
+    final id = _callId;
+    if (id == null) {
+      _clearCallIdentity();
+      _setPhase(CallPhase.connected);
+      return;
+    }
+    try {
+      await _signaling.invoke('CancelCall', args: [id, reason]);
+    } catch (err) {
+      _setError(_stringify(err));
+    } finally {
+      _clearCallIdentity();
+      _setPhase(CallPhase.connected);
+    }
+  }
+
+  /// Ends the active call for every participant in the room.
+  Future<void> endCall() async {
+    try {
+      if (_signaling.isConnected) {
+        await _signaling.invoke('EndCall');
+      }
+    } catch (_) {
+      // ignore; we still tear down locally
+    }
+    await _cleanupPeer();
+    _clearCallIdentity();
+    _setPhase(CallPhase.connected);
+  }
+
+  /// Toggles the mute state of the local microphone track.
+  void toggleMute() {
+    final stream = _localStream;
+    if (stream == null) return;
+    _isMuted = !_isMuted;
+    for (final track in stream.getAudioTracks()) {
+      track.enabled = !_isMuted;
+    }
+    notifyListeners();
+  }
+
+  /// Toggles the device loudspeaker (earpiece vs speakerphone).
+  Future<void> toggleSpeaker() async {
+    _isSpeakerOn = !_isSpeakerOn;
+    try {
+      await Helper.setSpeakerphoneOn(_isSpeakerOn);
+    } catch (_) {
+      // ignore on platforms that do not support audio routing
+    }
+    notifyListeners();
+  }
+
+  // ---- Internals ------------------------------------------------------------
+
+  void _attachListenersOnce() {
+    if (_listenersAttached) return;
+    _listenersAttached = true;
+
+    _signaling.on('Connected', (args) {
+      final payload = _firstMap(args);
+      if (payload == null) return;
+      _selfConnectionId = payload['connectionId']?.toString();
+      _selfUserId = payload['userId']?.toString();
+      _selfDisplayName = payload['displayName']?.toString();
+      final iceJson = payload['iceConfiguration'];
+      if (iceJson is Map<String, dynamic>) {
+        _cachedIceConfig = CallIceConfig.fromJson(iceJson);
+      } else if (iceJson is Map) {
+        _cachedIceConfig = CallIceConfig.fromJson(
+          iceJson.cast<String, dynamic>(),
+        );
+      }
+      _setPhase(CallPhase.connected);
+    });
+
+    _signaling.on('IncomingCall', (args) {
+      final payload = _firstMap(args);
+      if (payload == null) return;
+      _incomingCall = IncomingCallInfo.fromMap(payload);
+      _callId = _incomingCall?.callId;
+      _roomId = _incomingCall?.roomId;
+      _setPhase(CallPhase.incoming);
+    });
+
+    _signaling.on('CallRinging', (args) {
+      final payload = _firstMap(args);
+      if (payload == null) return;
+      _callId = payload['callId']?.toString();
+      _roomId = payload['roomId']?.toString();
+      _setPhase(CallPhase.ringing);
+    });
+
+    _signaling.on('CallAccepted', (args) {
+      final payload = _firstMap(args);
+      if (payload == null) return;
+      _callId = payload['callId']?.toString();
+      _roomId = payload['roomId']?.toString();
+
+      final acceptedBy = payload['acceptedByConnectionId']?.toString();
+      final self = _selfConnectionId;
+
+      String? peerConnectionId;
+      if (acceptedBy != null && acceptedBy != self && acceptedBy.isNotEmpty) {
+        peerConnectionId = acceptedBy;
+      } else {
+        final parts = payload['participants'];
+        if (parts is List) {
+          for (final p in parts) {
+            if (p is Map) {
+              final cid = p['connectionId']?.toString();
+              if (cid != null && cid.isNotEmpty && cid != self) {
+                peerConnectionId = cid;
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (peerConnectionId != null) {
+        _peer = CallParticipant(connectionId: peerConnectionId);
+      }
+      _setPhase(CallPhase.accepted);
+    });
+
+    _signaling.on('CallRejected', (args) {
+      final payload = _firstMap(args);
+      _errorMessage =
+          payload?['reason']?.toString() ?? 'Call rejected by dispatcher.';
+      _clearCallIdentity();
+      _setPhase(CallPhase.rejected);
+    });
+
+    _signaling.on('CallCancelled', (_) {
+      _clearCallIdentity();
+      _setPhase(CallPhase.cancelled);
+    });
+
+    _signaling.on('CallTimedOut', (_) {
+      _clearCallIdentity();
+      _setPhase(CallPhase.timeout);
+    });
+
+    _signaling.on('JoinedRoom', (args) async {
+      final payload = _firstMap(args);
+      if (payload == null) return;
+      _roomId = payload['roomId']?.toString();
+      final others = payload['otherParticipants'];
+      CallParticipant? peer;
+      if (others is List && others.isNotEmpty) {
+        final first = others.first;
+        if (first is Map) peer = CallParticipant.fromMap(first);
+      }
+      if (peer != null) _peer = peer;
+      _setPhase(CallPhase.inCall);
+      _startDurationTicker();
+
+      // Deterministic offerer selection so only one side creates the offer.
+      final self = _selfConnectionId;
+      final peerId = peer?.connectionId;
+      if (peerId != null && self != null && self.compareTo(peerId) < 0) {
+        await _createAndSendOffer(peerId);
+      }
+    });
+
+    _signaling.on('ParticipantLeft', (_) async {
+      await _cleanupPeer();
+      _clearCallIdentity();
+      _setPhase(CallPhase.ended);
+    });
+
+    _signaling.on('LeftRoom', (_) async {
+      await _cleanupPeer();
+      _clearCallIdentity();
+      _setPhase(CallPhase.connected);
+    });
+
+    _signaling.on('CallEnded', (_) async {
+      await _cleanupPeer();
+      _clearCallIdentity();
+      _setPhase(CallPhase.ended);
+    });
+
+    _signaling.on('ReceiveOffer', (args) async {
+      final payload = _firstMap(args);
+      if (payload == null) return;
+      final fromConnectionId = payload['fromConnectionId']?.toString();
+      final sdp = payload['sdp']?.toString();
+      if (fromConnectionId == null || sdp == null) return;
+      _peer = CallParticipant(connectionId: fromConnectionId);
+      try {
+        final pc = await _ensurePeerConnection();
+        await pc.setRemoteDescription(RTCSessionDescription(sdp, 'offer'));
+        final answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await _signaling.invoke(
+          'SendAnswer',
+          args: [fromConnectionId, answer.sdp ?? ''],
+        );
+      } catch (err) {
+        _setError('Failed to answer call: ${_stringify(err)}');
+      }
+    });
+
+    _signaling.on('ReceiveAnswer', (args) async {
+      final payload = _firstMap(args);
+      if (payload == null) return;
+      final sdp = payload['sdp']?.toString();
+      if (sdp == null) return;
+      try {
+        final pc = await _ensurePeerConnection();
+        await pc.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
+      } catch (err) {
+        _setError('Failed to finalize call: ${_stringify(err)}');
+      }
+    });
+
+    _signaling.on('ReceiveIceCandidate', (args) async {
+      final payload = _firstMap(args);
+      if (payload == null) return;
+      final candidate = payload['candidate']?.toString();
+      if (candidate == null || candidate.isEmpty) return;
+      final sdpMid = payload['sdpMid']?.toString();
+      final idxRaw = payload['sdpMLineIndex'];
+      int? sdpMLineIndex;
+      if (idxRaw is int) {
+        sdpMLineIndex = idxRaw;
+      } else if (idxRaw is String) {
+        sdpMLineIndex = int.tryParse(idxRaw);
+      }
+      try {
+        final pc = await _ensurePeerConnection();
+        await pc.addCandidate(
+          RTCIceCandidate(candidate, sdpMid, sdpMLineIndex),
+        );
+      } catch (_) {
+        // ignore ICE errors during teardown
+      }
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> _resolveIceServers() async {
+    if (_cachedIceConfig?.isFresh ?? false) {
+      return _cachedIceConfig!.toRtcList();
+    }
+
+    try {
+      if (_signaling.isConnected) {
+        final result = await _signaling.invoke('GetIceConfiguration');
+        if (result is Map) {
+          final cfg = CallIceConfig.fromJson(
+            result.cast<String, dynamic>(),
+          );
+          if (cfg.iceServers.isNotEmpty) {
+            _cachedIceConfig = cfg;
+            return cfg.toRtcList();
+          }
+        }
+      }
+    } catch (_) {
+      // fall through to HTTP fetch
+    }
+
+    final fetched = await fetchIceConfiguration();
+    if (fetched != null && fetched.iceServers.isNotEmpty) {
+      _cachedIceConfig = fetched;
+      return fetched.toRtcList();
+    }
+
+    // Fall back to a public STUN so we can at least attempt a connection
+    // on the same network.
+    return [
+      {
+        'urls': ['stun:stun.l.google.com:19302'],
+      },
+    ];
+  }
+
+  Future<RTCPeerConnection> _ensurePeerConnection() async {
+    final existing = _peerConnection;
+    if (existing != null) return existing;
+
+    final iceServers = await _resolveIceServers();
+    final pc = await createPeerConnection({
+      'iceServers': iceServers,
+      'sdpSemantics': 'unified-plan',
+    });
+
+    pc.onIceCandidate = (RTCIceCandidate candidate) {
+      final peer = _peer;
+      if (peer == null) return;
+      _signaling
+          .invoke(
+            'SendIceCandidate',
+            args: [
+              peer.connectionId,
+              candidate.candidate,
+              candidate.sdpMid,
+              candidate.sdpMLineIndex,
+            ],
+          )
+          .catchError((_) => null);
+    };
+
+    pc.onTrack = (RTCTrackEvent event) {
+      if (event.streams.isNotEmpty) {
+        _remoteStream = event.streams.first;
+      } else {
+        _remoteStream ??= event.track.kind == 'audio'
+            ? null
+            : _remoteStream;
+      }
+      notifyListeners();
+    };
+
+    pc.onConnectionState = (state) {
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+        _setError('Call connection failed.');
+      }
+    };
+
+    // Attach local microphone track.
+    final local = await navigator.mediaDevices.getUserMedia({
+      'audio': true,
+      'video': false,
+    });
+    _localStream = local;
+    for (final track in local.getAudioTracks()) {
+      track.enabled = !_isMuted;
+      await pc.addTrack(track, local);
+    }
+
+    // Default to loudspeaker so the user immediately hears the peer.
+    try {
+      await Helper.setSpeakerphoneOn(_isSpeakerOn);
+    } catch (_) {}
+
+    _peerConnection = pc;
+    notifyListeners();
+    return pc;
+  }
+
+  Future<void> _createAndSendOffer(String peerConnectionId) async {
+    try {
+      final pc = await _ensurePeerConnection();
+      final offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await _signaling
+          .invoke('SendOffer', args: [peerConnectionId, offer.sdp ?? '']);
+    } catch (err) {
+      _setError('Failed to start call: ${_stringify(err)}');
+    }
+  }
+
+  Future<void> _cleanupPeer() async {
+    _durationTicker?.cancel();
+    _durationTicker = null;
+    _callStartedAt = null;
+    _callDuration = Duration.zero;
+    _isMuted = false;
+
+    final pc = _peerConnection;
+    _peerConnection = null;
+    if (pc != null) {
+      try {
+        await pc.close();
+      } catch (_) {}
+    }
+
+    final local = _localStream;
+    _localStream = null;
+    if (local != null) {
+      for (final track in local.getTracks()) {
+        try {
+          await track.stop();
+        } catch (_) {}
+      }
+      try {
+        await local.dispose();
+      } catch (_) {}
+    }
+
+    final remote = _remoteStream;
+    _remoteStream = null;
+    if (remote != null) {
+      try {
+        await remote.dispose();
+      } catch (_) {}
+    }
+  }
+
+  void _startDurationTicker() {
+    _durationTicker?.cancel();
+    _callStartedAt = DateTime.now();
+    _callDuration = Duration.zero;
+    _durationTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final started = _callStartedAt;
+      if (started == null) return;
+      _callDuration = DateTime.now().difference(started);
+      notifyListeners();
+    });
+  }
+
+  void _clearCallIdentity() {
+    _callId = null;
+    _roomId = null;
+    _peer = null;
+    _incomingCall = null;
+  }
+
+  void _setPhase(CallPhase next) {
+    if (_phase == next) return;
+    _phase = next;
+    notifyListeners();
+  }
+
+  void _setError(String message) {
+    _errorMessage = message;
+    _phase = CallPhase.error;
+    notifyListeners();
+  }
+
+  Future<void> _ensureMicrophonePermission() async {
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      throw StateError(
+        'Microphone permission is required to start a voice call.',
+      );
+    }
+  }
+
+  Map<String, dynamic>? _firstMap(List<Object?>? args) {
+    if (args == null || args.isEmpty) return null;
+    final first = args.first;
+    if (first is Map<String, dynamic>) return first;
+    if (first is Map) return first.cast<String, dynamic>();
+    return null;
+  }
+
+  String _stringify(Object? err) {
+    final raw = err?.toString() ?? 'Unknown error.';
+    return raw.replaceFirst('Exception: ', '');
+  }
+
+  /// Clears a transient error flag (useful after the UI shows a snack bar).
+  void clearError() {
+    if (_errorMessage == null && _phase != CallPhase.error) return;
+    _errorMessage = null;
+    if (_phase == CallPhase.error) {
+      _phase = _signaling.isConnected ? CallPhase.connected : CallPhase.idle;
+    }
+    notifyListeners();
+  }
+
+  /// Returns the JWT `sub` of the currently authenticated user. Used by the
+  /// UI to label the active call screen.
+  String? get selfLabel => _selfDisplayName ?? _selfUserId ?? AuthService.instance.studentId;
+}

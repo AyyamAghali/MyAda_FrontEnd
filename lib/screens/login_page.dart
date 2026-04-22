@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../widgets/responsive_container.dart';
+import '../services/auth_service.dart';
+import '../services/call/call_controller.dart';
 import 'master_home_page.dart';
 import 'admin/module_admin_screen.dart';
 import 'admin/support_staff_dashboard.dart';
@@ -14,18 +18,19 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = false;
-  final _emailFocus = FocusNode();
+  bool _isSubmitting = false;
+  final _usernameFocus = FocusNode();
   final _passwordFocus = FocusNode();
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
-    _emailFocus.dispose();
+    _usernameFocus.dispose();
     _passwordFocus.dispose();
     super.dispose();
   }
@@ -71,7 +76,8 @@ class _LoginPageState extends State<LoginPage> {
                     return SingleChildScrollView(
                       physics: const ClampingScrollPhysics(),
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        constraints:
+                            BoxConstraints(minHeight: constraints.maxHeight),
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(0, 18, 0, 12),
                           child: Column(
@@ -212,7 +218,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Use your ADA account to continue',
+              'Use your ADA username to continue',
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.gray600,
@@ -220,7 +226,7 @@ class _LoginPageState extends State<LoginPage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 22),
-            _buildEmailField(),
+            _buildUsernameField(),
             const SizedBox(height: 14),
             _buildPasswordField(),
             const SizedBox(height: 10),
@@ -262,25 +268,22 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildEmailField() {
+  Widget _buildUsernameField() {
     return TextFormField(
-      controller: _emailController,
-      keyboardType: TextInputType.emailAddress,
-      focusNode: _emailFocus,
+      controller: _usernameController,
+      keyboardType: TextInputType.text,
+      focusNode: _usernameFocus,
       textInputAction: TextInputAction.next,
-      autofillHints: const [AutofillHints.username, AutofillHints.email],
+      autofillHints: const [AutofillHints.username],
       decoration: _inputDecoration(
-        labelText: 'Email',
-        hintText: 'student@ada.edu.az',
-        icon: Icons.email_outlined,
+        labelText: 'Username',
+        hintText: 'Enter your username',
+        icon: Icons.person_outline,
       ),
       onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'Please enter your email';
-        }
-        if (!value.contains('@')) {
-          return 'Please enter a valid email';
+          return 'Please enter your username';
         }
         return null;
       },
@@ -354,10 +357,27 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      final email = _emailController.text.trim().toLowerCase();
-      final staffRole = _resolveStaffRole(email);
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate() || _isSubmitting) return;
+
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+
+    setState(() => _isSubmitting = true);
+    try {
+      await AuthService.instance.login(
+        username: username,
+        password: password,
+      );
+
+      // Open the persistent call hub connection right after login so the
+      // user can receive / place calls from any screen.
+      unawaited(CallController.instance.connect().catchError((_) {}));
+
+      if (!mounted) return;
+
+      final normalizedUsername = username.toLowerCase();
+      final staffRole = _resolveStaffRole(normalizedUsername);
       if (staffRole != null) {
         Navigator.pushReplacement(
           context,
@@ -371,7 +391,7 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      final module = ModuleAdminScreen.resolveModule(email);
+      final module = ModuleAdminScreen.resolveModule(normalizedUsername);
       if (module != null) {
         Navigator.pushReplacement(
           context,
@@ -385,12 +405,19 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(builder: (context) => const MasterHomePage()),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      _showInfoSnackBar(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
   Widget _buildLoginButton() {
     return ElevatedButton(
-      onPressed: _submit,
+      onPressed: _isSubmitting ? null : _submit,
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.white,
@@ -401,13 +428,22 @@ class _LoginPageState extends State<LoginPage> {
         elevation: 6,
         shadowColor: Colors.black.withOpacity(0.20),
       ),
-      child: const Text(
-        'Sign In',
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      child: _isSubmitting
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : const Text(
+              'Sign In',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
     );
   }
 
@@ -431,11 +467,11 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  StaffRoleType? _resolveStaffRole(String email) {
-    if (email.contains('staff') && email.contains('it')) {
+  StaffRoleType? _resolveStaffRole(String username) {
+    if (username.contains('staff') && username.contains('it')) {
       return StaffRoleType.it;
     }
-    if (email.contains('staff') && email.contains('fm')) {
+    if (username.contains('staff') && username.contains('fm')) {
       return StaffRoleType.fm;
     }
     return null;

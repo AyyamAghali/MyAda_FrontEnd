@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import '../services/call/call_controller.dart';
 import '../utils/constants.dart';
 import '../utils/responsive.dart';
 import '../widgets/id_card.dart';
@@ -133,10 +135,14 @@ class MasterHomePage extends StatelessWidget {
                 IconButton(
                   icon: Icon(Icons.logout,
                       color: AppColors.primary, size: iconSize),
-                  onPressed: () {
+                  onPressed: () async {
+                    await CallController.instance.disconnect();
+                    await AuthService.instance.clearSession();
+                    if (!context.mounted) return;
                     Navigator.pushAndRemoveUntil(
                       context,
-                      MaterialPageRoute(builder: (context) => const LoginPage()),
+                      MaterialPageRoute(
+                          builder: (context) => const LoginPage()),
                       (route) => false,
                     );
                   },
@@ -208,7 +214,8 @@ class MasterHomePage extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const HomeScreen()),
+                        MaterialPageRoute(
+                            builder: (context) => const HomeScreen()),
                       );
                     },
                   ),
@@ -220,7 +227,8 @@ class MasterHomePage extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const ClubManagementHub()),
+                        MaterialPageRoute(
+                            builder: (context) => const ClubManagementHub()),
                       );
                     },
                   ),
@@ -232,7 +240,8 @@ class MasterHomePage extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const SupportModule()),
+                        MaterialPageRoute(
+                            builder: (context) => const SupportModule()),
                       );
                     },
                   ),
@@ -380,7 +389,9 @@ class MasterHomePage extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isActive ? AppColors.white : AppColors.white.withOpacity(0.75),
+              color: isActive
+                  ? AppColors.white
+                  : AppColors.white.withOpacity(0.75),
               size: iconSize,
             ),
             const SizedBox(width: 8),
@@ -389,7 +400,9 @@ class MasterHomePage extends StatelessWidget {
               style: TextStyle(
                 fontSize: fontSize,
                 fontWeight: FontWeight.w700,
-                color: isActive ? AppColors.white : AppColors.white.withOpacity(0.75),
+                color: isActive
+                    ? AppColors.white
+                    : AppColors.white.withOpacity(0.75),
               ),
             ),
           ],

@@ -1,4 +1,11 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'browser_storage_stub.dart'
+    if (dart.library.html) 'browser_storage_web.dart';
 
 /// Lightweight session singleton.
 ///
@@ -15,8 +22,11 @@ class AuthService {
 
   static final AuthService instance = AuthService._();
 
-  static const _keyStudentId = 'auth_student_id';
-  static const _keyAccessToken = 'auth_access_token';
+  static const String _authBaseUrl = 'http://13.60.31.141:5000/api/auth';
+  static const String _keyStudentId = 'auth_student_id';
+  static const String _keyAccessToken = 'auth_access_token';
+  static const String _refreshTokenCookie = 'myada_refresh_token';
+  static const String _refreshTokenPrefs = 'auth_refresh_token';
 
   String? _studentId;
   String? _accessToken;
@@ -27,12 +37,19 @@ class AuthService {
   /// Never surface this value directly in UI strings.
   String? get accessToken => _accessToken;
 
-  bool get hasSession => _studentId != null && _accessToken != null;
+  bool get hasSession => _accessToken != null;
 
   /// Loads a previously persisted session from SharedPreferences.
   /// Safe to call multiple times; skips reload if already loaded.
   Future<void> loadSession() async {
-    if (_studentId != null) return;
+    if (_accessToken != null) return;
+
+    if (kIsWeb) {
+      _studentId = BrowserStorage.getSessionValue(_keyStudentId);
+      _accessToken = BrowserStorage.getSessionValue(_keyAccessToken);
+      return;
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       _studentId = prefs.getString(_keyStudentId);
@@ -44,26 +61,191 @@ class AuthService {
 
   /// Persists a new session. Call this from the login handler.
   Future<void> setSession({
-    required String studentId,
+    String? studentId,
     required String accessToken,
+    required String refreshToken,
   }) async {
     _studentId = studentId;
     _accessToken = accessToken;
+
+    if (kIsWeb) {
+      if (studentId != null && studentId.isNotEmpty) {
+        BrowserStorage.setSessionValue(_keyStudentId, studentId);
+      } else {
+        BrowserStorage.removeSessionValue(_keyStudentId);
+      }
+      BrowserStorage.setSessionValue(_keyAccessToken, accessToken);
+      BrowserStorage.setCookie(
+        _refreshTokenCookie,
+        refreshToken,
+        maxAgeSeconds: 30 * 24 * 60 * 60,
+        secure: true,
+        sameSite: 'Lax',
+      );
+      return;
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyStudentId, studentId);
+      if (studentId != null && studentId.isNotEmpty) {
+        await prefs.setString(_keyStudentId, studentId);
+      } else {
+        await prefs.remove(_keyStudentId);
+      }
       await prefs.setString(_keyAccessToken, accessToken);
+      await prefs.setString(_refreshTokenPrefs, refreshToken);
     } catch (_) {}
+  }
+
+  Future<void> login({
+    required String username,
+    required String password,
+  }) async {
+    final uri = Uri.parse('$_authBaseUrl/login');
+    final response = await http.post(
+      uri,
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'username': username, 'password': password}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Login failed (${response.statusCode}).');
+    }
+
+    final body = _decodeJsonMap(response.body);
+    final accessToken = body['accessToken'] as String?;
+    final refreshToken = body['refreshToken'] as String?;
+
+    if (accessToken == null || accessToken.isEmpty) {
+      throw Exception('Login response did not include accessToken.');
+    }
+    if (refreshToken == null || refreshToken.isEmpty) {
+      throw Exception('Login response did not include refreshToken.');
+    }
+
+    final studentId = _extractSubjectFromJwt(accessToken);
+    await setSession(
+      studentId: studentId,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    );
+  }
+
+  Future<String> refreshAccessToken() async {
+    final refreshToken = await _readRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) {
+      throw Exception('Refresh token is missing. Please login again.');
+    }
+
+    final uri = Uri.parse('$_authBaseUrl/refresh');
+    final response = await http.post(
+      uri,
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'refreshToken': refreshToken}),
+    );
+
+    if (response.statusCode != 200) {
+      await clearSession();
+      throw Exception('Session expired. Please login again.');
+    }
+
+    final body = _decodeJsonMap(response.body);
+    final newAccessToken = body['accessToken'] as String?;
+    final newRefreshToken = body['refreshToken'] as String?;
+    if (newAccessToken == null || newAccessToken.isEmpty) {
+      await clearSession();
+      throw Exception('Refresh response did not include accessToken.');
+    }
+    if (newRefreshToken == null || newRefreshToken.isEmpty) {
+      await clearSession();
+      throw Exception('Refresh response did not include refreshToken.');
+    }
+
+    final studentId = _extractSubjectFromJwt(newAccessToken) ?? _studentId;
+    await setSession(
+      studentId: studentId,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    );
+    return newAccessToken;
+  }
+
+  Future<http.Response> sendAuthorized(
+    Future<http.Response> Function(String accessToken) sendRequest,
+  ) async {
+    await loadSession();
+    var token = _accessToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('You are not logged in. Please login first.');
+    }
+
+    var response = await sendRequest(token);
+    if (response.statusCode == 400) {
+      token = await refreshAccessToken();
+      response = await sendRequest(token);
+    }
+
+    if (response.statusCode == 401) {
+      await clearSession();
+    }
+
+    return response;
   }
 
   /// Clears all session data. Call on logout.
   Future<void> clearSession() async {
     _studentId = null;
     _accessToken = null;
+
+    if (kIsWeb) {
+      BrowserStorage.removeSessionValue(_keyStudentId);
+      BrowserStorage.removeSessionValue(_keyAccessToken);
+      BrowserStorage.removeCookie(_refreshTokenCookie);
+      return;
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyStudentId);
       await prefs.remove(_keyAccessToken);
+      await prefs.remove(_refreshTokenPrefs);
     } catch (_) {}
+  }
+
+  Future<String?> _readRefreshToken() async {
+    if (kIsWeb) {
+      return BrowserStorage.getCookie(_refreshTokenCookie);
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_refreshTokenPrefs);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Map<String, dynamic> _decodeJsonMap(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    throw Exception('Unexpected API response format.');
+  }
+
+  static String? _extractSubjectFromJwt(String jwt) {
+    final parts = jwt.split('.');
+    if (parts.length < 2) return null;
+    try {
+      final payload = base64Url.normalize(parts[1]);
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final map = jsonDecode(decoded);
+      if (map is Map<String, dynamic>) {
+        final sub = map['sub']?.toString();
+        return (sub == null || sub.isEmpty) ? null : sub;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 }

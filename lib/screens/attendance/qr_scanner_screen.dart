@@ -158,9 +158,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       // 3. Resolve student ID: explicit override > auth session > error.
       final override = _studentIdCtrl.text.trim();
-      final studentId = override.isNotEmpty
-          ? override
-          : AuthService.instance.studentId;
+      final studentId =
+          override.isNotEmpty ? override : AuthService.instance.studentId;
 
       if (studentId == null || studentId.isEmpty) {
         throw const AttendanceServiceException(
@@ -168,14 +167,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         );
       }
 
-      final accessToken = AuthService.instance.accessToken ?? '';
-
       // 4. POST to backend.
       final result = await _service.submitQrScan(
         studentId: studentId,
         token: parsed.token,
         qrContext: parsed.qrContext,
-        accessToken: accessToken,
       );
 
       if (mounted) {
@@ -292,8 +288,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           height: 320 + topPadding,
           decoration: const BoxDecoration(
             color: Color(0xFF111827),
-            borderRadius:
-                BorderRadius.vertical(bottom: Radius.circular(28)),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
           ),
           clipBehavior: Clip.antiAlias,
           child: _cameraActive
@@ -316,8 +311,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           child: IgnorePointer(
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(28)),
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(28)),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -353,9 +348,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             top: topPadding + 8,
             right: 16,
             child: _CircleButton(
-              icon: _torchOn
-                  ? Icons.flash_on_rounded
-                  : Icons.flash_off_rounded,
+              icon: _torchOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
               onTap: _toggleTorch,
             ),
           ),
@@ -415,8 +408,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               end: Alignment.bottomRight,
               colors: [AppColors.primary, AppColors.primaryDark],
             ),
-            borderRadius:
-                BorderRadius.vertical(bottom: Radius.circular(28)),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
           ),
           child: Center(
             child: Padding(
@@ -548,8 +540,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               height: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(AppColors.primary),
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
             ),
             const SizedBox(width: 14),
@@ -563,9 +554,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
 
     final isSuccess = _state == _ScanState.success;
-    final accentColor = isSuccess
-        ? const Color(0xFF16A34A)
-        : const Color(0xFFDC2626);
+    final accentColor =
+        isSuccess ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
     final bgColor =
         isSuccess ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2);
     final borderColor =
@@ -643,8 +633,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           Icon(icon, size: 14, color: AppColors.gray500),
           const SizedBox(width: 6),
           Text('$label: ',
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.gray500)),
+              style: const TextStyle(fontSize: 13, color: AppColors.gray500)),
           Flexible(
             child: Text(
               value,
@@ -705,9 +694,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         // ── Collapsible token field ───────────────────────────────────
         AnimatedCrossFade(
           duration: const Duration(milliseconds: 220),
-          crossFadeState: isExpanded
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
+          crossFadeState:
+              isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
           firstChild: const SizedBox(width: double.infinity),
           secondChild: Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -737,8 +725,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
-          onTap: () =>
-              setState(() => _studentIdExpanded = !_studentIdExpanded),
+          onTap: () => setState(() => _studentIdExpanded = !_studentIdExpanded),
           behavior: HitTestBehavior.opaque,
           child: Row(
             children: [
@@ -811,13 +798,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle:
-          const TextStyle(fontSize: 14, color: AppColors.gray400),
+      hintStyle: const TextStyle(fontSize: 14, color: AppColors.gray400),
       prefixIcon: Icon(prefixIcon, size: 18, color: AppColors.gray400),
       filled: true,
       fillColor: AppColors.gray50,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: AppColors.gray200),
@@ -846,8 +831,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
         decoration: BoxDecoration(
           color: AppColors.white,
-          border: Border(
-              top: BorderSide(color: AppColors.gray200, width: 1)),
+          border: Border(top: BorderSide(color: AppColors.gray200, width: 1)),
         ),
         child: _canUseCamera
             ? _buildCameraBottomBar()
@@ -869,16 +853,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         onPressed: null,
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         child: const SizedBox(
           width: 18,
           height: 18,
           child: CircularProgressIndicator(
               strokeWidth: 2.5,
-              valueColor:
-                  AlwaysStoppedAnimation<Color>(AppColors.primary)),
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary)),
         ),
       );
     } else if (_cameraActive) {
@@ -886,14 +869,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         onPressed: _stopCamera,
         icon: const Icon(Icons.stop_circle_outlined, size: 17),
         label: const Text('Stop Scanner',
-            style:
-                TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.gray700,
           side: const BorderSide(color: AppColors.gray300),
           padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } else {
@@ -901,15 +883,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         onPressed: _startCamera,
         icon: const Icon(Icons.qr_code_scanner_rounded, size: 17),
         label: const Text('Start Scanner',
-            style:
-                TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
           elevation: 0,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -929,15 +910,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 22, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Text('Submit',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               ),
             );
           },
@@ -959,20 +940,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 height: 17,
                 child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Colors.white)),
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
               )
             : const Icon(Icons.check_circle_outline_rounded, size: 17),
         label: const Text('Submit Attendance',
-            style:
-                TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
           elevation: 0,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );

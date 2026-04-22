@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import '../models/qr_scan_result.dart';
+import 'auth_service.dart';
 
 // ── DTOs ─────────────────────────────────────────────────────────────────────
 
@@ -59,8 +60,7 @@ class AttendanceService {
   static const String _baseUrl = 'https://myada-api.example.com';
 
   static final _tokenPattern = RegExp(r'^[A-Za-z0-9._~\-]{6,512}$');
-  static final _urlPattern =
-      RegExp(r'^https?://', caseSensitive: false);
+  static final _urlPattern = RegExp(r'^https?://', caseSensitive: false);
 
   // ── Parsing ──────────────────────────────────────────────────────────────
 
@@ -112,9 +112,7 @@ class AttendanceService {
     if (token.isEmpty) {
       throw const AttendanceServiceException(message: 'QR token is empty.');
     }
-    if (token.contains(' ') ||
-        token.contains('\n') ||
-        token.contains('\r')) {
+    if (token.contains(' ') || token.contains('\n') || token.contains('\r')) {
       throw const AttendanceServiceException(
           message: 'Token contains invalid whitespace.');
     }
@@ -144,10 +142,9 @@ class AttendanceService {
     required String studentId,
     required String token,
     QrContext? qrContext,
-    required String accessToken,
   }) async {
-    final uri = Uri.parse(
-        '$_baseUrl/api/students/$studentId/attendance/qr/scan');
+    final uri =
+        Uri.parse('$_baseUrl/api/students/$studentId/attendance/qr/scan');
 
     final body = <String, dynamic>{
       'studentId': studentId,
@@ -158,24 +155,27 @@ class AttendanceService {
     };
 
     try {
-      final response = await http
-          .post(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $accessToken',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode(body),
+      final response = await AuthService.instance
+          .sendAuthorized(
+            (accessToken) => http
+                .post(
+                  uri,
+                  headers: {
+                    'Authorization': 'Bearer $accessToken',
+                    'Content-Type': 'application/json',
+                  },
+                  body: jsonEncode(body),
+                )
+                .timeout(const Duration(seconds: 30)),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 35));
 
       return _handleResponse(response);
     } on AttendanceServiceException {
       rethrow;
     } on SocketException {
       throw const AttendanceServiceException(
-          message:
-              'No internet connection. Check your network and try again.');
+          message: 'No internet connection. Check your network and try again.');
     } on TimeoutException {
       throw const AttendanceServiceException(
           message: 'Request timed out. Please try again.');
@@ -211,15 +211,13 @@ class AttendanceService {
         final serverMsg = _extractServerMessage(response.body);
         throw AttendanceServiceException(
             statusCode: response.statusCode,
-            message:
-                serverMsg ?? 'Something went wrong. Please try again.');
+            message: serverMsg ?? 'Something went wrong. Please try again.');
     }
   }
 
   String? _extractServerMessage(String body) {
     try {
-      return (jsonDecode(body) as Map<String, dynamic>)['message']
-          as String?;
+      return (jsonDecode(body) as Map<String, dynamic>)['message'] as String?;
     } catch (_) {
       return null;
     }
