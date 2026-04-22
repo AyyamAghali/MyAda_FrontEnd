@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../data/club_vacancies_mock.dart';
@@ -174,11 +173,14 @@ class _ClubDetailsState extends State<ClubDetails> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            CachedNetworkImage(
-              imageUrl: _heroImageUrl,
+            Image.network(
+              _heroImageUrl,
               fit: BoxFit.cover,
-              placeholder: (_, __) => Container(color: AppColors.gray200),
-              errorWidget: (_, __, ___) => Container(
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(color: AppColors.gray200);
+              },
+              errorBuilder: (_, __, ___) => Container(
                 color: AppColors.primary,
                 child: const Icon(Icons.groups, size: 64, color: AppColors.white),
               ),
@@ -338,9 +340,20 @@ class _ClubDetailsState extends State<ClubDetails> {
         children: [
           CircleAvatar(
             radius: 22,
-            backgroundImage: CachedNetworkImageProvider(o.photo),
-            onBackgroundImageError: (_, __) {},
-            child: const SizedBox.shrink(),
+            backgroundColor: AppColors.gray100,
+            child: ClipOval(
+              child: Image.network(
+                o.photo,
+                width: 44,
+                height: 44,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.person,
+                  size: 20,
+                  color: AppColors.gray400,
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

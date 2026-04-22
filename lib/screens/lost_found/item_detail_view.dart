@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import '../../models/lost_item.dart';
 import '../../utils/constants.dart';
@@ -105,17 +104,19 @@ class ItemDetailView extends StatelessWidget {
                 ),
               ),
               clipBehavior: Clip.antiAlias,
-              child: CachedNetworkImage(
-                imageUrl: item.imageUrl,
+              child: Image.network(
+                item.imageUrl,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    color: AppColors.gray200,
+                    child: const Center(child: CircularProgressIndicator()),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => Container(
                   color: AppColors.gray200,
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: AppColors.gray200,
-                  child: const Icon(Icons.image,
-                      size: 64, color: AppColors.gray400),
+                  child: const Icon(Icons.image, size: 64, color: AppColors.gray400),
                 ),
               ),
             ),
@@ -718,12 +719,14 @@ class _FullScreenImageViewer extends StatelessWidget {
               child: InteractiveViewer(
                 minScale: 1.0,
                 maxScale: 5.0,
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
+                child: Image.network(
+                  imageUrl,
                   fit: BoxFit.contain,
-                  placeholder: (context, url) =>
-                      const Center(child: CircularProgressIndicator()),
-                  errorWidget: (context, url, error) =>
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                  errorBuilder: (context, error, stackTrace) =>
                       const Icon(Icons.image, size: 64, color: AppColors.gray400),
                 ),
               ),

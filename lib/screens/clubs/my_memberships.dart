@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
@@ -353,13 +352,16 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl: m.club.logo,
+                        child: Image.network(
+                          m.club.logo,
                           width: 48,
                           height: 48,
                           fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(width: 48, height: 48, color: AppColors.gray100),
-                          errorWidget: (_, __, ___) => Container(
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(width: 48, height: 48, color: AppColors.gray100);
+                          },
+                          errorBuilder: (_, __, ___) => Container(
                             width: 48,
                             height: 48,
                             color: AppColors.primary.withValues(alpha: 0.08),

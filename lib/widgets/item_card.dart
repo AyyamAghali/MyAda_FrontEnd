@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/lost_item.dart';
 import '../utils/constants.dart';
 
@@ -29,18 +28,21 @@ class ItemCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: CachedNetworkImage(
-                imageUrl: item.imageUrl,
+              child: Image.network(
+                item.imageUrl,
                 width: 56,
                 height: 56,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  width: 56,
-                  height: 56,
-                  color: AppColors.gray100,
-                  child: const Icon(Icons.image, size: 20, color: AppColors.gray300),
-                ),
-                errorWidget: (context, url, error) => Container(
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    width: 56,
+                    height: 56,
+                    color: AppColors.gray100,
+                    child: const Icon(Icons.image, size: 20, color: AppColors.gray300),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => Container(
                   width: 56,
                   height: 56,
                   color: AppColors.gray100,

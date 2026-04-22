@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/club.dart';
 import '../utils/constants.dart';
 
@@ -40,20 +39,23 @@ class ClubCard extends StatelessWidget {
                   child: SizedBox(
                     width: 76,
                     height: 76,
-                    child: CachedNetworkImage(
-                      imageUrl: _coverUrl,
+                    child: Image.network(
+                      _coverUrl,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: AppColors.gray100,
-                        child: const Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: AppColors.gray100,
+                          child: const Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           ),
-                        ),
-                      ),
-                      errorWidget: (context, url, error) => Container(
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => Container(
                         color: AppColors.gray100,
                         child: const Icon(Icons.groups, size: 32, color: AppColors.gray400),
                       ),
