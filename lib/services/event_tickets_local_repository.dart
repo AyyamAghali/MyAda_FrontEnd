@@ -213,13 +213,15 @@ class LocalEventTicketsRepository implements EventTicketsRepository {
   @override
   Future<CheckInResponse> checkIn({
     required String eventId,
-    required String jwt,
+    required String token,
+    String? scannerDeviceId,
+    String? gateId,
   }) async {
-    // Find matching ticket by jwt.
+    // Find matching ticket by token/jwt.
     final tickets = await _loadMap(_keyTicketsByEvent);
     Map<String, dynamic>? match;
     for (final v in tickets.values) {
-      if (v is Map<String, dynamic> && v['jwt']?.toString() == jwt) {
+      if (v is Map<String, dynamic> && v['jwt']?.toString() == token) {
         match = v;
         break;
       }
@@ -227,8 +229,8 @@ class LocalEventTicketsRepository implements EventTicketsRepository {
     if (match == null) {
       return CheckInResponse(
         success: false,
-        status: 'not_found',
-        message: 'Ticket not found',
+        status: 'invalid_token',
+        message: 'Ticket token is invalid.',
         eventId: eventId,
         ticketId: '-',
         attendee: null,
@@ -258,8 +260,8 @@ class LocalEventTicketsRepository implements EventTicketsRepository {
 
     return CheckInResponse(
       success: true,
-      status: already ? 'already_checked_in' : 'checked_in',
-      message: already ? 'Ticket already used' : 'Entry allowed',
+      status: already ? 'already_scanned' : 'admitted',
+      message: already ? 'Ticket already scanned' : 'Entry allowed',
       eventId: eventId,
       ticketId: ticketId,
       attendee: attendee,

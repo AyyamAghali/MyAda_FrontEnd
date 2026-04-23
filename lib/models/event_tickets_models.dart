@@ -54,13 +54,13 @@ class AttendeeIdentity {
   final String userId;
   final String studentId;
   final String name;
-  final String surname;
+  final String? surname;
 
   const AttendeeIdentity({
     required this.userId,
     required this.studentId,
     required this.name,
-    required this.surname,
+    this.surname,
   });
 }
 

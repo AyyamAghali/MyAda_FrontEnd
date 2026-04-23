@@ -220,6 +220,11 @@ class LostFoundService {
     required String location,
     required String description,
     required String category,
+    String locationType = 'other',
+    String? building,
+    String? roomArea,
+    String? campusLocation,
+    String? collectionPlace,
     XFile? imageFile,
   }) async {
     if (kLostFoundUseMockData) return;
@@ -229,6 +234,12 @@ class LostFoundService {
       location: location,
       description: description,
       category: category,
+      reportType: 'lost',
+      locationType: locationType,
+      building: building,
+      roomArea: roomArea,
+      campusLocation: campusLocation,
+      collectionPlace: collectionPlace,
       imageFile: imageFile,
     );
   }
@@ -242,6 +253,11 @@ class LostFoundService {
     required String location,
     required String description,
     required String category,
+    String locationType = 'other',
+    String? building,
+    String? roomArea,
+    String? campusLocation,
+    String? collectionPlace,
     XFile? imageFile,
   }) async {
     if (kLostFoundUseMockData) return;
@@ -251,6 +267,12 @@ class LostFoundService {
       location: location,
       description: description,
       category: category,
+      reportType: 'found',
+      locationType: locationType,
+      building: building,
+      roomArea: roomArea,
+      campusLocation: campusLocation,
+      collectionPlace: collectionPlace,
       imageFile: imageFile,
     );
   }
@@ -275,7 +297,9 @@ class LostFoundService {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                   },
-                  body: jsonEncode(<String, dynamic>{}),
+                  body: jsonEncode(<String, dynamic>{
+                    'claimType': 'owner',
+                  }),
                 )
                 .timeout(const Duration(seconds: 20)),
           )
@@ -308,6 +332,12 @@ class LostFoundService {
     required String location,
     required String description,
     required String category,
+    required String reportType,
+    required String locationType,
+    String? building,
+    String? roomArea,
+    String? campusLocation,
+    String? collectionPlace,
     XFile? imageFile,
   }) async {
     final uri = Uri.parse('$_base$path');
@@ -317,10 +347,19 @@ class LostFoundService {
       if (imageFile != null) {
         // multipart/form-data when an image is attached
         final req = http.MultipartRequest('POST', uri)
-          ..fields['title'] = title
+          ..fields['type'] = reportType
+          ..fields['itemName'] = title
           ..fields['location'] = location
+          ..fields['locationType'] = locationType
           ..fields['description'] = description
           ..fields['category'] = category
+          ..fields['collectionPlace'] =
+              (collectionPlace?.trim().isNotEmpty ?? false)
+                  ? collectionPlace!.trim()
+                  : 'Security Desk'
+          ..fields['building'] = building ?? ''
+          ..fields['roomArea'] = roomArea ?? ''
+          ..fields['campusLocation'] = campusLocation ?? ''
           ..files.add(
               await http.MultipartFile.fromPath('imageFile', imageFile.path));
         final streamed =
@@ -336,10 +375,20 @@ class LostFoundService {
                 'Accept': 'application/json',
               },
               body: jsonEncode({
-                'title': title,
+                'type': reportType,
+                'itemName': title,
+                'locationType': locationType,
                 'location': location,
                 'description': description,
                 'category': category,
+                'collectionPlace': (collectionPlace?.trim().isNotEmpty ?? false)
+                    ? collectionPlace!.trim()
+                    : 'Security Desk',
+                if (building != null && building.isNotEmpty) 'building': building,
+                if (roomArea != null && roomArea.isNotEmpty)
+                  'roomArea': roomArea,
+                if (campusLocation != null && campusLocation.isNotEmpty)
+                  'campusLocation': campusLocation,
               }),
             )
             .timeout(const Duration(seconds: 20));
@@ -366,7 +415,16 @@ class LostFoundService {
   String? _extractMsg(String body) {
     try {
       final map = jsonDecode(body) as Map<String, dynamic>;
-      return (map['message'] ?? map['error'] ?? map['detail']) as String?;
+      final direct = map['message'] ?? map['error'] ?? map['detail'];
+      if (direct is String && direct.isNotEmpty) return direct;
+      final details = map['details'];
+      if (details is Map<String, dynamic>) {
+        for (final v in details.values) {
+          if (v is List && v.isNotEmpty) return v.first.toString();
+          if (v is String && v.isNotEmpty) return v;
+        }
+      }
+      return null;
     } catch (_) {
       return null;
     }

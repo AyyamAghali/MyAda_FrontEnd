@@ -206,6 +206,16 @@ class _ReportItemFormState extends State<ReportItemForm> {
           location: _resolvedLocation,
           description: _description.trim(),
           category: _catName(_category),
+          locationType: _locationType,
+          building: _locationType == 'building' ? _selectedBuilding : null,
+          roomArea: _locationType == 'building'
+              ? (_isRoomSelection == 'yes'
+                  ? (_selectedRoom != null ? 'Room $_selectedRoom' : null)
+                  : _locationDetails.trim())
+              : null,
+          campusLocation:
+              _locationType == 'campus' ? _campusLocation.trim() : null,
+          collectionPlace: 'Security Desk',
           imageFile: _pickedImages.isNotEmpty ? _pickedImages.first : null,
         );
       } else {
@@ -214,6 +224,16 @@ class _ReportItemFormState extends State<ReportItemForm> {
           location: _resolvedLocation,
           description: _description.trim(),
           category: _catName(_category),
+          locationType: _locationType,
+          building: _locationType == 'building' ? _selectedBuilding : null,
+          roomArea: _locationType == 'building'
+              ? (_isRoomSelection == 'yes'
+                  ? (_selectedRoom != null ? 'Room $_selectedRoom' : null)
+                  : _locationDetails.trim())
+              : null,
+          campusLocation:
+              _locationType == 'campus' ? _campusLocation.trim() : null,
+          collectionPlace: 'Security Desk',
           imageFile: _pickedImages.isNotEmpty ? _pickedImages.first : null,
         );
       }

@@ -20,10 +20,12 @@ abstract class EventTicketsRepository {
   /// GET /api/v1/users/me/event-registrations
   Future<List<MyRegistrationItem>> listMyRegistrations();
 
-  /// POST /api/v1/events/{eventId}/check-in
+  /// POST /api/v1/events/{eventId}/tickets/scan
   Future<CheckInResponse> checkIn({
     required String eventId,
-    required String jwt,
+    required String token,
+    String? scannerDeviceId,
+    String? gateId,
   });
 
   /// Used by UI for:

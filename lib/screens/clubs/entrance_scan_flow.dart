@@ -5,6 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../models/club_public_event.dart';
 import '../../models/event_tickets_models.dart';
+import '../../services/auth_service.dart';
 import '../../services/club_api_service.dart';
 import '../../services/remote_event_tickets_repository.dart';
 import '../../services/event_tickets_repository.dart';
@@ -92,7 +93,7 @@ class _SelectClubForScanScreenState extends State<SelectClubForScanScreen> {
                                 ),
                                 child: Center(
                                   child: Text(
-                                    c.$2.substring(0, 1),
+                                    c.$2.isNotEmpty ? c.$2.substring(0, 1).toUpperCase() : '?',
                                     style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w800,
@@ -295,8 +296,12 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
   CheckInResponse? _last;
   Timer? _clearTimer;
   final EventTicketsRepository _repo = RemoteEventTicketsRepository();
+  final AuthService _auth = AuthService.instance;
   final ClubApiService _api = ClubApiService();
   ClubPublicEvent? _event;
+  AuthUserProfile? _attendeeProfile;
+  bool _isResolvingAttendee = false;
+  int _scanNonce = 0;
 
   @override
   void initState() {
@@ -313,23 +318,48 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
     super.dispose();
   }
 
-  Future<void> _handleJwt(String jwt) async {
+  Future<void> _handleToken(String token) async {
     if (_busy) return;
+    final nonce = ++_scanNonce;
     setState(() => _busy = true);
     final res = await _repo.checkIn(
       eventId: widget.eventId.toString(),
-      jwt: jwt,
+      token: token,
+      scannerDeviceId: 'flutter-mobile',
+      gateId: 'main-entrance',
     );
     if (!mounted) return;
     setState(() {
       _last = res;
+      _attendeeProfile = null;
+      _isResolvingAttendee = false;
       _busy = false;
     });
+
+    final attendeeId = res.attendee?.userId.trim() ?? '';
+    if (res.success && attendeeId.isNotEmpty) {
+      setState(() => _isResolvingAttendee = true);
+      try {
+        final profile = await _auth.fetchUserById(attendeeId);
+        if (!mounted || nonce != _scanNonce) return;
+        setState(() {
+          _attendeeProfile = profile;
+          _isResolvingAttendee = false;
+        });
+      } catch (_) {
+        if (!mounted || nonce != _scanNonce) return;
+        setState(() => _isResolvingAttendee = false);
+      }
+    }
 
     _clearTimer?.cancel();
     _clearTimer = Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
-      setState(() => _last = null);
+      setState(() {
+        _last = null;
+        _attendeeProfile = null;
+        _isResolvingAttendee = false;
+      });
     });
   }
 
@@ -362,7 +392,7 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
               for (final b in barcodes) {
                 final v = b.rawValue;
                 if (v == null || v.isEmpty) continue;
-                _handleJwt(v);
+                _handleToken(v);
                 break;
               }
             },
@@ -401,7 +431,13 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
             left: 16,
             right: 16,
             bottom: 16,
-            child: _last == null ? _hintCard() : _resultCard(_last!),
+            child: _last == null
+                ? _hintCard()
+                : _resultCard(
+                    _last!,
+                    attendeeProfile: _attendeeProfile,
+                    attendeeLoading: _isResolvingAttendee,
+                  ),
           ),
           if (_busy)
             const Positioned(
@@ -441,9 +477,13 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
     );
   }
 
-  Widget _resultCard(CheckInResponse res) {
-    final ok = res.success && res.status == 'checked_in';
-    final dup = res.success && res.status == 'already_checked_in';
+  Widget _resultCard(
+    CheckInResponse res, {
+    required AuthUserProfile? attendeeProfile,
+    required bool attendeeLoading,
+  }) {
+    final ok = res.success && res.status == 'admitted';
+    final dup = res.success && res.status == 'already_scanned';
     final color = ok
         ? const Color(0xFF16A34A)
         : dup
@@ -490,10 +530,49 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
               fontWeight: FontWeight.w500,
             ),
           ),
+          if (res.success) ...[
+            const SizedBox(height: 10),
+            if (attendeeLoading)
+              Text(
+                'Loading attendee details...',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 12,
+                ),
+              )
+            else if (attendeeProfile != null) ...[
+              Text(
+                'Username: ${attendeeProfile.userName}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if ((attendeeProfile.firstName ?? '').isNotEmpty)
+                Text(
+                  'First name: ${attendeeProfile.firstName}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 12,
+                  ),
+                ),
+              if ((attendeeProfile.lastName ?? '').isNotEmpty)
+                Text(
+                  'Last name: ${attendeeProfile.lastName}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 12,
+                  ),
+                ),
+            ],
+          ],
           const SizedBox(height: 10),
           if (res.attendee != null) ...[
             Text(
-              '${res.attendee!.name} ${res.attendee!.surname}',
+              res.attendee!.surname != null && res.attendee!.surname!.isNotEmpty
+                  ? '${res.attendee!.name} ${res.attendee!.surname}'
+                  : res.attendee!.name,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 13,

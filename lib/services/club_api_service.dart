@@ -214,6 +214,29 @@ class ClubApiService {
     return _unwrapSingle(body);
   }
 
+  /// `POST /api/v1/events/{eventId}/tickets/scan`
+  Future<Map<String, dynamic>> scanTicket({
+    required String eventId,
+    required String token,
+    String? scannerDeviceId,
+    String? gateId,
+    DateTime? scannedAtUtc,
+  }) async {
+    final uri = Uri.parse('$kClubApiBase/api/v1/events/$eventId/tickets/scan');
+    final body = await _authorizedPost(
+      uri,
+      body: {
+        'token': token,
+        if (scannerDeviceId != null && scannerDeviceId.isNotEmpty)
+          'scannerDeviceId': scannerDeviceId,
+        if (gateId != null && gateId.isNotEmpty) 'gateId': gateId,
+        'scannedAtUtc':
+            (scannedAtUtc ?? DateTime.now().toUtc()).toIso8601String(),
+      },
+    );
+    return _unwrapSingle(body);
+  }
+
   // ── Vacancies ──────────────────────────────────────────────────────────
 
   /// `GET /api/v1/vacancies?search=&page=&limit=`

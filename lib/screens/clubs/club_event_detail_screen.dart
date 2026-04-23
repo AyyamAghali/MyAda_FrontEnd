@@ -81,13 +81,21 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
     });
   }
 
-  String _fmtDate(String dateStr) => DateFormat('MMMM d, yyyy').format(DateTime.parse(dateStr));
+  String _fmtDate(String dateStr) {
+    if (dateStr.isEmpty) return '';
+    final trimmed = dateStr.length >= 10 ? dateStr.substring(0, 10) : dateStr;
+    final dt = DateTime.tryParse(trimmed) ?? DateTime.tryParse(dateStr);
+    if (dt == null) return dateStr;
+    return DateFormat('MMMM d, yyyy').format(dt);
+  }
 
   String _fmtTime(String? t) {
     if (t == null || t.isEmpty) return '';
     final parts = t.split(':');
-    final h = int.parse(parts[0]);
-    final m = int.parse(parts[1]);
+    if (parts.length < 2) return t;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return t;
     final period = h >= 12 ? 'PM' : 'AM';
     final hour = h % 12 == 0 ? 12 : h % 12;
     return '$hour:${m.toString().padLeft(2, '0')} $period';

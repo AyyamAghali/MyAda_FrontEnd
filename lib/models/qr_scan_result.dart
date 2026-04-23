@@ -25,18 +25,29 @@ class QrScanResult {
   });
 
   factory QrScanResult.fromJson(Map<String, dynamic> json) {
+    int? asInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '');
+    }
+
+    final rawSuccess = json['success'];
+    final success = rawSuccess is bool
+        ? rawSuccess
+        : rawSuccess?.toString().toLowerCase() == 'true';
+
     return QrScanResult(
-      success: json['success'] as bool? ?? false,
-      errorCode: json['errorCode'] as String?,
-      message: json['message'] as String? ?? '',
-      studentId: json['studentId'] as String?,
-      sessionId: json['sessionId'] as int?,
-      activationId: json['activationId'] as int?,
-      round: json['round'] as int?,
-      validScanCount: json['validScanCount'] as int?,
-      status: json['status'] as String?,
+      success: success,
+      errorCode: json['errorCode']?.toString(),
+      message: json['message']?.toString() ?? '',
+      studentId: json['studentId']?.toString(),
+      sessionId: asInt(json['sessionId']),
+      activationId: asInt(json['activationId']),
+      round: asInt(json['round']),
+      validScanCount: asInt(json['validScanCount']),
+      status: json['status']?.toString(),
       scannedAt: json['scannedAt'] != null
-          ? DateTime.tryParse(json['scannedAt'] as String)
+          ? DateTime.tryParse(json['scannedAt'].toString())
           : null,
     );
   }

@@ -99,8 +99,10 @@ class _MyRegisteredEventsScreenState extends State<MyRegisteredEventsScreen> {
                       itemCount: events.length,
                       itemBuilder: (context, i) {
                         final e = events[i];
-                        final d = DateTime.parse(e.date);
-                        final formatted = DateFormat.yMMMMEEEEd().format(d);
+                        final rawDate = e.date;
+                        final trimmed = rawDate.length >= 10 ? rawDate.substring(0, 10) : rawDate;
+                        final d = DateTime.tryParse(trimmed) ?? DateTime.tryParse(rawDate);
+                        final formatted = d != null ? DateFormat.yMMMMEEEEd().format(d) : rawDate;
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: ListTile(

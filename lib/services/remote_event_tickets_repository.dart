@@ -41,23 +41,52 @@ class RemoteEventTicketsRepository implements EventTicketsRepository {
   @override
   Future<CheckInResponse> checkIn({
     required String eventId,
-    required String jwt,
+    required String token,
+    String? scannerDeviceId,
+    String? gateId,
   }) async {
-    final json = await _api.checkIn(eventId: eventId, jwt: jwt);
-    final success = json['success'] == true;
-    final status = (json['status'] ?? 'unknown').toString();
-    final message = (json['message'] ?? '').toString();
+    Map<String, dynamic> json;
+    try {
+      json = await _api.scanTicket(
+        eventId: eventId,
+        token: token,
+        scannerDeviceId: scannerDeviceId,
+        gateId: gateId,
+        scannedAtUtc: DateTime.now().toUtc(),
+      );
+    } on ClubApiException catch (e) {
+      // Backward compatibility: older backend may still expose /check-in only.
+      if (e.statusCode == 404 || e.statusCode == 405) {
+        json = await _api.checkIn(eventId: eventId, jwt: token);
+      } else {
+        rethrow;
+      }
+    }
+    final rawStatus = (json['status'] ?? 'unknown').toString();
+    final status = _normalizeScanStatus(rawStatus);
+    final success = status == 'admitted' || status == 'already_scanned';
+    final message = (json['message'] ??
+            (status == 'admitted'
+                ? 'Ticket admitted.'
+                : status == 'already_scanned'
+                    ? 'Ticket already scanned.'
+                    : 'Ticket denied.'))
+        .toString();
     final ticketId = (json['ticketId'] ?? '').toString();
 
     AttendeeIdentity? attendee;
     final a = json['attendee'] ?? json;
-    if (a is Map<String, dynamic> && a.containsKey('attendeeId')) {
+    if (a is Map<String, dynamic>) {
+      final userId = (a['attendeeId'] ?? a['userId'] ?? '').toString();
+      final name = (a['name'] ?? '').toString();
+      if (userId.isNotEmpty || name.isNotEmpty) {
       attendee = AttendeeIdentity(
-        userId: (a['attendeeId'] ?? a['userId'] ?? '').toString(),
+        userId: userId,
         studentId: (a['studentId'] ?? '').toString(),
-        name: (a['name'] ?? '').toString(),
-        surname: (a['surname'] ?? '').toString(),
+        name: name,
+        surname: a['surname']?.toString(),
       );
+      }
     }
 
     return CheckInResponse(
@@ -70,6 +99,17 @@ class RemoteEventTicketsRepository implements EventTicketsRepository {
     );
   }
 
+  String _normalizeScanStatus(String raw) {
+    switch (raw) {
+      case 'checked_in':
+        return 'admitted';
+      case 'already_checked_in':
+        return 'already_scanned';
+      default:
+        return raw;
+    }
+  }
+
   @override
   Future<EventSnapshot> getEventSnapshot(String eventId) async {
     final json = await _api.getTicket(eventId);
@@ -77,15 +117,40 @@ class RemoteEventTicketsRepository implements EventTicketsRepository {
   }
 
   RegistrationTicket _ticketFromJson(Map<String, dynamic> json, String eventId) {
+    final token = _pickTicketToken(json);
     final eventJson =
         json['event'] is Map<String, dynamic> ? json['event'] as Map<String, dynamic> : json;
     return RegistrationTicket(
       ticketId: (json['ticketId'] ?? '').toString(),
       eventId: (json['eventId'] ?? eventId).toString(),
       userId: (json['userId'] ?? json['attendeeId'] ?? '').toString(),
-      jwt: (json['jwt'] ?? '').toString(),
+      jwt: token,
       event: _snapshotFromJson(eventJson, eventId),
     );
+  }
+
+  String _pickTicketToken(Map<String, dynamic> json) {
+    final c = [
+      json['jwt'],
+      json['token'],
+      json['accessToken'],
+      json['ticketToken'],
+      json['qrToken'],
+      (json['registration'] is Map<String, dynamic>)
+          ? (json['registration'] as Map<String, dynamic>)['jwt']
+          : null,
+      (json['registration'] is Map<String, dynamic>)
+          ? (json['registration'] as Map<String, dynamic>)['token']
+          : null,
+      (json['registration'] is Map<String, dynamic>)
+          ? (json['registration'] as Map<String, dynamic>)['accessToken']
+          : null,
+    ];
+    for (final v in c) {
+      final s = v?.toString() ?? '';
+      if (s.isNotEmpty) return s;
+    }
+    return '';
   }
 
   EventSnapshot _snapshotFromJson(Map<String, dynamic> json, String fallbackId) {

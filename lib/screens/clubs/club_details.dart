@@ -644,9 +644,11 @@ class _ClubDetailsState extends State<ClubDetails> {
   }
 
   Widget _buildEventCard(BuildContext context, ClubEvent event) {
-    final date = DateTime.parse(event.date);
-    final month = DateFormat('MMM').format(date);
-    final day = date.day.toString();
+    final rawDate = event.date;
+    final trimmed = rawDate.length >= 10 ? rawDate.substring(0, 10) : rawDate;
+    final date = DateTime.tryParse(trimmed) ?? DateTime.tryParse(rawDate);
+    final month = date != null ? DateFormat('MMM').format(date) : '';
+    final day = date?.day.toString() ?? '';
 
     return Material(
       color: AppColors.white,

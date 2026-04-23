@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show SocketException;
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import '../models/qr_scan_result.dart';
@@ -54,15 +56,19 @@ class AttendanceService {
   Future<QrScanResult> submitQrScan({
     required String studentId,
     required String token,
+    int? sessionId,
   }) async {
     final uri =
         Uri.parse('$_baseUrl/api/students/$studentId/attendance/qr/scan');
 
-    final tokenToSend = '$token|$studentId';
     final body = <String, dynamic>{
       'studentId': studentId,
-      'token': tokenToSend,
+      'token': token,
+      'deviceInfo': _deviceInfo(),
     };
+    if (sessionId != null) {
+      body['qrContext'] = {'sessionId': sessionId};
+    }
 
     try {
       final response = await AuthService.instance
@@ -169,7 +175,8 @@ class AttendanceService {
       case 201:
         try {
           final map = jsonDecode(response.body) as Map<String, dynamic>;
-          return QrScanResult.fromJson(map);
+          final payload = _unwrapResultMap(map);
+          return QrScanResult.fromJson(payload);
         } catch (_) {
           throw const AttendanceServiceException(
               message: 'Server returned an unexpected response format.');
@@ -190,24 +197,25 @@ class AttendanceService {
   }
 
   Never _throwMappedError(http.Response response) {
+    String? errorCode;
+    String? message;
     try {
       final map = jsonDecode(response.body) as Map<String, dynamic>;
-      final errorCode = map['errorCode']?.toString();
-      final message = _mapErrorCodeToMessage(errorCode) ??
-          (map['message']?.toString()) ??
-          'Something went wrong. Please try again.';
-      throw AttendanceServiceException(
-        statusCode: response.statusCode,
-        errorCode: errorCode,
-        message: message,
-      );
+      final payload = _unwrapResultMap(map);
+      errorCode = payload['errorCode']?.toString();
+      message = _mapErrorCodeToMessage(errorCode) ??
+          payload['message']?.toString() ??
+          map['message']?.toString();
     } catch (_) {
-      throw AttendanceServiceException(
-        statusCode: response.statusCode,
-        message: _extractServerMessage(response.body) ??
-            'Something went wrong. Please try again.',
-      );
+      // Fall through to generic extraction below.
     }
+    throw AttendanceServiceException(
+      statusCode: response.statusCode,
+      errorCode: errorCode,
+      message: message ??
+          _extractServerMessage(response.body) ??
+          'Something went wrong. Please try again.',
+    );
   }
 
   String? _mapErrorCodeToMessage(String? code) {
@@ -234,6 +242,10 @@ class AttendanceService {
   String? _extractServerMessage(String body) {
     try {
       final map = jsonDecode(body) as Map<String, dynamic>;
+      final payload = _unwrapResultMap(map);
+      final payloadMsg =
+          payload['message'] ?? payload['title'] ?? payload['detail'];
+      if (payloadMsg is String && payloadMsg.isNotEmpty) return payloadMsg;
       final direct = map['message'] ?? map['title'] ?? map['detail'];
       if (direct is String && direct.isNotEmpty) return direct;
       final errors = map['errors'];
@@ -247,5 +259,25 @@ class AttendanceService {
     } catch (_) {
       return null;
     }
+  }
+
+  Map<String, dynamic> _unwrapResultMap(Map<String, dynamic> map) {
+    final result = map['result'];
+    if (result is Map<String, dynamic>) return result;
+    final data = map['data'];
+    if (data is Map<String, dynamic>) return data;
+    return map;
+  }
+
+  String _deviceInfo() {
+    if (kIsWeb) return 'Web';
+    try {
+      if (Platform.isAndroid) return 'Android';
+      if (Platform.isIOS) return 'iOS';
+      if (Platform.isMacOS) return 'macOS';
+      if (Platform.isWindows) return 'Windows';
+      if (Platform.isLinux) return 'Linux';
+    } catch (_) {}
+    return 'Unknown';
   }
 }

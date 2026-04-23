@@ -57,6 +57,7 @@ class _EventTicketScreenState extends State<EventTicketScreen> {
   @override
   Widget build(BuildContext context) {
     final event = _eventDetail;
+    final token = _ticket?.jwt ?? '';
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
@@ -75,8 +76,21 @@ class _EventTicketScreenState extends State<EventTicketScreen> {
                     children: [
                       _headerCard(event),
                       const SizedBox(height: 14),
-                      _qrCard(_ticket!.jwt),
+                      _qrCard(token),
                       const SizedBox(height: 14),
+                      if (token.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 14),
+                          child: Text(
+                            'Warning: ticket token is missing. QR could not be generated.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFB45309),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       _metaCard(_ticket!),
                     ],
                   ),
@@ -177,8 +191,8 @@ class _EventTicketScreenState extends State<EventTicketScreen> {
               border: Border.all(color: AppColors.gray200),
             ),
             child: QrImageView(
-              // IMPORTANT RULE: QR encodes ONLY the JWT string.
-              data: jwt,
+              // IMPORTANT RULE: QR encodes ONLY the ticket token/JWT string.
+              data: jwt.isNotEmpty ? jwt : ' ',
               version: QrVersions.auto,
               size: 220,
               backgroundColor: Colors.transparent,
@@ -245,35 +259,5 @@ class _EventTicketScreenState extends State<EventTicketScreen> {
     );
   }
 
-  Widget _kv(String k, String v) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: Text(
-              k,
-              style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-            ),
-          ),
-          Expanded(
-            flex: 6,
-            child: Text(
-              v,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.gray900,
-              ),
-              textAlign: TextAlign.right,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 

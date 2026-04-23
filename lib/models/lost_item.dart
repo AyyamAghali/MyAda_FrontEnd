@@ -110,9 +110,20 @@ class LostItem {
         : DateTime.now().toIso8601String().substring(0, 10);
 
     final imageRaw =
-        (json['imageUrl'] ?? json['image'] ?? json['photoUrl'] ?? json['photo'] ?? '')
+        (json['primaryImageUrl'] ??
+                json['imageUrl'] ??
+                json['image'] ??
+                json['photoUrl'] ??
+                json['photo'] ??
+                ((json['imageUrls'] is List && (json['imageUrls'] as List).isNotEmpty)
+                    ? (json['imageUrls'] as List).first
+                    : null) ??
+                ((json['images'] is List && (json['images'] as List).isNotEmpty)
+                    ? (json['images'] as List).first
+                    : null) ??
+                '')
             .toString();
-    const _fallbackImage =
+    const fallbackImage =
         'https://images.unsplash.com/photo-1614624532983-4ce03382d63d?w=400&h=300&fit=crop';
 
     return LostItem(
@@ -123,7 +134,7 @@ class LostItem {
       description: description,
       dateFound: date,
       status: _statusFromString(statusRaw),
-      imageUrl: imageRaw.isNotEmpty ? imageRaw : _fallbackImage,
+      imageUrl: imageRaw.isNotEmpty ? imageRaw : fallbackImage,
       isLostItem: isLost,
     );
   }

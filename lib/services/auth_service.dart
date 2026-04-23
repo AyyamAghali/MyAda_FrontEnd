@@ -41,6 +41,32 @@ class AuthRoleUser {
   }
 }
 
+class AuthUserProfile {
+  final String id;
+  final String userName;
+  final String? firstName;
+  final String? lastName;
+  final String? email;
+
+  const AuthUserProfile({
+    required this.id,
+    required this.userName,
+    this.firstName,
+    this.lastName,
+    this.email,
+  });
+
+  factory AuthUserProfile.fromJson(Map<String, dynamic> json) {
+    return AuthUserProfile(
+      id: (json['id'] ?? '').toString(),
+      userName: (json['userName'] ?? '').toString(),
+      firstName: json['firstName']?.toString(),
+      lastName: json['lastName']?.toString(),
+      email: json['email']?.toString(),
+    );
+  }
+}
+
 /// Lightweight session singleton.
 ///
 /// The login screen calls [setSession] after a successful auth response.
@@ -195,6 +221,44 @@ class AuthService {
         .map(AuthRoleUser.fromJson)
         .where((u) => u.id.isNotEmpty)
         .toList(growable: false);
+  }
+
+  /// Fetches user details using:
+  /// `GET /api/auth/users/{id}`
+  Future<AuthUserProfile> fetchUserById(String id) async {
+    final normalized = id.trim();
+    if (normalized.isEmpty) {
+      throw Exception('User id is required.');
+    }
+
+    final uri = Uri.parse(
+      '$_authBaseUrl/users/${Uri.encodeComponent(normalized)}',
+    );
+    final response = await sendAuthorized(
+      (token) => http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load user ($normalized) (${response.statusCode}).');
+    }
+
+    final body = _decodeJsonMap(response.body);
+    final source = body['result'] is Map<String, dynamic>
+        ? body['result'] as Map<String, dynamic>
+        : body['data'] is Map<String, dynamic>
+            ? body['data'] as Map<String, dynamic>
+            : body;
+    final profile = AuthUserProfile.fromJson(source);
+    if (profile.id.isEmpty) {
+      throw Exception('User profile response is invalid.');
+    }
+    return profile;
   }
 
   Future<String> refreshAccessToken() async {

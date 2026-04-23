@@ -33,8 +33,12 @@ class _EventRegistrationState extends State<EventRegistration> {
 
   @override
   Widget build(BuildContext context) {
-    final date = DateTime.parse(widget.event.date);
-    final formattedDate = DateFormat('EEEE, MMMM d, yyyy').format(date);
+    final rawDate = widget.event.date;
+    final trimmed = rawDate.length >= 10 ? rawDate.substring(0, 10) : rawDate;
+    final date = DateTime.tryParse(trimmed) ?? DateTime.tryParse(rawDate);
+    final formattedDate = date != null
+        ? DateFormat('EEEE, MMMM d, yyyy').format(date)
+        : rawDate;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
