@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../models/club.dart';
+import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 import 'club_details.dart';
 import 'club_hub_deep_link.dart';
 import 'club_hub_scope.dart';
-import '../../models/club.dart';
 
 enum MembershipStatus {
   active,
@@ -51,50 +52,10 @@ class MyMemberships extends StatefulWidget {
 
 class _MyMembershipsState extends State<MyMemberships> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // Local-only memberships for UI. Replace with API later.
-  final List<Membership> memberships = [
-    Membership(
-      club: Club(
-        id: '2',
-        name: 'ADA Photo Club',
-        logo:
-            'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=200&h=200&fit=crop',
-        banner: '',
-        category: 'Arts',
-        tags: [],
-        memberCount: 89,
-        status: ClubStatus.paused,
-        about: '',
-        officers: [],
-        events: [],
-        contactEmail: 'photo_club@ada.edu.az',
-      ),
-      status: MembershipStatus.active,
-      role: 'Event Manager',
-      sinceDate: 'Aug 2024',
-    ),
-    Membership(
-      club: Club(
-        id: '1',
-        name: 'ADA Digital Entertainment Club',
-        logo:
-            'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=200&h=200&fit=crop',
-        banner: '',
-        category: 'Technology',
-        tags: [],
-        memberCount: 156,
-        status: ClubStatus.open,
-        about: '',
-        officers: [],
-        events: [],
-        contactEmail: 'digital_entertainment@ada.edu.az',
-      ),
-      status: MembershipStatus.active,
-      role: 'Member',
-      sinceDate: 'Sep 2024',
-    ),
-  ];
+  final ClubApiService _api = ClubApiService();
+  List<Membership> memberships = [];
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void initState() {
@@ -108,6 +69,49 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
       if (_tabController.indexIsChanging) return;
       setState(() {});
     });
+    _loadMemberships();
+  }
+
+  Future<void> _loadMemberships() async {
+    setState(() { _isLoading = true; _error = null; });
+    try {
+      final raw = await _api.fetchMyMemberships();
+      final results = <Membership>[];
+      for (final m in raw) {
+        final clubId = (m['clubId'] ?? '').toString();
+        final role = (m['role'] ?? 'Member') as String;
+        final statusRaw = (m['status'] ?? 'active').toString().toLowerCase();
+        MembershipStatus status;
+        if (statusRaw == 'pending' || statusRaw == 'applied') {
+          status = MembershipStatus.pending;
+        } else if (statusRaw == 'declined' || statusRaw == 'rejected') {
+          status = MembershipStatus.declined;
+        } else {
+          status = MembershipStatus.active;
+        }
+        Club club;
+        try {
+          club = await _api.fetchClubDetail(clubId);
+        } catch (_) {
+          club = Club(
+            id: clubId, name: 'Club $clubId', logo: '', banner: '',
+            category: '', tags: [], memberCount: 0, status: ClubStatus.open,
+            about: '', officers: [], events: [],
+          );
+        }
+        results.add(Membership(
+          club: club,
+          status: status,
+          role: role,
+          sinceDate: (m['memberSince'] ?? m['joinedAt'] ?? '').toString().length >= 7
+              ? (m['memberSince'] ?? m['joinedAt'] ?? '').toString().substring(0, 7)
+              : null,
+        ));
+      }
+      if (mounted) setState(() { memberships = results; _isLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
+    }
   }
 
   @override
@@ -268,6 +272,28 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
   }
 
   Widget _buildList(List<Membership> items, String type) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 48, color: AppColors.gray300),
+            const SizedBox(height: 12),
+            const Text('Failed to load', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _loadMemberships,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Retry'),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+            ),
+          ],
+        ),
+      );
+    }
     if (items.isEmpty) {
       return Center(
         child: Column(
@@ -283,11 +309,14 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, i) => _card(context, items[i]),
+    return RefreshIndicator(
+      onRefresh: _loadMemberships,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, i) => _card(context, items[i]),
+      ),
     );
   }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../models/club_vacancy.dart';
+import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
 
 class ApplyVacancyScreen extends StatefulWidget {
@@ -13,8 +15,10 @@ class ApplyVacancyScreen extends StatefulWidget {
 
 class _ApplyVacancyScreenState extends State<ApplyVacancyScreen> {
   final TextEditingController _purposeController = TextEditingController();
+  final ClubApiService _api = ClubApiService();
   String? _attachedFileName;
-  bool _submitted = false;
+  XFile? _attachedFile;
+  bool _isSubmitting = false;
 
   static const int _minWords = 100;
 
@@ -25,31 +29,54 @@ class _ApplyVacancyScreenState extends State<ApplyVacancyScreen> {
   }
 
   bool get _purposeValid => _wordCount >= _minWords;
-  bool get _canSubmit => _purposeValid && _attachedFileName != null;
+  bool get _canSubmit => _purposeValid && _attachedFileName != null && !_isSubmitting;
 
-  void _pickFile() {
-    // In production, use file_picker package.
-    // For prototype, we simulate a selected file.
-    setState(() => _attachedFileName = 'my_resume.pdf');
+  Future<void> _pickFile() async {
+    // Simulate file selection for the prototype; in production use file_picker.
+    setState(() {
+      _attachedFileName = 'my_resume.pdf';
+      _attachedFile = null;
+    });
   }
 
-  void _removeFile() => setState(() => _attachedFileName = null);
+  void _removeFile() => setState(() { _attachedFileName = null; _attachedFile = null; });
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_canSubmit) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _SuccessDialog(
-        position: widget.vacancy.position,
-        clubName: widget.vacancy.clubName,
-        onDone: () {
-          Navigator.pop(context); // close dialog
-          Navigator.pop(context); // close apply screen
-          Navigator.pop(context); // close detail screen
-        },
-      ),
-    );
+    setState(() => _isSubmitting = true);
+    try {
+      await _api.applyToVacancy(
+        vacancyId: widget.vacancy.id,
+        purposeOfApplication: _purposeController.text.trim(),
+        cvFile: _attachedFile,
+      );
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _SuccessDialog(
+          position: widget.vacancy.position,
+          clubName: widget.vacancy.clubName,
+          onDone: () {
+            Navigator.pop(context);
+            Navigator.pop(context);
+            Navigator.pop(context);
+          },
+        ),
+      );
+    } on ClubApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -220,7 +247,7 @@ class _ApplyVacancyScreenState extends State<ApplyVacancyScreen> {
           ],
         ),
         child: ElevatedButton(
-          onPressed: _canSubmit ? _submit : null,
+          onPressed: _canSubmit ? () => _submit() : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.secondary,
             disabledBackgroundColor: AppColors.gray200,
@@ -232,20 +259,22 @@ class _ApplyVacancyScreenState extends State<ApplyVacancyScreen> {
             ),
             elevation: 0,
           ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Submit Application',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+          child: _isSubmitting
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
+              : const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Submit Application',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(Icons.send_outlined, size: 18),
+                  ],
                 ),
-              ),
-              SizedBox(width: 8),
-              Icon(Icons.send_outlined, size: 18),
-            ],
-          ),
         ),
       ),
     );

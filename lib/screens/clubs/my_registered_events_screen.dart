@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../data/club_events_discovery_mock.dart';
 import '../../models/club_public_event.dart';
-import '../../services/club_module_prefs.dart';
+import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 import 'club_event_detail_screen.dart';
@@ -16,7 +15,8 @@ class MyRegisteredEventsScreen extends StatefulWidget {
 }
 
 class _MyRegisteredEventsScreenState extends State<MyRegisteredEventsScreen> {
-  Set<int> _ids = {};
+  final ClubApiService _api = ClubApiService();
+  List<ClubPublicEvent> _events = [];
   bool _loading = true;
 
   @override
@@ -26,27 +26,25 @@ class _MyRegisteredEventsScreenState extends State<MyRegisteredEventsScreen> {
   }
 
   Future<void> _load() async {
-    final ids = await ClubModulePrefs.registeredEventIds();
-    if (mounted) {
-      setState(() {
-        _ids = ids;
-        _loading = false;
-      });
+    try {
+      final regs = await _api.listMyRegistrations();
+      final events = <ClubPublicEvent>[];
+      for (final reg in regs) {
+        final eventJson = reg['event'] is Map<String, dynamic>
+            ? reg['event'] as Map<String, dynamic>
+            : reg;
+        events.add(ClubPublicEvent.fromJson(eventJson));
+      }
+      events.sort((a, b) => a.date.compareTo(b.date));
+      if (mounted) setState(() { _events = events; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
     }
-  }
-
-  List<ClubPublicEvent> get _events {
-    final out = <ClubPublicEvent>[];
-    for (final e in kClubDiscoveryEvents) {
-      if (_ids.contains(e.id)) out.add(e);
-    }
-    out.sort((a, b) => a.date.compareTo(b.date));
-    return out;
   }
 
   @override
   Widget build(BuildContext context) {
-    final events = _events;
+    final events = List<ClubPublicEvent>.from(_events);
     return Scaffold(
       backgroundColor: ClubUiColors.pageBg,
       appBar: AppBar(

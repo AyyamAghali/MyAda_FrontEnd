@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/club.dart';
+import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 
@@ -20,6 +21,7 @@ class EventRegistration extends StatefulWidget {
 
 class _EventRegistrationState extends State<EventRegistration> {
   final _formKey = GlobalKey<FormState>();
+  final ClubApiService _api = ClubApiService();
   String fullName = '';
   String studentId = '';
   String email = '';
@@ -27,6 +29,7 @@ class _EventRegistrationState extends State<EventRegistration> {
   String attendanceType = 'In-Person';
   String additionalInfo = '';
   bool _showValidationError = false;
+  bool _isSubmitting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -424,17 +427,35 @@ class _EventRegistrationState extends State<EventRegistration> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    setState(() => _showValidationError = false);
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Successfully registered for event!')),
-                    );
-                  } else {
-                    setState(() => _showValidationError = true);
-                  }
-                },
+                onPressed: _isSubmitting
+                    ? null
+                    : () async {
+                        if (!_formKey.currentState!.validate()) {
+                          setState(() => _showValidationError = true);
+                          return;
+                        }
+                        setState(() { _showValidationError = false; _isSubmitting = true; });
+                        try {
+                          await _api.registerForEvent(widget.event.id);
+                          if (!mounted) return;
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Successfully registered for event!')),
+                          );
+                        } on ClubApiException catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(e.message)),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        } finally {
+                          if (mounted) setState(() => _isSubmitting = false);
+                        }
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.white,
@@ -443,10 +464,12 @@ class _EventRegistrationState extends State<EventRegistration> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Register for Event',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                child: _isSubmitting
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
+                    : const Text(
+                        'Register for Event',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
               ),
             ),
             if (_showValidationError) ...[

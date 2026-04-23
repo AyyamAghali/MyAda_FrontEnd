@@ -8,6 +8,7 @@ import '../services/call/call_controller.dart';
 import 'master_home_page.dart';
 import 'admin/module_admin_screen.dart';
 import 'admin/support_staff_dashboard.dart';
+import 'auth/forgot_password_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -341,7 +342,12 @@ class _LoginPageState extends State<LoginPage> {
         const Spacer(),
         TextButton(
           onPressed: () {
-            _showInfoSnackBar('Password reset is mocked in this prototype.');
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ForgotPasswordScreen(),
+              ),
+            );
           },
           style: TextButton.styleFrom(
             foregroundColor: AppColors.primary,

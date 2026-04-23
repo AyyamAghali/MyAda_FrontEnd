@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../data/club_events_discovery_mock.dart';
+import '../../models/club_public_event.dart';
 import '../../models/event_tickets_models.dart';
-import '../../services/event_tickets_local_repository.dart';
+import '../../services/club_api_service.dart';
+import '../../services/remote_event_tickets_repository.dart';
 import '../../services/event_tickets_repository.dart';
 import '../../utils/constants.dart';
 import 'event_ticket_screen.dart';
@@ -33,7 +34,9 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
   bool _registered = false;
   bool _full = false;
   EventSnapshot? _snapshot;
-  final EventTicketsRepository _repo = LocalEventTicketsRepository();
+  ClubPublicEvent? _event;
+  final EventTicketsRepository _repo = RemoteEventTicketsRepository();
+  final ClubApiService _api = ClubApiService();
 
   @override
   void initState() {
@@ -43,17 +46,34 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
 
   Future<void> _load() async {
     final eventId = widget.eventId.toString();
-    final snap = await _repo.getEventSnapshot(eventId);
+    final event = await _api.fetchEventById(widget.eventId);
+    EventSnapshot? snap;
     var registered = false;
     try {
-      await _repo.getTicket(eventId);
-      registered = true;
-    } catch (_) {
+      snap = await _repo.getEventSnapshot(eventId);
       registered = false;
+      try {
+        await _repo.getTicket(eventId);
+        registered = true;
+      } catch (_) {}
+    } catch (_) {
+      snap = event != null
+          ? EventSnapshot(
+              id: event.id.toString(),
+              name: event.title,
+              imageUrl: event.imageAsset,
+              startTime: event.time,
+              endTime: event.endTime,
+              location: event.location,
+              seatLimit: 0,
+              registeredCount: 0,
+            )
+          : null;
     }
-    final full = snap.registeredCount >= snap.seatLimit;
+    final full = snap != null && snap.seatLimit > 0 && snap.registeredCount >= snap.seatLimit;
     if (!mounted) return;
     setState(() {
+      _event = event;
       _snapshot = snap;
       _registered = registered;
       _full = full;
@@ -81,7 +101,13 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final event = getClubPublicEventById(widget.eventId);
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Event')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final event = _event;
     if (event == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Event')),

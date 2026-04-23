@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/auth_service.dart';
 import '../../services/call/call_controller.dart';
 import '../../utils/constants.dart';
 import 'my_requests.dart';
@@ -597,7 +598,18 @@ class _StartCallSheet extends StatefulWidget {
 
 class _StartCallSheetState extends State<_StartCallSheet> {
   final TextEditingController _dispatcherIdController = TextEditingController();
+  final AuthService _authService = AuthService.instance;
+  List<AuthRoleUser> _dispatchers = const [];
+  String? _selectedDispatcherId;
+  bool _isLoadingDispatchers = false;
+  String? _dispatcherLoadError;
   bool _isStarting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDispatchers();
+  }
 
   @override
   void dispose() {
@@ -605,11 +617,36 @@ class _StartCallSheetState extends State<_StartCallSheet> {
     super.dispose();
   }
 
+  Future<void> _loadDispatchers() async {
+    setState(() {
+      _isLoadingDispatchers = true;
+      _dispatcherLoadError = null;
+    });
+    try {
+      final users = await _authService.fetchUsersByRole('Dispatcher');
+      if (!mounted) return;
+      setState(() {
+        _dispatchers = users;
+        _selectedDispatcherId = users.isNotEmpty ? users.first.id : null;
+        _dispatcherIdController.text = _selectedDispatcherId ?? '';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _dispatcherLoadError = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingDispatchers = false);
+      }
+    }
+  }
+
   Future<void> _startCall() async {
-    final id = _dispatcherIdController.text.trim();
+    final id = (_selectedDispatcherId ?? _dispatcherIdController.text).trim();
     if (id.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the dispatcher user id.')),
+        const SnackBar(content: Text('Please select a dispatcher.')),
       );
       return;
     }
@@ -675,21 +712,91 @@ class _StartCallSheetState extends State<_StartCallSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _dispatcherIdController,
-              autofocus: true,
-              keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _startCall(),
-              decoration: InputDecoration(
-                labelText: 'Dispatcher user id',
-                hintText: 'Paste the dispatcher JWT `sub`',
-                prefixIcon: const Icon(Icons.badge_outlined, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+            if (_isLoadingDispatchers)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'Loading dispatchers...',
+                      style: TextStyle(fontSize: 13, color: AppColors.gray600),
+                    ),
+                  ],
+                ),
+              )
+            else if (_dispatchers.isNotEmpty)
+              DropdownButtonFormField<String>(
+                key: ValueKey<String?>(_selectedDispatcherId),
+                initialValue: _selectedDispatcherId,
+                items: _dispatchers
+                    .map(
+                      (u) => DropdownMenuItem<String>(
+                        value: u.id,
+                        child: Text(
+                          u.userName.isNotEmpty ? u.userName : u.id,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: _isStarting
+                    ? null
+                    : (v) {
+                        setState(() {
+                          _selectedDispatcherId = v;
+                          _dispatcherIdController.text = v ?? '';
+                        });
+                      },
+                decoration: InputDecoration(
+                  labelText: 'Dispatcher',
+                  hintText: 'Select dispatcher',
+                  prefixIcon: const Icon(Icons.support_agent_outlined, size: 20),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              )
+            else
+              TextField(
+                controller: _dispatcherIdController,
+                autofocus: true,
+                keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _startCall(),
+                decoration: InputDecoration(
+                  labelText: 'Dispatcher user id',
+                  hintText: 'Paste dispatcher id',
+                  prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
-            ),
+            if (_dispatcherLoadError != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: AppColors.gray500),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Could not auto-load dispatchers. You can still paste an id.',
+                      style: const TextStyle(fontSize: 12, color: AppColors.gray500),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _isLoadingDispatchers ? null : _loadDispatchers,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             const Text(
               'Your microphone will be used for this call.',

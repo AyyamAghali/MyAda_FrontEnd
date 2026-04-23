@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../data/club_events_discovery_mock.dart';
 import '../../models/club_public_event.dart';
 import '../../models/event_tickets_models.dart';
-import '../../services/event_tickets_local_repository.dart';
+import '../../services/club_api_service.dart';
+import '../../services/remote_event_tickets_repository.dart';
 import '../../services/event_tickets_repository.dart';
 import '../../utils/constants.dart';
 import 'club_event_detail_screen.dart';
@@ -33,10 +33,15 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
   String _category = 'All';
   _EventsPane _pane = _EventsPane.discover;
   final _searchFocus = FocusNode();
+  final ClubApiService _api = ClubApiService();
+  List<ClubPublicEvent> _events = [];
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
+    _loadEvents();
   }
 
   @override
@@ -45,18 +50,21 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
     super.dispose();
   }
 
+  Future<void> _loadEvents() async {
+    setState(() { _isLoading = true; _error = null; });
+    try {
+      final events = await _api.fetchEvents(clubId: widget.filterClubId);
+      if (mounted) setState(() { _events = events; _isLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
+    }
+  }
+
   bool get _hasFilter => _category != 'All';
 
   List<ClubPublicEvent> get _filtered {
-    var list = List<ClubPublicEvent>.from(kClubDiscoveryEvents);
-    final hubClub = widget.filterClubId;
-    if (hubClub != null) {
-      list = list.where((e) => e.clubId == hubClub).toList();
-    }
-    if (_pane == _EventsPane.myRegistrations) {
-      // Tickets pane uses its own data source (mock registrations). Keep this list empty.
-      list = const <ClubPublicEvent>[];
-    }
+    if (_pane == _EventsPane.myRegistrations) return const [];
+    var list = List<ClubPublicEvent>.from(_events);
     if (_category != 'All') {
       list = list.where((e) => e.category.toLowerCase() == _category.toLowerCase()).toList();
     }
@@ -198,45 +206,70 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
             ),
           ),
           Expanded(
-            child: list.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.event_busy,
-                            size: 48, color: AppColors.gray300),
-                        SizedBox(height: 12),
-                        Text('No events found',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.gray700)),
-                        SizedBox(height: 4),
-                        Text('Try adjusting your search or filters',
-                            style:
-                                TextStyle(fontSize: 13, color: AppColors.gray500)),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) => _EventListItem(
-                      event: list[i],
-                      formatDate: _fmtDate,
-                      formatTime: _fmtTime,
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                ClubEventDetailScreen(eventId: list[i].id),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.cloud_off, size: 48, color: AppColors.gray300),
+                            const SizedBox(height: 12),
+                            const Text('Failed to load events', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
+                            const SizedBox(height: 4),
+                            Text(_error!, style: const TextStyle(fontSize: 12, color: AppColors.gray500), textAlign: TextAlign.center),
+                            const SizedBox(height: 12),
+                            FilledButton.icon(
+                              onPressed: _loadEvents,
+                              icon: const Icon(Icons.refresh, size: 18),
+                              label: const Text('Retry'),
+                              style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      )
+                    : list.isEmpty
+                        ? const Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.event_busy,
+                                    size: 48, color: AppColors.gray300),
+                                SizedBox(height: 12),
+                                Text('No events found',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.gray700)),
+                                SizedBox(height: 4),
+                                Text('Try adjusting your search or filters',
+                                    style:
+                                        TextStyle(fontSize: 13, color: AppColors.gray500)),
+                              ],
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadEvents,
+                            child: ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                              itemCount: list.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (_, i) => _EventListItem(
+                                event: list[i],
+                                formatDate: _fmtDate,
+                                formatTime: _fmtTime,
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          ClubEventDetailScreen(eventId: list[i].id),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
           ),
         ] else ...[
           Expanded(child: _TicketsPane(filterClubId: widget.filterClubId)),
@@ -356,7 +389,7 @@ class _TicketsPane extends StatefulWidget {
 
 class _TicketsPaneState extends State<_TicketsPane> {
   late Future<List<MyRegistrationItem>> _future;
-  final EventTicketsRepository _repo = LocalEventTicketsRepository();
+  final EventTicketsRepository _repo = RemoteEventTicketsRepository();
 
   @override
   void initState() {

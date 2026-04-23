@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../services/attendance_service.dart';
 import '../../services/auth_service.dart';
@@ -48,7 +49,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   String _statusMessage = '';
   String? _scannedAt;
   String? _attendanceStatus;
+  int? _round;
+  int? _validScanCount;
   String? _maskedToken; // shown in result, never the full token
+  String? _lastDetectedPayload;
+  DateTime? _lastDetectedAt;
 
   // ── UI toggles ───────────────────────────────────────────────────────────
   bool _manualExpanded = false;
@@ -120,6 +125,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     if (_state == _ScanState.processing || !_cameraActive) return;
     final raw = capture.barcodes.firstOrNull?.rawValue;
     if (raw == null || raw.isEmpty) return;
+    final now = DateTime.now();
+    if (_lastDetectedPayload == raw &&
+        _lastDetectedAt != null &&
+        now.difference(_lastDetectedAt!) < const Duration(seconds: 2)) {
+      return;
+    }
+    _lastDetectedPayload = raw;
+    _lastDetectedAt = now;
 
     // Remove the camera widget from the tree immediately to prevent further
     // callbacks, then fire the submit asynchronously.
@@ -143,18 +156,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       _statusMessage = 'Submitting attendance…';
       _scannedAt = null;
       _attendanceStatus = null;
+      _round = null;
+      _validScanCount = null;
       _maskedToken = null;
     });
 
     try {
-      // 1. Parse QR payload (JSON object or plain token string).
-      final parsed = AttendanceService.parseQrPayload(rawInput);
-
-      // 2. Validate token format before hitting the network.
-      AttendanceService.validateToken(parsed.token);
+      // Treat scanned QR payload as an opaque backend token.
+      final token = rawInput.trim();
+      AttendanceService.validateToken(token);
 
       // Store masked version for the result card. Never store the full token.
-      _maskedToken = _maskToken(parsed.token);
+      _maskedToken = _maskToken(token);
 
       // 3. Resolve student ID: explicit override > auth session > error.
       final override = _studentIdCtrl.text.trim();
@@ -170,19 +183,27 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       // 4. POST to backend.
       final result = await _service.submitQrScan(
         studentId: studentId,
-        token: parsed.token,
-        qrContext: parsed.qrContext,
+        token: token,
       );
 
       if (mounted) {
-        setState(() {
-          _state = _ScanState.success;
-          _statusMessage = result.message;
-          _attendanceStatus = result.status;
-          _scannedAt = result.scannedAt != null
-              ? DateFormat('MMM d, yyyy • h:mm a').format(result.scannedAt!)
-              : null;
-        });
+        if (result.success) {
+          setState(() {
+            _state = _ScanState.success;
+            _statusMessage = result.message;
+            _attendanceStatus = result.status;
+            _round = result.round;
+            _validScanCount = result.validScanCount;
+            _scannedAt = result.scannedAt != null
+                ? DateFormat('MMM d, yyyy • h:mm a').format(result.scannedAt!)
+                : null;
+          });
+        } else {
+          setState(() {
+            _state = _ScanState.error;
+            _statusMessage = result.message;
+          });
+        }
       }
     } on AttendanceServiceException catch (e) {
       if (mounted) {
@@ -215,6 +236,21 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       return;
     }
     await _submit(token);
+  }
+
+  void _retryScan() {
+    setState(() {
+      _state = _ScanState.idle;
+      _statusMessage = '';
+      _scannedAt = null;
+      _attendanceStatus = null;
+      _round = null;
+      _validScanCount = null;
+      _maskedToken = null;
+    });
+    if (_canUseCamera) {
+      _startCamera();
+    }
   }
 
   // Shows first 4 + bullets + last 4 chars; never exposes the full token in UI.
@@ -478,6 +514,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 style: TextStyle(
                     color: Colors.white70, fontWeight: FontWeight.w600)),
           ),
+          if (error.errorCode == MobileScannerErrorCode.permissionDenied)
+            TextButton(
+              onPressed: openAppSettings,
+              child: const Text(
+                'Open Settings',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -613,12 +660,31 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 'Recorded at',
                 _scannedAt!,
               ),
+            if (_round != null)
+              _buildResultDetail(
+                Icons.repeat_outlined,
+                'Round',
+                _round.toString(),
+              ),
+            if (_validScanCount != null)
+              _buildResultDetail(
+                Icons.confirmation_num_outlined,
+                'Valid scans',
+                _validScanCount.toString(),
+              ),
             if (_maskedToken != null)
               _buildResultDetail(
                 Icons.token_outlined,
                 'Token',
                 _maskedToken!,
               ),
+          ] else ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _state == _ScanState.processing ? null : _retryScan,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Try again'),
+            ),
           ],
         ],
       ),

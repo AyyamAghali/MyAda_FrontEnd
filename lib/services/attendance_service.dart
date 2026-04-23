@@ -1,53 +1,24 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform, SocketException;
+import 'dart:io' show SocketException;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import '../models/qr_scan_result.dart';
 import 'auth_service.dart';
 
-// ── DTOs ─────────────────────────────────────────────────────────────────────
-
-/// Optional consistency context attached to a QR scan request.
-///
-/// The API uses these fields to cross-check the signed token.
-/// [sessionId] maps to the `sessionId` JSON key in the QR payload.
-/// [roundCount] maps to `roundCount` in the QR payload.
-///
-/// Note: `qrContext.instructorJwt` (API field) is intentionally NOT populated
-/// from the QR payload's plain `instructorId` — the API expects a signed JWT
-/// there, not a bare ID. If an instructor JWT is available separately, add it.
-class QrContext {
-  final int? sessionId;
-  final int? roundCount;
-
-  const QrContext({this.sessionId, this.roundCount});
-
-  bool get isEmpty => sessionId == null && roundCount == null;
-
-  Map<String, dynamic> toJson() => {
-        if (sessionId != null) 'sessionId': sessionId,
-        if (roundCount != null) 'roundCount': roundCount,
-      };
-}
-
-/// Result of parsing raw QR text.
-class ParsedQrPayload {
-  final String token;
-  final QrContext? qrContext;
-
-  const ParsedQrPayload({required this.token, this.qrContext});
-}
-
 /// Thrown by [AttendanceService] on any failure path.
 /// [message] is always safe to display to the user.
 class AttendanceServiceException implements Exception {
   final int? statusCode;
+  final String? errorCode;
   final String message;
 
-  const AttendanceServiceException({this.statusCode, required this.message});
+  const AttendanceServiceException({
+    this.statusCode,
+    this.errorCode,
+    required this.message,
+  });
 
   @override
   String toString() => 'AttendanceServiceException($statusCode): $message';
@@ -62,77 +33,15 @@ class AttendanceService {
   /// `ATTENDANCE_API_DOC.md`.
   static const String _baseUrl = 'http://13.60.31.141:5000/attendance';
 
-  static final _tokenPattern = RegExp(r'^[A-Za-z0-9._~\-]{6,512}$');
-  static final _urlPattern = RegExp(r'^https?://', caseSensitive: false);
-
-  // ── Parsing ──────────────────────────────────────────────────────────────
-
-  /// Parses raw QR text → [ParsedQrPayload].
-  ///
-  /// If [raw] starts with `{`, tries JSON decode:
-  ///   - reads `token` (falls back to `payload`)
-  ///   - extracts `sessionId` and `roundCount` into [QrContext]
-  ///   - silently ignores `instructorId` (not mapped to instructorJwt)
-  /// On any JSON failure, falls back to treating the whole string as the token.
-  static ParsedQrPayload parseQrPayload(String raw) {
-    final text = raw.trim();
-
-    if (text.startsWith('{')) {
-      try {
-        final json = jsonDecode(text) as Map<String, dynamic>;
-
-        final token =
-            ((json['token'] ?? json['payload'] ?? '') as Object).toString();
-
-        // Safely coerce int-or-string fields to int.
-        int? asInt(Object? v) {
-          if (v == null) return null;
-          if (v is int) return v;
-          return int.tryParse(v.toString());
-        }
-
-        final sessionId = asInt(json['sessionId']);
-        final roundCount = asInt(json['roundCount']);
-
-        final ctx = (sessionId != null || roundCount != null)
-            ? QrContext(sessionId: sessionId, roundCount: roundCount)
-            : null;
-
-        return ParsedQrPayload(token: token, qrContext: ctx);
-      } catch (_) {
-        // Fall through to plain-token path.
-      }
-    }
-
-    return ParsedQrPayload(token: text, qrContext: null);
-  }
-
   // ── Validation ───────────────────────────────────────────────────────────
 
-  /// Validates a token string.
-  /// Throws [AttendanceServiceException] with a display-safe message on failure.
+  /// QR text is treated as an opaque backend token (no decode/verification).
   static void validateToken(String token) {
     if (token.isEmpty) {
       throw const AttendanceServiceException(message: 'QR token is empty.');
     }
-    if (token.contains(' ') || token.contains('\n') || token.contains('\r')) {
-      throw const AttendanceServiceException(
-          message: 'Token contains invalid whitespace.');
-    }
-    if (_urlPattern.hasMatch(token)) {
-      throw const AttendanceServiceException(
-          message: 'QR code contains a URL, not an attendance token.');
-    }
-    if (token.length < 6) {
-      throw const AttendanceServiceException(
-          message: 'Token is too short (minimum 6 characters).');
-    }
-    if (token.length > 512) {
-      throw const AttendanceServiceException(message: 'Token is too long.');
-    }
-    if (!_tokenPattern.hasMatch(token)) {
-      throw const AttendanceServiceException(
-          message: 'Token contains invalid characters.');
+    if (token.length > 4096) {
+      throw const AttendanceServiceException(message: 'QR token is too long.');
     }
   }
 
@@ -145,17 +54,14 @@ class AttendanceService {
   Future<QrScanResult> submitQrScan({
     required String studentId,
     required String token,
-    QrContext? qrContext,
   }) async {
     final uri =
         Uri.parse('$_baseUrl/api/students/$studentId/attendance/qr/scan');
 
+    final tokenToSend = '$token|$studentId';
     final body = <String, dynamic>{
       'studentId': studentId,
-      'token': token,
-      if (qrContext != null && !qrContext.isEmpty)
-        'qrContext': qrContext.toJson(),
-      'deviceInfo': _deviceInfo(),
+      'token': tokenToSend,
     };
 
     try {
@@ -262,16 +168,15 @@ class AttendanceService {
       case 200:
       case 201:
         try {
-          return QrScanResult.fromJson(
-              jsonDecode(response.body) as Map<String, dynamic>);
+          final map = jsonDecode(response.body) as Map<String, dynamic>;
+          return QrScanResult.fromJson(map);
         } catch (_) {
           throw const AttendanceServiceException(
               message: 'Server returned an unexpected response format.');
         }
 
       case 400:
-        throw const AttendanceServiceException(
-            statusCode: 400, message: 'Invalid or expired QR code.');
+        _throwMappedError(response);
 
       case 401:
       case 403:
@@ -280,27 +185,67 @@ class AttendanceService {
             message: 'Unauthorized request or wrong student.');
 
       default:
-        final serverMsg = _extractServerMessage(response.body);
-        throw AttendanceServiceException(
-            statusCode: response.statusCode,
-            message: serverMsg ?? 'Something went wrong. Please try again.');
+        _throwMappedError(response);
+    }
+  }
+
+  Never _throwMappedError(http.Response response) {
+    try {
+      final map = jsonDecode(response.body) as Map<String, dynamic>;
+      final errorCode = map['errorCode']?.toString();
+      final message = _mapErrorCodeToMessage(errorCode) ??
+          (map['message']?.toString()) ??
+          'Something went wrong. Please try again.';
+      throw AttendanceServiceException(
+        statusCode: response.statusCode,
+        errorCode: errorCode,
+        message: message,
+      );
+    } catch (_) {
+      throw AttendanceServiceException(
+        statusCode: response.statusCode,
+        message: _extractServerMessage(response.body) ??
+            'Something went wrong. Please try again.',
+      );
+    }
+  }
+
+  String? _mapErrorCodeToMessage(String? code) {
+    switch (code) {
+      case 'token_expired':
+        return 'QR code expired. Ask the instructor to refresh it.';
+      case 'activation_inactive':
+        return 'Attendance is not active right now.';
+      case 'already_scanned_this_round':
+        return 'You already scanned for this round.';
+      case 'replay_token':
+        return 'This QR token was already used. Scan a new one.';
+      case 'student_token_mismatch':
+        return 'This QR is not for your account.';
+      case 'outside_attendance_window':
+        return 'You are outside the attendance window.';
+      case 'student_not_enrolled':
+        return 'You are not enrolled in this lesson.';
+      default:
+        return null;
     }
   }
 
   String? _extractServerMessage(String body) {
     try {
-      return (jsonDecode(body) as Map<String, dynamic>)['message'] as String?;
+      final map = jsonDecode(body) as Map<String, dynamic>;
+      final direct = map['message'] ?? map['title'] ?? map['detail'];
+      if (direct is String && direct.isNotEmpty) return direct;
+      final errors = map['errors'];
+      if (errors is Map<String, dynamic>) {
+        for (final v in errors.values) {
+          if (v is List && v.isNotEmpty) return v.first.toString();
+          if (v is String && v.isNotEmpty) return v;
+        }
+      }
+      return null;
     } catch (_) {
       return null;
-    }
-  }
-
-  static String _deviceInfo() {
-    if (kIsWeb) return 'web/unknown';
-    try {
-      return '${Platform.operatingSystem}/${Platform.operatingSystemVersion}';
-    } catch (_) {
-      return 'unknown/unknown';
     }
   }
 }

@@ -1,13 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/lost_item.dart';
+import '../../services/lost_found_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 
-class ItemDetailView extends StatelessWidget {
+class ItemDetailView extends StatefulWidget {
   final LostItem item;
 
   const ItemDetailView({super.key, required this.item});
+
+  @override
+  State<ItemDetailView> createState() => _ItemDetailViewState();
+}
+
+class _ItemDetailViewState extends State<ItemDetailView> {
+  final _service = LostFoundService();
+  bool _isClaiming = false;
+
+  LostItem get item => widget.item;
+
+  Future<void> _submitClaim() async {
+    setState(() => _isClaiming = true);
+    try {
+      await _service.claimItem(item.id);
+      if (!mounted) return;
+      Navigator.of(context).pop(); // close confirm dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(kLostFoundUseMockData
+              ? 'Claim submitted (mock – not sent to server)'
+              : 'Claim submitted. Staff will review your request.'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } on LostFoundException catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isClaiming = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -445,40 +490,43 @@ class ItemDetailView extends StatelessWidget {
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Confirm Claim'),
-                  content: const Text(
-                    'By confirming, you acknowledge that you are the rightful owner of this item and will be asked to verify ownership at the Lost & Found office.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: Navigator.of(context).pop,
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content:
-                                Text('Claim submitted to staff (mock).'),
+            onPressed: _isClaiming
+                ? null
+                : () {
+                    showDialog(
+                      context: context,
+                      builder: (dlgCtx) => AlertDialog(
+                        title: const Text('Confirm Claim'),
+                        content: const Text(
+                          'By confirming, you acknowledge that you are the rightful owner of this item and will be asked to verify ownership at the Lost & Found office.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dlgCtx).pop(),
+                            child: const Text('Cancel'),
                           ),
-                        );
-                      },
-                      child: const Text('Confirm'),
-                    ),
-                  ],
-                ),
-              );
-            },
-            icon: const Icon(Icons.front_hand_outlined, size: 18),
-            label: const Text(
-              'This is Mine',
+                          ElevatedButton(
+                            onPressed: _submitClaim,
+                            child: const Text('Confirm'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+            icon: _isClaiming
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.white)),
+                  )
+                : const Icon(Icons.front_hand_outlined, size: 18),
+            label: Text(
+              _isClaiming ? 'Submitting…' : 'This is Mine',
               style:
-                  TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.secondary,

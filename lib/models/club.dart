@@ -80,6 +80,105 @@ class Club {
     this.contactEmail,
   });
 
+  factory Club.fromJson(Map<String, dynamic> json) {
+    final id = (json['id'] ?? json['clubId'] ?? '').toString();
+    final name = (json['name'] ?? json['clubName'] ?? 'Unnamed Club') as String;
+    final logo = (json['logo'] ?? json['logoUrl'] ?? json['profileImageUrl'] ?? '') as String;
+    final banner = (json['banner'] ?? json['bannerUrl'] ?? json['backgroundImageUrl'] ?? '') as String;
+    final category = (json['category'] ?? json['categoryName'] ?? '') as String;
+
+    final rawTags = json['tags'] ?? json['focusAreas'];
+    final tags = <String>[];
+    if (rawTags is List) {
+      for (final t in rawTags) {
+        tags.add(t.toString());
+      }
+    }
+
+    final memberCount = _toInt(json['memberCount'] ?? json['membersCount']) ?? 0;
+    final status = _statusFromString(
+        (json['status'] ?? json['clubStatus'] ?? 'open').toString());
+    final about = (json['description'] ?? json['about'] ?? '') as String;
+
+    final rawOfficers = json['officers'] ?? json['leadership'];
+    final officers = <ClubOfficer>[];
+    if (rawOfficers is List) {
+      for (final o in rawOfficers) {
+        if (o is Map<String, dynamic>) {
+          officers.add(ClubOfficer(
+            name: (o['name'] ?? o['fullName'] ?? '') as String,
+            role: (o['role'] ?? o['position'] ?? '') as String,
+            photo: (o['photo'] ?? o['photoUrl'] ?? o['avatarUrl'] ?? '') as String,
+          ));
+        }
+      }
+    }
+
+    final rawEvents = json['events'] ?? json['upcomingEvents'];
+    final events = <ClubEvent>[];
+    if (rawEvents is List) {
+      for (final e in rawEvents) {
+        if (e is Map<String, dynamic>) {
+          events.add(ClubEvent(
+            id: (e['id'] ?? e['eventId'] ?? '').toString(),
+            title: (e['title'] ?? e['name'] ?? '') as String,
+            date: (e['date'] ?? e['startDate'] ?? '').toString(),
+            location: (e['location'] ?? '') as String,
+            description: e['description'] as String?,
+            time: (e['time'] ?? e['startTime'])?.toString(),
+          ));
+        }
+      }
+    }
+
+    return Club(
+      id: id,
+      name: name,
+      logo: logo,
+      banner: banner,
+      category: category,
+      tags: tags,
+      memberCount: memberCount,
+      status: status,
+      about: about,
+      officers: officers,
+      events: events,
+      establishedYear: _toInt(json['establishedYear']),
+      location: json['location'] as String?,
+      shortDescription: (json['shortDescription'] ?? json['summary']) as String?,
+      mainGoals: json['mainGoals'] as String?,
+      contactEmail: (json['contactEmail'] ?? json['email']) as String?,
+    );
+  }
+
+  static int? _toInt(Object? v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    return int.tryParse(v.toString());
+  }
+
+  static ClubStatus _statusFromString(String raw) {
+    switch (raw.toLowerCase()) {
+      case 'open':
+      case 'active':
+        return ClubStatus.open;
+      case 'closed':
+      case 'inactive':
+        return ClubStatus.closed;
+      case 'paused':
+      case 'suspended':
+        return ClubStatus.paused;
+      case 'disabled':
+        return ClubStatus.disabled;
+      case 'byinvitation':
+      case 'by_invitation':
+      case 'invitation':
+        return ClubStatus.byInvitation;
+      default:
+        return ClubStatus.open;
+    }
+  }
+
   /// Fallback when [shortDescription] is not set.
   String get effectiveShortDescription => shortDescription ?? about;
 

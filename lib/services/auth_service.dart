@@ -7,6 +7,40 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'browser_storage_stub.dart'
     if (dart.library.html) 'browser_storage_web.dart';
 
+class AuthRoleUser {
+  final String id;
+  final String userName;
+  final String? firstName;
+  final String? lastName;
+  final String? email;
+
+  const AuthRoleUser({
+    required this.id,
+    required this.userName,
+    this.firstName,
+    this.lastName,
+    this.email,
+  });
+
+  String get displayName {
+    final full = '${firstName ?? ''} ${lastName ?? ''}'.trim();
+    if (full.isNotEmpty) return full;
+    if (userName.isNotEmpty) return userName;
+    if (email != null && email!.isNotEmpty) return email!;
+    return id;
+  }
+
+  factory AuthRoleUser.fromJson(Map<String, dynamic> json) {
+    return AuthRoleUser(
+      id: (json['id'] ?? '').toString(),
+      userName: (json['userName'] ?? '').toString(),
+      firstName: json['firstName']?.toString(),
+      lastName: json['lastName']?.toString(),
+      email: json['email']?.toString(),
+    );
+  }
+}
+
 /// Lightweight session singleton.
 ///
 /// The login screen calls [setSession] after a successful auth response.
@@ -131,6 +165,38 @@ class AuthService {
     );
   }
 
+  /// Fetches users assigned to [role] using:
+  /// `GET /api/auth/users-by-role/{role}`
+  ///
+  /// Note: backend may require admin role for this endpoint.
+  Future<List<AuthRoleUser>> fetchUsersByRole(String role) async {
+    final normalized = role.trim();
+    if (normalized.isEmpty) return const [];
+    final uri = Uri.parse(
+      '$_authBaseUrl/users-by-role/${Uri.encodeComponent(normalized)}',
+    );
+    final response = await sendAuthorized(
+      (token) => http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load $normalized users (${response.statusCode}).');
+    }
+    final body = _decodeJsonMap(response.body);
+    final rawUsers = body['users'];
+    if (rawUsers is! List) return const [];
+    return rawUsers
+        .whereType<Map<String, dynamic>>()
+        .map(AuthRoleUser.fromJson)
+        .where((u) => u.id.isNotEmpty)
+        .toList(growable: false);
+  }
+
   Future<String> refreshAccessToken() async {
     final refreshToken = await _readRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) {
@@ -193,6 +259,71 @@ class AuthService {
   }
 
   /// Clears all session data. Call on logout.
+  /// Sends a password-reset email for [email].
+  ///
+  /// The API always returns the same success message to prevent user
+  /// enumeration, so we surface it as-is to the caller.
+  Future<String> forgotPassword({required String email}) async {
+    final uri = Uri.parse('$_authBaseUrl/forgot-password');
+    final response = await http.post(
+      uri,
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+          'Request failed (${response.statusCode}). Please try again.');
+    }
+
+    try {
+      final body = _decodeJsonMap(response.body);
+      return body['message'] as String? ??
+          'If this email exists, password reset link sent.';
+    } catch (_) {
+      return 'If this email exists, password reset link sent.';
+    }
+  }
+
+  /// Resets the password using the token received via email.
+  Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
+    final uri = Uri.parse('$_authBaseUrl/reset-password');
+    final response = await http.post(
+      uri,
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'token': token,
+        'newPassword': newPassword,
+      }),
+    );
+
+    if (response.statusCode == 404) {
+      throw Exception('No account found for that email address.');
+    }
+
+    if (response.statusCode != 200) {
+      String detail = '';
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is List && decoded.isNotEmpty) {
+          detail = (decoded.first as Map<String, dynamic>)['description']
+                  ?.toString() ??
+              '';
+        } else if (decoded is String) {
+          detail = decoded;
+        }
+      } catch (_) {}
+      throw Exception(detail.isNotEmpty
+          ? detail
+          : 'Password reset failed (${response.statusCode}).');
+    }
+  }
+
   Future<void> clearSession() async {
     _studentId = null;
     _accessToken = null;

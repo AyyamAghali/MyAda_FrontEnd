@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/club.dart';
+import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
 
 /// Lightweight membership application — fields aligned with club join UX (letter, links, optional files).
@@ -16,6 +17,8 @@ class _JoinClubSheetState extends State<JoinClubSheet> {
   final _formKey = GlobalKey<FormState>();
   final _letterCtrl = TextEditingController();
   final _portfolioCtrl = TextEditingController();
+  final ClubApiService _api = ClubApiService();
+  bool _isSubmitting = false;
 
   InputDecoration _inputDeco([String? hint]) {
     return InputDecoration(
@@ -250,14 +253,38 @@ class _JoinClubSheetState extends State<JoinClubSheet> {
         child: SizedBox(
           width: double.infinity,
           child: FilledButton(
-            onPressed: () {
-              if (_formKey.currentState!.validate()) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Application submitted successfully.')),
-                );
-              }
-            },
+            onPressed: _isSubmitting
+                ? null
+                : () async {
+                    if (!_formKey.currentState!.validate()) return;
+                    setState(() => _isSubmitting = true);
+                    try {
+                      await _api.submitJoinApplication(
+                        clubId: widget.club.id,
+                        letterOfPurpose: _letterCtrl.text.trim(),
+                        portfolioLinks: _portfolioCtrl.text.trim().isNotEmpty
+                            ? _portfolioCtrl.text.trim()
+                            : null,
+                      );
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Application submitted successfully.')),
+                      );
+                    } on ClubApiException catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.message)),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    } finally {
+                      if (mounted) setState(() => _isSubmitting = false);
+                    }
+                  },
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.white,
@@ -265,7 +292,9 @@ class _JoinClubSheetState extends State<JoinClubSheet> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
-            child: const Text('Submit Application', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            child: _isSubmitting
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
+                : const Text('Submit Application', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           ),
         ),
       ),

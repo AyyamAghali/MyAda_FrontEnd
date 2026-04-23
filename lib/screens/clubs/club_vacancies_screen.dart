@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../data/club_vacancies_mock.dart';
 import '../../models/club_vacancy.dart';
+import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/vacancy_category_style.dart';
 import 'club_module_nav.dart';
@@ -26,17 +26,18 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
   String _search = '';
   String? _categoryFilter;
   final _searchFocus = FocusNode();
+  final ClubApiService _api = ClubApiService();
+  List<ClubVacancy> _vacancies = [];
+  bool _isLoading = false;
+  String? _error;
 
-  late final List<String> _allCategories;
+  late List<String> _allCategories;
 
   @override
   void initState() {
     super.initState();
-    final cats = <String>{};
-    for (final v in kClubVacanciesMock) {
-      cats.add(v.categoryTag);
-    }
-    _allCategories = cats.toList()..sort();
+    _allCategories = [];
+    _loadVacancies();
   }
 
   @override
@@ -45,15 +46,32 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
     super.dispose();
   }
 
+  Future<void> _loadVacancies() async {
+    setState(() { _isLoading = true; _error = null; });
+    try {
+      final vacancies = await _api.fetchVacancies(clubId: widget.filterClubId);
+      final cats = <String>{};
+      for (final v in vacancies) {
+        cats.add(v.categoryTag);
+      }
+      if (mounted) {
+        setState(() {
+          _vacancies = vacancies;
+          _allCategories = cats.toList()..sort();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
+    }
+  }
+
   bool get _hasFilter => _categoryFilter != null;
 
   List<ClubVacancy> get _filtered {
-    var list = List<ClubVacancy>.from(kClubVacanciesMock);
-    final clubId = widget.filterClubId;
+    var list = List<ClubVacancy>.from(_vacancies);
     final clubName = widget.filterClubName;
-    if (clubId != null) {
-      list = list.where((v) => v.clubId == clubId).toList();
-    } else if (clubName != null && clubName.trim().isNotEmpty) {
+    if (clubName != null && clubName.trim().isNotEmpty) {
       final n = clubName.trim().toLowerCase();
       list = list.where((v) => v.clubName.toLowerCase() == n).toList();
     }
@@ -196,37 +214,62 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
           ),
         ),
         Expanded(
-          child: list.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.work_off_outlined, size: 48, color: AppColors.gray300),
-                      SizedBox(height: 12),
-                      Text('No vacancies found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
-                      SizedBox(height: 4),
-                      Text('Try adjusting your search or filters', style: TextStyle(fontSize: 13, color: AppColors.gray500)),
-                    ],
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _VacancyListItem(
-                    vacancy: list[i],
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => VacancyDetailScreen(
-                          vacancy: list[i],
-                          isSaved: false,
-                          onSaveToggle: () {},
-                        ),
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.cloud_off, size: 48, color: AppColors.gray300),
+                          const SizedBox(height: 12),
+                          const Text('Failed to load vacancies', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
+                          const SizedBox(height: 4),
+                          Text(_error!, style: const TextStyle(fontSize: 12, color: AppColors.gray500), textAlign: TextAlign.center),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: _loadVacancies,
+                            icon: const Icon(Icons.refresh, size: 18),
+                            label: const Text('Retry'),
+                            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
-                ),
+                    )
+                  : list.isEmpty
+                      ? const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.work_off_outlined, size: 48, color: AppColors.gray300),
+                              SizedBox(height: 12),
+                              Text('No vacancies found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
+                              SizedBox(height: 4),
+                              Text('Try adjusting your search or filters', style: TextStyle(fontSize: 13, color: AppColors.gray500)),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadVacancies,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                            itemCount: list.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (_, i) => _VacancyListItem(
+                              vacancy: list[i],
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => VacancyDetailScreen(
+                                    vacancy: list[i],
+                                    isSaved: false,
+                                    onSaveToggle: () {},
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
         ),
       ],
     );

@@ -6,6 +6,7 @@ class QrScanResult {
   final String? studentId;
   final int? sessionId;
   final int? activationId;
+  final int? round;
   final int? validScanCount;
   final String? status; // e.g. "Present", "Late"
   final DateTime? scannedAt;
@@ -17,6 +18,7 @@ class QrScanResult {
     this.studentId,
     this.sessionId,
     this.activationId,
+    this.round,
     this.validScanCount,
     this.status,
     this.scannedAt,
@@ -30,6 +32,7 @@ class QrScanResult {
       studentId: json['studentId'] as String?,
       sessionId: json['sessionId'] as int?,
       activationId: json['activationId'] as int?,
+      round: json['round'] as int?,
       validScanCount: json['validScanCount'] as int?,
       status: json['status'] as String?,
       scannedAt: json['scannedAt'] != null

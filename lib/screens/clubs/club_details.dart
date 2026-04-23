@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../data/club_vacancies_mock.dart';
 import '../../models/club.dart';
+import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 import 'join_club_sheet.dart';
@@ -22,24 +22,55 @@ class ClubDetails extends StatefulWidget {
 
 class _ClubDetailsState extends State<ClubDetails> {
   Club get club => widget.club;
+  final ClubApiService _api = ClubApiService();
+  int _openRolesCount = 0;
+  List<Map<String, dynamic>> _members = [];
+  bool _isMember = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVacancyCount();
+    _loadMembers();
+    _checkMembership();
+  }
+
+  Future<void> _loadVacancyCount() async {
+    try {
+      final id = int.tryParse(club.id);
+      if (id == null) return;
+      final vacancies = await _api.fetchVacancies(clubId: id);
+      if (mounted) setState(() => _openRolesCount = vacancies.length);
+    } catch (_) {}
+  }
+
+  Future<void> _loadMembers() async {
+    try {
+      final members = await _api.fetchClubMembers(club.id);
+      if (mounted) setState(() => _members = members);
+    } catch (_) {}
+  }
+
+  Future<void> _checkMembership() async {
+    try {
+      final memberships = await _api.fetchMyMemberships();
+      final found = memberships.any((m) {
+        final cid = (m['clubId'] ?? '').toString();
+        final status = (m['status'] ?? '').toString().toLowerCase();
+        return cid == club.id && (status == 'active' || status == 'approved');
+      });
+      if (mounted) setState(() => _isMember = found);
+    } catch (_) {}
+  }
 
   String get _heroImageUrl => club.banner.isNotEmpty ? club.banner : club.logo;
 
   List<ClubEvent> get _upcomingEvents {
     return club.events.where((event) {
-      final eventDate = DateTime.parse(event.date);
-      return eventDate.isAfter(DateTime.now()) || eventDate.isAtSameMomentAs(DateTime.now());
+      final d = DateTime.tryParse(event.date);
+      if (d == null) return true;
+      return d.isAfter(DateTime.now()) || d.isAtSameMomentAs(DateTime.now());
     }).toList();
-  }
-
-  int get _openRolesCount {
-    final id = int.tryParse(club.id);
-    return kClubVacanciesMock
-        .where((v) {
-          if (id != null && v.clubId == id) return true;
-          return v.clubName.toLowerCase() == club.name.toLowerCase();
-        })
-        .length;
   }
 
   Future<void> _openEmail(String? email) async {
@@ -99,7 +130,8 @@ class _ClubDetailsState extends State<ClubDetails> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 4),
-                    _buildJoinCta(context),
+                    if (!_isMember) _buildJoinCta(context),
+                    if (_isMember) _buildMemberBadge(),
                     const SizedBox(height: 20),
                     _buildMetaChips(),
                     const SizedBox(height: 24),
@@ -131,6 +163,18 @@ class _ClubDetailsState extends State<ClubDetails> {
                       _sectionHeading('Leadership'),
                       const SizedBox(height: 12),
                       ...club.officers.map((o) => _officerRow(o)),
+                    ],
+                    if (_members.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      _sectionHeading('Members (${_members.length})'),
+                      const SizedBox(height: 12),
+                      ..._members.take(10).map((m) => _memberRow(m)),
+                      if (_members.length > 10)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text('+ ${_members.length - 10} more members',
+                            style: const TextStyle(fontSize: 13, color: AppColors.gray500)),
+                        ),
                     ],
                     const SizedBox(height: 24),
                     _sectionHeading('Events'),
@@ -545,6 +589,56 @@ class _ClubDetailsState extends State<ClubDetails> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMemberBadge() {
+    return Transform.translate(
+      offset: const Offset(0, -18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFECFDF5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.3)),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, size: 20, color: Color(0xFF059669)),
+            SizedBox(width: 8),
+            Text('You are a member', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF059669))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _memberRow(Map<String, dynamic> m) {
+    final name = (m['name'] ?? m['fullName'] ?? m['userName'] ?? 'Member').toString();
+    final role = (m['role'] ?? m['position'] ?? '').toString();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: AppColors.gray100,
+            child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+              style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w500, color: AppColors.gray900)),
+                if (role.isNotEmpty) Text(role, style: const TextStyle(fontSize: 12, color: AppColors.gray500)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

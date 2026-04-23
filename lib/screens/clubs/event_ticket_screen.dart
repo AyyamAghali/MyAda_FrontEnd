@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import '../../data/club_events_discovery_mock.dart';
+import '../../models/club_public_event.dart';
 import '../../models/event_tickets_models.dart';
-import '../../services/event_tickets_local_repository.dart';
+import '../../services/club_api_service.dart';
+import '../../services/remote_event_tickets_repository.dart';
 import '../../services/event_tickets_repository.dart';
 import '../../utils/constants.dart';
 
@@ -19,8 +20,10 @@ class EventTicketScreen extends StatefulWidget {
 class _EventTicketScreenState extends State<EventTicketScreen> {
   bool _loading = true;
   RegistrationTicket? _ticket;
+  ClubPublicEvent? _eventDetail;
   String? _error;
-  final EventTicketsRepository _repo = LocalEventTicketsRepository();
+  final EventTicketsRepository _repo = RemoteEventTicketsRepository();
+  final ClubApiService _api = ClubApiService();
 
   @override
   void initState() {
@@ -30,10 +33,14 @@ class _EventTicketScreenState extends State<EventTicketScreen> {
 
   Future<void> _load() async {
     try {
-      final t = await _repo.getTicket(widget.eventId.toString());
+      final results = await Future.wait([
+        _repo.getTicket(widget.eventId.toString()),
+        _api.fetchEventById(widget.eventId),
+      ]);
       if (!mounted) return;
       setState(() {
-        _ticket = t;
+        _ticket = results[0] as RegistrationTicket?;
+        _eventDetail = results[1] as ClubPublicEvent?;
         _error = null;
         _loading = false;
       });
@@ -49,7 +56,7 @@ class _EventTicketScreenState extends State<EventTicketScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final event = getClubPublicEventById(widget.eventId);
+    final event = _eventDetail;
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(

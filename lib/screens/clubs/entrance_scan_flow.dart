@@ -3,19 +3,48 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../data/club_events_discovery_mock.dart';
 import '../../models/club_public_event.dart';
 import '../../models/event_tickets_models.dart';
-import '../../services/event_tickets_local_repository.dart';
+import '../../services/club_api_service.dart';
+import '../../services/remote_event_tickets_repository.dart';
 import '../../services/event_tickets_repository.dart';
 import '../../utils/constants.dart';
 
-class SelectClubForScanScreen extends StatelessWidget {
+class SelectClubForScanScreen extends StatefulWidget {
   const SelectClubForScanScreen({super.key});
 
   @override
+  State<SelectClubForScanScreen> createState() => _SelectClubForScanScreenState();
+}
+
+class _SelectClubForScanScreenState extends State<SelectClubForScanScreen> {
+  final ClubApiService _api = ClubApiService();
+  List<(int, String)> _clubs = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final events = await _api.fetchEvents();
+      final map = <int, String>{};
+      for (final e in events) {
+        map[e.clubId] ??= e.clubName;
+      }
+      final out = map.entries.map((e) => (e.key, e.value)).toList();
+      out.sort((a, b) => a.$2.compareTo(b.$2));
+      if (mounted) setState(() { _clubs = out; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final clubs = _clubsFromDiscovery(const []);
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
@@ -24,102 +53,92 @@ class SelectClubForScanScreen extends StatelessWidget {
         elevation: 0,
         title: const Text('Scan'),
       ),
-      body: clubs.isEmpty
-          ? const Center(child: Text('No clubs found.'))
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: clubs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) {
-                final c = clubs[i];
-                return Material(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => SelectEventForScanScreen(
-                            clubId: c.$1,
-                            clubName: c.$2,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Center(
-                              child: Text(
-                                c.$2.substring(0, 1),
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.primary,
-                                ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _clubs.isEmpty
+              ? const Center(child: Text('No clubs found.'))
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _clubs.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) {
+                    final c = _clubs[i];
+                    return Material(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => SelectEventForScanScreen(
+                                clubId: c.$1,
+                                clubName: c.$2,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  c.$2,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.gray900,
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    c.$2.substring(0, 1),
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 3),
-                                const Text(
-                                  'Choose event to scan at entrance',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.gray600,
-                                  ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      c.$2,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.gray900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    const Text(
+                                      'Choose event to scan at entrance',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.gray600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ),
+                              const Icon(Icons.chevron_right,
+                                  color: AppColors.gray400),
+                            ],
                           ),
-                          const Icon(Icons.chevron_right,
-                              color: AppColors.gray400),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
     );
-  }
-
-  List<(int, String)> _clubsFromDiscovery(List<int> clubIds) {
-    final map = <int, String>{};
-    for (final e in kClubDiscoveryEvents) {
-      if (clubIds.isEmpty || clubIds.contains(e.clubId)) {
-        map[e.clubId] ??= e.clubName;
-      }
-    }
-    final out = map.entries.map((e) => (e.key, e.value)).toList();
-    out.sort((a, b) => a.$2.compareTo(b.$2));
-    return out;
   }
 }
 
-class SelectEventForScanScreen extends StatelessWidget {
+class SelectEventForScanScreen extends StatefulWidget {
   final int clubId;
   final String clubName;
 
@@ -130,26 +149,49 @@ class SelectEventForScanScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final events =
-        kClubDiscoveryEvents.where((e) => e.clubId == clubId).toList();
+  State<SelectEventForScanScreen> createState() => _SelectEventForScanScreenState();
+}
 
+class _SelectEventForScanScreenState extends State<SelectEventForScanScreen> {
+  final ClubApiService _api = ClubApiService();
+  List<ClubPublicEvent> _events = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final events = await _api.fetchEvents(clubId: widget.clubId);
+      if (mounted) setState(() { _events = events; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
         backgroundColor: AppColors.white,
         foregroundColor: AppColors.gray900,
         elevation: 0,
-        title: Text(clubName),
+        title: Text(widget.clubName),
       ),
-      body: events.isEmpty
-          ? const Center(child: Text('No upcoming events found.'))
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: events.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) => _EventPickCard(event: events[i]),
-            ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _events.isEmpty
+              ? const Center(child: Text('No upcoming events found.'))
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _events.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => _EventPickCard(event: _events[i]),
+                ),
     );
   }
 }
@@ -252,7 +294,17 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
   bool _busy = false;
   CheckInResponse? _last;
   Timer? _clearTimer;
-  final EventTicketsRepository _repo = LocalEventTicketsRepository();
+  final EventTicketsRepository _repo = RemoteEventTicketsRepository();
+  final ClubApiService _api = ClubApiService();
+  ClubPublicEvent? _event;
+
+  @override
+  void initState() {
+    super.initState();
+    _api.fetchEventById(widget.eventId).then((e) {
+      if (mounted) setState(() => _event = e);
+    });
+  }
 
   @override
   void dispose() {
@@ -283,14 +335,13 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final event = getClubPublicEventById(widget.eventId);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: Text(event?.title ?? 'Scanner'),
+        title: Text(_event?.title ?? 'Scanner'),
         actions: [
           IconButton(
             icon: const Icon(Icons.flash_on),
