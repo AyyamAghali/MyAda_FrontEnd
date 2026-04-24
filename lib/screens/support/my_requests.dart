@@ -13,7 +13,8 @@ class MyRequests extends StatefulWidget {
   State<MyRequests> createState() => _MyRequestsState();
 }
 
-class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateMixin {
+class _MyRequestsState extends State<MyRequests>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _searchQuery = '';
   String _typeFilter = 'all'; // all | IT | FM
@@ -41,9 +42,11 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  List<SupportTicket> get openTickets =>
-      _tickets.where((t) => t.status == TicketStatus.assigned ||
-                               t.status == TicketStatus.inProgress).toList();
+  List<SupportTicket> get openTickets => _tickets
+      .where((t) =>
+          t.status == TicketStatus.assigned ||
+          t.status == TicketStatus.inProgress)
+      .toList();
 
   List<SupportTicket> get completedTickets =>
       _tickets.where((t) => t.status == TicketStatus.completed).toList();
@@ -87,7 +90,8 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
           t.title.toLowerCase().contains(q) ||
           t.location.toLowerCase().contains(q);
 
-      final matchType = _typeFilter == 'all' || t.type.toLowerCase() == _typeFilter.toLowerCase();
+      final matchType = _typeFilter == 'all' ||
+          t.type.toLowerCase() == _typeFilter.toLowerCase();
 
       final matchUrgency = _urgencyFilter == 'all' ||
           (_urgencyFilter == 'urgent' && t.priority == TicketPriority.high) ||
@@ -117,17 +121,21 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.cloud_off, size: 44, color: AppColors.gray300),
+                                const Icon(Icons.cloud_off,
+                                    size: 44, color: AppColors.gray300),
                                 const SizedBox(height: 10),
                                 const Text(
                                   'Failed to load requests',
-                                  style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.gray900),
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.gray900),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   _error!,
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 12, color: AppColors.gray500),
+                                  style: const TextStyle(
+                                      fontSize: 12, color: AppColors.gray500),
                                 ),
                                 const SizedBox(height: 12),
                                 FilledButton.icon(
@@ -144,9 +152,12 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                           child: TabBarView(
                             controller: _tabController,
                             children: [
-                              _buildTicketsList(_applySearchAndFilters(openTickets)),
-                              _buildTicketsList(_applySearchAndFilters(completedTickets)),
-                              _buildTicketsList(_applySearchAndFilters(cancelledTickets)),
+                              _buildTicketsList(
+                                  _applySearchAndFilters(openTickets)),
+                              _buildTicketsList(
+                                  _applySearchAndFilters(completedTickets)),
+                              _buildTicketsList(
+                                  _applySearchAndFilters(cancelledTickets)),
                             ],
                           ),
                         ),
@@ -164,7 +175,8 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.gray900, size: 20),
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: AppColors.gray900, size: 20),
             onPressed: () => Navigator.pop(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -215,9 +227,12 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
               style: const TextStyle(fontSize: 14, color: AppColors.gray900),
               decoration: InputDecoration(
                 hintText: 'Search by name or tag...',
-                hintStyle: const TextStyle(fontSize: 13, color: AppColors.gray400),
-                prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.gray400),
-                prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 0),
+                hintStyle:
+                    const TextStyle(fontSize: 13, color: AppColors.gray400),
+                prefixIcon: const Icon(Icons.search,
+                    size: 20, color: AppColors.gray400),
+                prefixIconConstraints:
+                    const BoxConstraints(minWidth: 40, minHeight: 0),
                 suffixIcon: GestureDetector(
                   onTap: () => _openFilterSheet(context),
                   child: Container(
@@ -228,10 +243,12 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                       color: AppColors.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.tune, size: 17, color: AppColors.primary),
+                    child: const Icon(Icons.tune,
+                        size: 17, color: AppColors.primary),
                   ),
                 ),
-                suffixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 0),
+                suffixIconConstraints:
+                    const BoxConstraints(minWidth: 40, minHeight: 0),
                 filled: true,
                 fillColor: AppColors.gray50,
                 contentPadding: EdgeInsets.zero,
@@ -245,7 +262,8 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                  borderSide:
+                      const BorderSide(color: AppColors.primary, width: 1.5),
                 ),
               ),
             ),
@@ -255,7 +273,10 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
             children: [
               Text(
                 '${_currentTabTickets.length} ticket${_currentTabTickets.length == 1 ? '' : 's'}',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.gray500),
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.gray500),
               ),
               if (_hasFilters) ...[
                 const SizedBox(width: 10),
@@ -266,7 +287,10 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                   }),
                   child: const Text(
                     'Clear filters',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.secondary),
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondary),
                   ),
                 ),
               ],
@@ -278,8 +302,10 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
   }
 
   List<SupportTicket> get _currentTabTickets {
-    if (_tabController.index == 1) return _applySearchAndFilters(completedTickets);
-    if (_tabController.index == 2) return _applySearchAndFilters(cancelledTickets);
+    if (_tabController.index == 1)
+      return _applySearchAndFilters(completedTickets);
+    if (_tabController.index == 2)
+      return _applySearchAndFilters(cancelledTickets);
     return _applySearchAndFilters(openTickets);
   }
 
@@ -294,7 +320,8 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
         var tmpType = _typeFilter;
         var tmpUrg = _urgencyFilter;
 
-        Widget chip(String id, String label, String group, void Function(String) setModal) {
+        Widget chip(String id, String label, String group,
+            void Function(String) setModal) {
           final sel = id == group;
           return GestureDetector(
             onTap: () => setModal(id),
@@ -319,7 +346,8 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
         return StatefulBuilder(
           builder: (ctx, setModal) {
             return Padding(
-              padding: EdgeInsets.fromLTRB(20, 14, 20, MediaQuery.of(ctx).padding.bottom + 20),
+              padding: EdgeInsets.fromLTRB(
+                  20, 14, 20, MediaQuery.of(ctx).padding.bottom + 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,42 +368,58 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                     children: [
                       const Text(
                         'Filters',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.gray900),
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.gray900),
                       ),
                       GestureDetector(
                         onTap: () => Navigator.pop(ctx),
-                        child: const Icon(Icons.close, size: 22, color: AppColors.gray500),
+                        child: const Icon(Icons.close,
+                            size: 22, color: AppColors.gray500),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   const Text(
                     'Type',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gray600),
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.gray600),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      chip('all', 'All', tmpType, (v) => setModal(() => tmpType = v)),
-                      chip('IT', 'IT', tmpType, (v) => setModal(() => tmpType = v)),
-                      chip('FM', 'FM', tmpType, (v) => setModal(() => tmpType = v)),
+                      chip('all', 'All', tmpType,
+                          (v) => setModal(() => tmpType = v)),
+                      chip('IT', 'IT', tmpType,
+                          (v) => setModal(() => tmpType = v)),
+                      chip('FM', 'FM', tmpType,
+                          (v) => setModal(() => tmpType = v)),
                     ],
                   ),
                   const SizedBox(height: 18),
                   const Text(
                     'Urgency',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gray600),
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.gray600),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      chip('all', 'All', tmpUrg, (v) => setModal(() => tmpUrg = v)),
-                      chip('urgent', 'Urgent', tmpUrg, (v) => setModal(() => tmpUrg = v)),
-                      chip('not_urgent', 'Not urgent', tmpUrg, (v) => setModal(() => tmpUrg = v)),
+                      chip('all', 'All', tmpUrg,
+                          (v) => setModal(() => tmpUrg = v)),
+                      chip('urgent', 'Urgent', tmpUrg,
+                          (v) => setModal(() => tmpUrg = v)),
+                      chip('not_urgent', 'Not urgent', tmpUrg,
+                          (v) => setModal(() => tmpUrg = v)),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -393,10 +437,13 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                         elevation: 0,
                       ),
-                      child: const Text('Apply', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      child: const Text('Apply',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -441,7 +488,8 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
                       curve: Curves.easeOutCubic,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 4),
                       decoration: BoxDecoration(
                         color: sel ? AppColors.white : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
@@ -451,14 +499,21 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                           fit: BoxFit.scaleDown,
                           child: Row(
                             children: [
-                              Icon(icon, size: 15, color: sel ? AppColors.primary : AppColors.gray500),
+                              Icon(icon,
+                                  size: 15,
+                                  color: sel
+                                      ? AppColors.primary
+                                      : AppColors.gray500),
                               const SizedBox(width: 5),
                               Text(
                                 label,
                                 style: TextStyle(
                                   fontSize: 11,
-                                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                                  color: sel ? AppColors.primary : AppColors.gray600,
+                                  fontWeight:
+                                      sel ? FontWeight.w700 : FontWeight.w500,
+                                  color: sel
+                                      ? AppColors.primary
+                                      : AppColors.gray600,
                                 ),
                               ),
                               Text(
@@ -466,7 +521,9 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: sel ? AppColors.secondary : AppColors.gray400,
+                                  color: sel
+                                      ? AppColors.secondary
+                                      : AppColors.gray400,
                                 ),
                               ),
                             ],
@@ -517,7 +574,8 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       itemCount: tickets.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) => _buildTicketCard(context, tickets[index]),
+      itemBuilder: (context, index) =>
+          _buildTicketCard(context, tickets[index]),
     );
   }
 
@@ -529,7 +587,8 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => TicketDetailView(ticket: ticket)),
+            MaterialPageRoute(
+                builder: (context) => TicketDetailView(ticket: ticket)),
           );
         },
         borderRadius: BorderRadius.circular(14),
@@ -542,7 +601,10 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
                 children: [
                   Text(
                     '#${ticket.id}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.gray600),
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.gray600),
                   ),
                   const Spacer(),
                   _buildPriorityBadge(ticket.priority),
@@ -554,14 +616,18 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: ticket.type == 'FM' ? const Color(0xFFECFDF5) : const Color(0xFFEFF6FF),
+                  color: ticket.type == 'FM'
+                      ? const Color(0xFFECFDF5)
+                      : const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(7),
                 ),
                 child: Text(
                   ticket.type == 'FM' ? 'FM SERVICES' : 'IT SERVICES',
                   style: TextStyle(
                     fontSize: 10,
-                    color: ticket.type == 'FM' ? const Color(0xFF059669) : const Color(0xFF2563EB),
+                    color: ticket.type == 'FM'
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF2563EB),
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.2,
                   ),
@@ -570,14 +636,21 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
               const SizedBox(height: 8),
               Text(
                 ticket.title,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.gray900, height: 1.2),
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.gray900,
+                    height: 1.2),
               ),
               const SizedBox(height: 8),
               _meta(Icons.location_on_outlined, ticket.location),
-              _meta(Icons.access_time_outlined, 'Opened ${_getTimeAgo(ticket.createdAt)}'),
+              _meta(Icons.access_time_outlined,
+                  'Opened ${_getTimeAgo(ticket.createdAt)}'),
               _meta(
                 Icons.person_outline,
-                ticket.assignedTo == null ? 'Pending assignment' : 'Assigned to ${ticket.assignedTo}',
+                ticket.assignedTo == null
+                    ? 'Pending assignment'
+                    : 'Assigned to ${ticket.assignedTo}',
               ),
             ],
           ),
@@ -596,7 +669,10 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 12, color: AppColors.gray500, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.gray500,
+                  fontWeight: FontWeight.w500),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -720,5 +796,4 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
       return dateStr;
     }
   }
-
 }

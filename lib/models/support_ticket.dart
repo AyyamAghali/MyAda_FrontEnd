@@ -68,18 +68,24 @@ class SupportTicket {
           .replaceAll('_', '')
           .replaceAll(' ', '');
       if (s.contains('cancel')) return TicketStatus.cancelled;
-      if (s.contains('complete') || s.contains('resolved') || s.contains('done')) {
+      if (s.contains('complete') ||
+          s.contains('resolved') ||
+          s.contains('done')) {
         return TicketStatus.completed;
       }
-      if (s.contains('progress') || s == 'inwork') return TicketStatus.inProgress;
-      if (s.contains('assign') || s.contains('accepted')) return TicketStatus.assigned;
+      if (s.contains('progress') || s == 'inwork')
+        return TicketStatus.inProgress;
+      if (s.contains('assign') || s.contains('accepted'))
+        return TicketStatus.assigned;
       return TicketStatus.pending;
     }
 
     TicketPriority parsePriority(Object? raw) {
       final s = (raw ?? '').toString().trim().toLowerCase();
-      if (s == 'urgent' || s == 'high' || s == 'critical') return TicketPriority.high;
-      if (s == 'medium' || s == 'normal' || s == 'standard') return TicketPriority.medium;
+      if (s == 'urgent' || s == 'high' || s == 'critical')
+        return TicketPriority.high;
+      if (s == 'medium' || s == 'normal' || s == 'standard')
+        return TicketPriority.medium;
       return TicketPriority.low;
     }
 
@@ -88,22 +94,31 @@ class SupportTicket {
           ? (raw['name'] ?? raw['categoryName'] ?? raw['tag'] ?? '')
           : raw;
       final s = (source ?? '').toString().trim().toLowerCase();
-      if (s.contains('wifi') || s.contains('network')) return TicketCategory.wifiNetwork;
-      if (s.contains('email') || s.contains('office')) return TicketCategory.emailOffice365;
+      if (s.contains('wifi') || s.contains('network'))
+        return TicketCategory.wifiNetwork;
+      if (s.contains('email') || s.contains('office'))
+        return TicketCategory.emailOffice365;
       if (s.contains('password')) return TicketCategory.passwordReset;
-      if (s.contains('projector') || s.contains('display')) return TicketCategory.projectorDisplay;
-      if (s.contains('printer') || s.contains('scanner')) return TicketCategory.printerScanner;
-      if (s.contains('software') || s.contains('install')) return TicketCategory.softwareInstallation;
-      if (s.contains('repair') || s.contains('hardware')) return TicketCategory.computerRepair;
+      if (s.contains('projector') || s.contains('display'))
+        return TicketCategory.projectorDisplay;
+      if (s.contains('printer') || s.contains('scanner'))
+        return TicketCategory.printerScanner;
+      if (s.contains('software') || s.contains('install'))
+        return TicketCategory.softwareInstallation;
+      if (s.contains('repair') || s.contains('hardware'))
+        return TicketCategory.computerRepair;
       return TicketCategory.other;
     }
 
     String composeLocation() {
       final direct = (json['location'] ?? '').toString().trim();
       if (direct.isNotEmpty) return direct;
-      final building = (json['buildingName'] ?? json['building'] ?? '').toString().trim();
+      final building =
+          (json['buildingName'] ?? json['building'] ?? '').toString().trim();
       final room = (json['roomName'] ?? json['room'] ?? '').toString().trim();
-      final details = (json['areaDetails'] ?? json['locationDetails'] ?? '').toString().trim();
+      final details = (json['areaDetails'] ?? json['locationDetails'] ?? '')
+          .toString()
+          .trim();
       final parts = <String>[];
       if (building.isNotEmpty) parts.add(building);
       if (room.isNotEmpty) parts.add('Room $room');
@@ -111,11 +126,17 @@ class SupportTicket {
       return parts.isEmpty ? 'Campus' : parts.join(' - ');
     }
 
-    final requestId = asInt(json['id'] ?? json['requestId'] ?? json['supportRequestId']);
-    final fallbackId = requestId?.toString() ?? (json['ticketNo'] ?? json['code'] ?? '').toString();
-    final area = (json['area'] ?? json['module'] ?? json['type'] ?? '').toString().toUpperCase();
-    final created = asDate(json['createdAt'] ?? json['createdAtUtc'] ?? json['requestedAt']);
-    final completed = asDate(json['completedAt'] ?? json['resolvedAt'] ?? json['closedAt']);
+    final requestId =
+        asInt(json['id'] ?? json['requestId'] ?? json['supportRequestId']);
+    final fallbackId = requestId?.toString() ??
+        (json['ticketNo'] ?? json['code'] ?? '').toString();
+    final area = (json['area'] ?? json['module'] ?? json['type'] ?? '')
+        .toString()
+        .toUpperCase();
+    final created = asDate(
+        json['createdAt'] ?? json['createdAtUtc'] ?? json['requestedAt']);
+    final completed =
+        asDate(json['completedAt'] ?? json['resolvedAt'] ?? json['closedAt']);
 
     return SupportTicket(
       requestId: requestId,
@@ -127,7 +148,8 @@ class SupportTicket {
               'Support request')
           .toString(),
       description: (json['description'] ?? '').toString(),
-      category: parseCategory(json['categoryName'] ?? json['category'] ?? json['categoryTag']),
+      category: parseCategory(
+          json['categoryName'] ?? json['category'] ?? json['categoryTag']),
       status: parseStatus(json['status']),
       priority: parsePriority(json['urgency'] ?? json['priority']),
       location: composeLocation(),
@@ -191,4 +213,3 @@ class SupportTicket {
     }
   }
 }
-

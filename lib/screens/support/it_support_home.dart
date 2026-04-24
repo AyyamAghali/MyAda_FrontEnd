@@ -19,7 +19,8 @@ class ITSupportHome extends StatelessWidget {
             _buildHeader(context),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Column(
                   children: [
                     _buildMyRequestsCard(context),
@@ -51,7 +52,8 @@ class ITSupportHome extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.white, size: 20),
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: AppColors.white, size: 20),
             onPressed: () => Navigator.pop(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -135,7 +137,8 @@ class ITSupportHome extends StatelessWidget {
                   onTap: () => _showInAppCallSheet(context, phone),
                   borderRadius: BorderRadius.circular(999),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     decoration: BoxDecoration(
                       color: AppColors.white,
                       borderRadius: BorderRadius.circular(999),
@@ -143,7 +146,8 @@ class ITSupportHome extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.call, size: 16, color: AppColors.secondary),
+                        const Icon(Icons.call,
+                            size: 16, color: AppColors.secondary),
                         const SizedBox(width: 8),
                         Text(
                           'Start in-app call',
@@ -169,7 +173,8 @@ class ITSupportHome extends StatelessWidget {
               color: AppColors.white.withOpacity(0.10),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.support_agent, color: AppColors.white, size: 22),
+            child: const Icon(Icons.support_agent,
+                color: AppColors.white, size: 22),
           ),
         ],
       ),
@@ -219,7 +224,8 @@ class ITSupportHome extends StatelessWidget {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.assignment_outlined, color: AppColors.white, size: 22),
+              child: const Icon(Icons.assignment_outlined,
+                  color: AppColors.white, size: 22),
             ),
             const SizedBox(width: 12),
             const Expanded(
@@ -291,7 +297,8 @@ class ITSupportHome extends StatelessWidget {
                     color: AppColors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.computer, color: AppColors.white, size: 20),
+                  child: const Icon(Icons.computer,
+                      color: AppColors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -384,7 +391,8 @@ class ITSupportHome extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const NewIssueForm(category: 'IT'),
+                        builder: (context) =>
+                            const NewIssueForm(category: 'IT'),
                       ),
                     );
                   },
@@ -402,7 +410,8 @@ class ITSupportHome extends StatelessWidget {
                             color: AppColors.gray700,
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: AppColors.primary, size: 20),
+                        const Icon(Icons.chevron_right,
+                            color: AppColors.primary, size: 20),
                       ],
                     ),
                   ),
@@ -448,7 +457,8 @@ class ITSupportHome extends StatelessWidget {
                     color: AppColors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.build, color: AppColors.white, size: 20),
+                  child:
+                      const Icon(Icons.build, color: AppColors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -541,7 +551,8 @@ class ITSupportHome extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const NewIssueForm(category: 'FM'),
+                        builder: (context) =>
+                            const NewIssueForm(category: 'FM'),
                       ),
                     );
                   },
@@ -559,7 +570,8 @@ class ITSupportHome extends StatelessWidget {
                             color: AppColors.gray700,
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: AppColors.secondary, size: 20),
+                        const Icon(Icons.chevron_right,
+                            color: AppColors.secondary, size: 20),
                       ],
                     ),
                   ),
@@ -758,7 +770,8 @@ class _StartCallSheetState extends State<_StartCallSheet> {
                 decoration: InputDecoration(
                   labelText: 'Dispatcher',
                   hintText: 'Select dispatcher',
-                  prefixIcon: const Icon(Icons.support_agent_outlined, size: 20),
+                  prefixIcon:
+                      const Icon(Icons.support_agent_outlined, size: 20),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -784,12 +797,14 @@ class _StartCallSheetState extends State<_StartCallSheet> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.info_outline, size: 16, color: AppColors.gray500),
+                  const Icon(Icons.info_outline,
+                      size: 16, color: AppColors.gray500),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Could not auto-load dispatchers. You can still paste an id.',
-                      style: const TextStyle(fontSize: 12, color: AppColors.gray500),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.gray500),
                     ),
                   ),
                   TextButton(

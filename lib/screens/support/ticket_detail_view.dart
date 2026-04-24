@@ -272,8 +272,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                 color: _accentColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.person_outline,
-                  size: 20, color: _accentColor),
+              child: Icon(Icons.person_outline, size: 20, color: _accentColor),
             ),
             const SizedBox(width: 12),
             Text(
@@ -346,7 +345,8 @@ class _TicketDetailViewState extends State<TicketDetailView> {
               sorted[i].title,
               sorted[i].description ??
                   (sorted[i].createdAt != null
-                      ? DateFormat('MMM d, yyyy • h:mm a').format(sorted[i].createdAt!)
+                      ? DateFormat('MMM d, yyyy • h:mm a')
+                          .format(sorted[i].createdAt!)
                       : ''),
               isActive: true,
               isLast: i == sorted.length - 1,
@@ -355,8 +355,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
       );
     }
 
-    final doneAssigned =
-        _ticket.status.index >= TicketStatus.assigned.index;
+    final doneAssigned = _ticket.status.index >= TicketStatus.assigned.index;
     final doneProgress = _ticket.status == TicketStatus.inProgress ||
         _ticket.status == TicketStatus.completed;
     final doneCompleted = _ticket.status == TicketStatus.completed;
@@ -453,9 +452,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: isActive
-                            ? AppColors.gray900
-                            : AppColors.gray600,
+                        color: isActive ? AppColors.gray900 : AppColors.gray600,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -495,8 +492,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value,
-      {IconData? icon}) {
+  Widget _buildDetailRow(String label, String value, {IconData? icon}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
@@ -513,8 +509,8 @@ class _TicketDetailViewState extends State<TicketDetailView> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                      fontSize: 14, color: AppColors.gray500),
+                  style:
+                      const TextStyle(fontSize: 14, color: AppColors.gray500),
                 ),
                 const SizedBox(width: 16),
                 Flexible(
@@ -546,8 +542,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
           decoration: BoxDecoration(
             color: AppColors.white,
-            border:
-                Border(top: BorderSide(color: AppColors.gray200, width: 1)),
+            border: Border(top: BorderSide(color: AppColors.gray200, width: 1)),
           ),
           child: SizedBox(
             width: double.infinity,
@@ -556,8 +551,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
               icon: const Icon(Icons.star_outline),
               label: const Text(
                 'Rate This Ticket',
-                style:
-                    TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
@@ -582,8 +576,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
         decoration: BoxDecoration(
           color: AppColors.white,
-          border:
-              Border(top: BorderSide(color: AppColors.gray200, width: 1)),
+          border: Border(top: BorderSide(color: AppColors.gray200, width: 1)),
         ),
         child: Row(
           children: [
@@ -593,8 +586,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                 icon: const Icon(Icons.call_outlined, size: 17),
                 label: const Text(
                   'Call Staff',
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.gray700,
@@ -612,8 +604,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                 icon: const Icon(Icons.cancel_outlined, size: 17),
                 label: const Text(
                   'Cancel Ticket',
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFEF4444),
@@ -816,9 +807,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                     icon: Icon(
                       Icons.star,
                       size: 40,
-                      color: index < rating
-                          ? Colors.amber
-                          : AppColors.gray300,
+                      color: index < rating ? Colors.amber : AppColors.gray300,
                     ),
                     onPressed: () {
                       setState(() => rating = index + 1);

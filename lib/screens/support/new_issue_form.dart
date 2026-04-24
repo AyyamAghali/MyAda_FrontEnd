@@ -60,7 +60,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
         if (currentText.isEmpty) {
           _selectedCategory = categories.isNotEmpty ? categories.first : null;
           _categoryController.text = _selectedCategory?.name ?? '';
-          _isOtherCategorySelected = (_selectedCategory?.name.toLowerCase() ?? '') == 'other';
+          _isOtherCategorySelected =
+              (_selectedCategory?.name.toLowerCase() ?? '') == 'other';
         } else {
           SupportCategoryOption? selected;
           for (final c in categories) {
@@ -114,25 +115,34 @@ class _NewIssueFormState extends State<NewIssueForm> {
                               TextFormField(
                                 controller: _categoryController,
                                 decoration: InputDecoration(
-                                  hintText: _isLoadingCategories ? 'Loading categories...' : 'Select category',
+                                  hintText: _isLoadingCategories
+                                      ? 'Loading categories...'
+                                      : 'Select category',
                                   filled: true,
                                   fillColor: AppColors.gray50,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(color: AppColors.gray200),
+                                    borderSide:
+                                        BorderSide(color: AppColors.gray200),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(color: AppColors.gray200),
+                                    borderSide:
+                                        BorderSide(color: AppColors.gray200),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                                    borderSide: const BorderSide(
+                                        color: AppColors.primary, width: 2),
                                   ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 12),
+                                  hintStyle: TextStyle(
+                                      color: AppColors.gray400.withOpacity(0.7),
+                                      fontSize: 14),
                                   suffixIcon: PopupMenuButton<String>(
-                                    icon: Icon(Icons.keyboard_arrow_down, color: AppColors.gray400, size: 20),
+                                    icon: Icon(Icons.keyboard_arrow_down,
+                                        color: AppColors.gray400, size: 20),
                                     enabled: !_isLoadingCategories,
                                     onSelected: (value) {
                                       SupportCategoryOption? selected;
@@ -145,7 +155,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                       setState(() {
                                         _categoryController.text = value;
                                         _selectedCategory = selected;
-                                        _isOtherCategorySelected = value == 'Other';
+                                        _isOtherCategorySelected =
+                                            value == 'Other';
                                         if (!_isOtherCategorySelected) {
                                           _otherCategoryController.clear();
                                         }
@@ -153,7 +164,9 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                     },
                                     itemBuilder: (context) {
                                       final names = _categoryOptions.isNotEmpty
-                                          ? _categoryOptions.map((c) => c.name).toList(growable: false)
+                                          ? _categoryOptions
+                                              .map((c) => c.name)
+                                              .toList(growable: false)
                                           : const <String>[
                                               'Wi-Fi & Network',
                                               'Email & Office 365',
@@ -173,8 +186,10 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                     },
                                   ),
                                 ),
-                                style: const TextStyle(fontSize: 15, color: AppColors.gray900),
-                                validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                                style: const TextStyle(
+                                    fontSize: 15, color: AppColors.gray900),
+                                validator: (value) =>
+                                    value?.isEmpty ?? true ? 'Required' : null,
                               ),
                               if (_isOtherCategorySelected) ...[
                                 const SizedBox(height: 12),
@@ -182,27 +197,37 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                   controller: _otherCategoryController,
                                   decoration: InputDecoration(
                                     hintText: 'Please specify the category',
-                                    prefixIcon: Icon(Icons.edit, color: primaryColor, size: 20),
+                                    prefixIcon: Icon(Icons.edit,
+                                        color: primaryColor, size: 20),
                                     filled: true,
                                     fillColor: AppColors.gray50,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide(color: AppColors.gray200),
+                                      borderSide:
+                                          BorderSide(color: AppColors.gray200),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide(color: AppColors.gray200),
+                                      borderSide:
+                                          BorderSide(color: AppColors.gray200),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide(color: primaryColor, width: 2),
+                                      borderSide: BorderSide(
+                                          color: primaryColor, width: 2),
                                     ),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                    hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 12),
+                                    hintStyle: TextStyle(
+                                        color:
+                                            AppColors.gray400.withOpacity(0.7),
+                                        fontSize: 14),
                                   ),
-                                  style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+                                  style: const TextStyle(
+                                      fontSize: 15, color: AppColors.gray900),
                                   validator: (value) {
-                                    if (_isOtherCategorySelected && (value == null || value.isEmpty)) {
+                                    if (_isOtherCategorySelected &&
+                                        (value == null || value.isEmpty)) {
                                       return 'Please specify the category';
                                     }
                                     return null;
@@ -217,9 +242,11 @@ class _NewIssueFormState extends State<NewIssueForm> {
                           number: 2,
                           label: 'Location *',
                           child: SupportLocationPicker(
-                            helperText: 'First choose Building or Campus, then add details.',
+                            helperText:
+                                'First choose Building or Campus, then add details.',
                             initialValue: _locationValue,
-                            onChanged: (v) => setState(() => _locationValue = v),
+                            onChanged: (v) =>
+                                setState(() => _locationValue = v),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -229,29 +256,40 @@ class _NewIssueFormState extends State<NewIssueForm> {
                           child: TextFormField(
                             controller: _descriptionController,
                             decoration: InputDecoration(
-                              hintText: 'Provide as much detail as possible about the issue...',
-                              helperText: 'Include error messages, what you were doing when the issue occurred, etc.',
+                              hintText:
+                                  'Provide as much detail as possible about the issue...',
+                              helperText:
+                                  'Include error messages, what you were doing when the issue occurred, etc.',
                               filled: true,
                               fillColor: AppColors.gray50,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: AppColors.gray200),
+                                borderSide:
+                                    BorderSide(color: AppColors.gray200),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: AppColors.gray200),
+                                borderSide:
+                                    BorderSide(color: AppColors.gray200),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                                borderSide: const BorderSide(
+                                    color: AppColors.primary, width: 2),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
-                              helperStyle: TextStyle(fontSize: 11, color: AppColors.gray500),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              hintStyle: TextStyle(
+                                  color: AppColors.gray400.withOpacity(0.7),
+                                  fontSize: 14),
+                              helperStyle: TextStyle(
+                                  fontSize: 11, color: AppColors.gray500),
                             ),
-                            style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+                            style: const TextStyle(
+                                fontSize: 15, color: AppColors.gray900),
                             maxLines: 5,
-                            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                            validator: (value) =>
+                                value?.isEmpty ?? true ? 'Required' : null,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -264,7 +302,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
                             showVideoOption: false,
                             onCameraSelected: () async {
                               final picker = ImagePicker();
-                              final image = await picker.pickImage(source: ImageSource.camera);
+                              final image = await picker.pickImage(
+                                  source: ImageSource.camera);
                               if (image != null) {
                                 setState(() => _attachments.add(image.path));
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -274,7 +313,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
                             },
                             onPhotoSelected: () async {
                               final picker = ImagePicker();
-                              final image = await picker.pickImage(source: ImageSource.gallery);
+                              final image = await picker.pickImage(
+                                  source: ImageSource.gallery);
                               if (image != null) {
                                 setState(() => _attachments.add(image.path));
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -294,7 +334,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
                               return Chip(
                                 label: Text(attachment.split('/').last),
                                 onDeleted: () {
-                                  setState(() => _attachments.remove(attachment));
+                                  setState(
+                                      () => _attachments.remove(attachment));
                                 },
                               );
                             }).toList(),
@@ -307,21 +348,27 @@ class _NewIssueFormState extends State<NewIssueForm> {
                           child: Column(
                             children: [
                               RadioListTile<TicketPriority>(
-                                title: const Text('Not Urgent', style: TextStyle(fontSize: 14)),
-                                subtitle: const Text('Can wait 24+ hours', style: TextStyle(fontSize: 12)),
+                                title: const Text('Not Urgent',
+                                    style: TextStyle(fontSize: 14)),
+                                subtitle: const Text('Can wait 24+ hours',
+                                    style: TextStyle(fontSize: 12)),
                                 value: TicketPriority.low,
                                 groupValue: _urgencyLevel,
-                                onChanged: (value) => setState(() => _urgencyLevel = value!),
+                                onChanged: (value) =>
+                                    setState(() => _urgencyLevel = value!),
                                 contentPadding: EdgeInsets.zero,
                                 dense: true,
                                 activeColor: primaryColor,
                               ),
                               RadioListTile<TicketPriority>(
-                                title: const Text('Urgent', style: TextStyle(fontSize: 14)),
-                                subtitle: const Text('Needed ASAP', style: TextStyle(fontSize: 12)),
+                                title: const Text('Urgent',
+                                    style: TextStyle(fontSize: 14)),
+                                subtitle: const Text('Needed ASAP',
+                                    style: TextStyle(fontSize: 12)),
                                 value: TicketPriority.high,
                                 groupValue: _urgencyLevel,
-                                onChanged: (value) => setState(() => _urgencyLevel = value!),
+                                onChanged: (value) =>
+                                    setState(() => _urgencyLevel = value!),
                                 contentPadding: EdgeInsets.zero,
                                 dense: true,
                                 activeColor: primaryColor,
@@ -354,7 +401,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.gray900, size: 18),
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: AppColors.gray900, size: 18),
             onPressed: () => Navigator.pop(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -429,16 +477,22 @@ class _NewIssueFormState extends State<NewIssueForm> {
               height: 38,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: selected ? primaryColor.withOpacity(0.10) : AppColors.gray50,
+                color: selected
+                    ? primaryColor.withOpacity(0.10)
+                    : AppColors.gray50,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: selected ? primaryColor.withOpacity(0.45) : AppColors.gray200,
+                  color: selected
+                      ? primaryColor.withOpacity(0.45)
+                      : AppColors.gray200,
                 ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, size: 16, color: selected ? primaryColor : AppColors.gray600),
+                  Icon(icon,
+                      size: 16,
+                      color: selected ? primaryColor : AppColors.gray600),
                   const SizedBox(width: 8),
                   Text(
                     label,
@@ -556,7 +610,10 @@ class _NewIssueFormState extends State<NewIssueForm> {
               SizedBox(width: 6),
               Text(
                 'What happens next?',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gray700),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.gray700),
               ),
             ],
           ),
@@ -583,7 +640,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 12, color: AppColors.gray500, height: 1.35),
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.gray500, height: 1.35),
             ),
           ),
         ],
@@ -601,7 +659,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
           content: const Text('Please complete the Location section'),
           backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
       return;
@@ -656,7 +715,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
           content: Text('$_module request submitted successfully!'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     } catch (e) {
@@ -718,12 +778,16 @@ class _NewIssueFormState extends State<NewIssueForm> {
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(AppColors.white),
                         ),
                       )
                     : const Text(
                         'Submit Request',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.1),
                       ),
               ),
             ),
@@ -733,4 +797,3 @@ class _NewIssueFormState extends State<NewIssueForm> {
     );
   }
 }
-
