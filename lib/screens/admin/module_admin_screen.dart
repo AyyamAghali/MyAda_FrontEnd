@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive.dart';
+import '../../widgets/modern_select_sheet.dart';
 import '../../widgets/responsive_container.dart';
 import '../login_page.dart';
 import 'support_staff_dashboard.dart';
@@ -1282,22 +1283,36 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _vacancyCategory,
-                          isExpanded: true,
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'Select a category',
-                              child: Text('Select a category'),
-                            ),
-                            DropdownMenuItem(value: 'Design', child: Text('Design')),
-                            DropdownMenuItem(value: 'Marketing', child: Text('Marketing')),
-                            DropdownMenuItem(value: 'Tech', child: Text('Tech')),
-                          ],
-                          onChanged: (value) {
-                            setState(() => _vacancyCategory = value ?? 'Select a category');
+                        child: GestureDetector(
+                          onTap: () async {
+                            final result = await showModernSelectSheet<String>(
+                              context: context,
+                              title: 'Select Category',
+                              selectedValue: _vacancyCategory,
+                              options: const [
+                                SelectOption(value: 'Design', label: 'Design'),
+                                SelectOption(value: 'Marketing', label: 'Marketing'),
+                                SelectOption(value: 'Tech', label: 'Tech'),
+                              ],
+                            );
+                            if (result != null) {
+                              setState(() => _vacancyCategory = result);
+                            }
                           },
-                          decoration: const InputDecoration(labelText: 'Category'),
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              controller: TextEditingController(text: _vacancyCategory == 'Select a category' ? '' : _vacancyCategory),
+                              decoration: InputDecoration(
+                                labelText: 'Category',
+                                hintText: 'Select a category',
+                                suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.gray400, size: 22),
+                                filled: true,
+                                fillColor: AppColors.gray50,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.gray200)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.gray200)),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1493,40 +1508,34 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _eventVenuePreference,
-                          isExpanded: true,
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'Main Auditorium',
-                              child: Text(
-                                'Main Auditorium',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Hall B',
-                              child: Text(
-                                'Hall B',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Lab C',
-                              child: Text(
-                                'Lab C',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setState(() => _eventVenuePreference = value ?? 'Main Auditorium');
+                        child: GestureDetector(
+                          onTap: () async {
+                            final result = await showModernSelectSheet<String>(
+                              context: context,
+                              title: 'Venue Preference',
+                              selectedValue: _eventVenuePreference,
+                              options: const [
+                                SelectOption(value: 'Main Auditorium', label: 'Main Auditorium'),
+                                SelectOption(value: 'Hall B', label: 'Hall B'),
+                                SelectOption(value: 'Lab C', label: 'Lab C'),
+                              ],
+                            );
+                            if (result != null) {
+                              setState(() => _eventVenuePreference = result);
+                            }
                           },
-                          decoration: const InputDecoration(
-                            labelText: 'Venue Preference',
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              controller: TextEditingController(text: _eventVenuePreference),
+                              decoration: InputDecoration(
+                                labelText: 'Venue Preference',
+                                suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.gray400, size: 22),
+                                filled: true,
+                                fillColor: AppColors.gray50,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.gray200)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.gray200)),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -1903,26 +1912,66 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
-                value: 'All',
-                items: const [
-                  DropdownMenuItem(value: 'All', child: Text('Status: All')),
-                  DropdownMenuItem(value: 'Pending', child: Text('Status: Pending')),
-                  DropdownMenuItem(value: 'Reviewing', child: Text('Status: Reviewing')),
-                ],
-                onChanged: (_) => _showSnackBar('Filter is mocked.'),
+              child: GestureDetector(
+                onTap: () async {
+                  final result = await showModernSelectSheet<String>(
+                    context: context,
+                    title: 'Filter by Status',
+                    selectedValue: 'All',
+                    options: const [
+                      SelectOption(value: 'All', label: 'All'),
+                      SelectOption(value: 'Pending', label: 'Pending'),
+                      SelectOption(value: 'Reviewing', label: 'Reviewing'),
+                    ],
+                  );
+                  if (result != null) _showSnackBar('Filter is mocked.');
+                },
+                child: AbsorbPointer(
+                  child: TextFormField(
+                    controller: TextEditingController(text: 'Status: All'),
+                    decoration: InputDecoration(
+                      suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.gray400, size: 22),
+                      filled: true,
+                      fillColor: AppColors.gray50,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.gray200)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.gray200)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    style: const TextStyle(fontSize: 14, color: AppColors.gray900),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: DropdownButtonFormField<String>(
-                value: 'All',
-                items: const [
-                  DropdownMenuItem(value: 'All', child: Text('Role: All')),
-                  DropdownMenuItem(value: 'Member', child: Text('Role: Member')),
-                  DropdownMenuItem(value: 'Officer', child: Text('Role: Officer')),
-                ],
-                onChanged: (_) => _showSnackBar('Filter is mocked.'),
+              child: GestureDetector(
+                onTap: () async {
+                  final result = await showModernSelectSheet<String>(
+                    context: context,
+                    title: 'Filter by Role',
+                    selectedValue: 'All',
+                    options: const [
+                      SelectOption(value: 'All', label: 'All'),
+                      SelectOption(value: 'Member', label: 'Member'),
+                      SelectOption(value: 'Officer', label: 'Officer'),
+                    ],
+                  );
+                  if (result != null) _showSnackBar('Filter is mocked.');
+                },
+                child: AbsorbPointer(
+                  child: TextFormField(
+                    controller: TextEditingController(text: 'Role: All'),
+                    decoration: InputDecoration(
+                      suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.gray400, size: 22),
+                      filled: true,
+                      fillColor: AppColors.gray50,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.gray200)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.gray200)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    style: const TextStyle(fontSize: 14, color: AppColors.gray900),
+                  ),
+                ),
               ),
             ),
           ],

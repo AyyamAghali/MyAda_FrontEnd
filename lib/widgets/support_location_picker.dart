@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
+import 'modern_select_sheet.dart';
 
 enum SupportLocationType { building, campus }
 
@@ -51,11 +52,15 @@ class SupportLocationPicker extends StatefulWidget {
   /// Shown under the field header; matches other forms.
   final String? helperText;
 
+  /// IT vs FM theme — radios, focus rings, and selectors use this color.
+  final Color accentColor;
+
   const SupportLocationPicker({
     super.key,
     this.initialValue,
     required this.onChanged,
     this.helperText,
+    this.accentColor = AppColors.primary,
   });
 
   @override
@@ -139,27 +144,29 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
     );
   }
 
-  InputDecoration _field({String? label, String? hint}) {
+  InputDecoration _field({String? label, String? hint, Widget? suffixIcon}) {
     return InputDecoration(
       labelText: label,
       hintText: hint,
+      suffixIcon: suffixIcon,
       filled: true,
-      fillColor: AppColors.gray50,
+      fillColor: AppColors.white,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: AppColors.gray200),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: AppColors.gray200),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: widget.accentColor, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
-      hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+      hintStyle: TextStyle(
+          color: AppColors.gray400.withValues(alpha: 0.7), fontSize: 14),
     );
   }
 
@@ -168,6 +175,7 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
     required bool selected,
     required VoidCallback onTap,
   }) {
+    final accent = widget.accentColor;
     return GestureDetector(
       onTap: onTap,
       child: Row(
@@ -179,7 +187,7 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: selected ? AppColors.primary : AppColors.gray400,
+                color: selected ? accent : AppColors.gray400,
                 width: 2,
               ),
             ),
@@ -188,9 +196,9 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
                     child: Container(
                       width: 9,
                       height: 9,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.primary,
+                        color: accent,
                       ),
                     ),
                   )
@@ -248,54 +256,143 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
         ],
         const SizedBox(height: 12),
         if (_type == SupportLocationType.building) ...[
-          DropdownButtonFormField<String>(
-            value: _building,
-            decoration: _field(label: 'Building'),
-            style: const TextStyle(fontSize: 15, color: AppColors.gray900),
-            dropdownColor: AppColors.white,
-            items: _buildings.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
-            onChanged: (v) => setState(() {
-              _building = v;
-              _isRoom = null;
-              _room = null;
-              _details = '';
-              _emit();
-            }),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () async {
+                final result = await showModernSelectSheet<String>(
+                  context: context,
+                  title: 'Building',
+                  accentColor: widget.accentColor,
+                  selectedValue: _building,
+                  options: _buildings
+                      .map((b) => SelectOption(value: b, label: b))
+                      .toList(),
+                );
+                if (result != null) {
+                  setState(() {
+                    _building = result;
+                    _isRoom = null;
+                    _room = null;
+                    _details = '';
+                    _emit();
+                  });
+                }
+              },
+              child: InputDecorator(
+                decoration: _field(
+                  label: 'Building',
+                  hint: 'Select building',
+                  suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.gray400, size: 22),
+                ),
+                child: Text(
+                  (_building ?? '').isEmpty ? 'Select building' : _building!,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: (_building ?? '').isEmpty
+                        ? AppColors.gray400
+                        : AppColors.gray900,
+                  ),
+                ),
+              ),
+            ),
           ),
           if (_building != null) ...[
             const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              value: _isRoom == null ? null : (_isRoom == true ? 'yes' : 'no'),
-              decoration: _field(label: 'Is it a room?'),
-              style: const TextStyle(fontSize: 15, color: AppColors.gray900),
-              dropdownColor: AppColors.white,
-              hint: const Text('Select...', style: TextStyle(fontSize: 15, color: AppColors.gray400)),
-              items: const [
-                DropdownMenuItem(value: 'yes', child: Text('Yes, it is a room')),
-                DropdownMenuItem(value: 'no', child: Text('No, another area')),
-              ],
-              onChanged: (v) => setState(() {
-                _isRoom = v == null ? null : v == 'yes';
-                _room = null;
-                _details = '';
-                _emit();
-              }),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () async {
+                  final result = await showModernSelectSheet<String>(
+                    context: context,
+                    title: 'Is it a room?',
+                    accentColor: widget.accentColor,
+                    selectedValue: _isRoom == null
+                        ? null
+                        : (_isRoom == true ? 'yes' : 'no'),
+                    options: const [
+                      SelectOption(value: 'yes', label: 'Yes, it is a room'),
+                      SelectOption(value: 'no', label: 'No, another area'),
+                    ],
+                  );
+                  if (result != null) {
+                    setState(() {
+                      _isRoom = result == 'yes';
+                      _room = null;
+                      _details = '';
+                      _emit();
+                    });
+                  }
+                },
+                child: InputDecorator(
+                  decoration: _field(
+                    label: 'Is it a room?',
+                    hint: 'Select...',
+                    suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.gray400, size: 22),
+                  ),
+                  child: Text(
+                    _isRoom == true
+                        ? 'Yes, it is a room'
+                        : _isRoom == false
+                            ? 'No, another area'
+                            : 'Select...',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: _isRoom == null
+                          ? AppColors.gray400
+                          : AppColors.gray900,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
           if (_isRoom == true) ...[
             const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              value: _room,
-              decoration: _field(label: 'Room'),
-              style: const TextStyle(fontSize: 15, color: AppColors.gray900),
-              dropdownColor: AppColors.white,
-              items: (_buildingRooms[_building] ?? [])
-                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                  .toList(),
-              onChanged: (v) => setState(() {
-                _room = v;
-                _emit();
-              }),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () async {
+                  final rooms = _buildingRooms[_building] ?? [];
+                  final result = await showModernSelectSheet<String>(
+                    context: context,
+                    title: 'Room',
+                    accentColor: widget.accentColor,
+                    selectedValue: _room,
+                    options: rooms
+                        .map((r) => SelectOption(value: r, label: r))
+                        .toList(),
+                  );
+                  if (result != null) {
+                    setState(() {
+                      _room = result;
+                      _emit();
+                    });
+                  }
+                },
+                child: InputDecorator(
+                  decoration: _field(
+                    label: 'Room',
+                    hint: 'Select room',
+                    suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.gray400, size: 22),
+                  ),
+                  child: Text(
+                    (_room ?? '').isEmpty ? 'Select room' : _room!,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: (_room ?? '').isEmpty
+                          ? AppColors.gray400
+                          : AppColors.gray900,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
           if (_isRoom == false) ...[

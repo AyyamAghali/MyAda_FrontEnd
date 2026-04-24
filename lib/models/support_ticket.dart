@@ -70,13 +70,17 @@ class SupportTicket {
       if (s.contains('cancel')) return TicketStatus.cancelled;
       if (s.contains('complete') ||
           s.contains('resolved') ||
-          s.contains('done')) {
+          s.contains('done') ||
+          s.contains('closed')) {
         return TicketStatus.completed;
       }
-      if (s.contains('progress') || s == 'inwork')
+      if (s.contains('progress') || s == 'inwork') {
         return TicketStatus.inProgress;
-      if (s.contains('assign') || s.contains('accepted'))
+      }
+      if (s.contains('assign') || s.contains('accepted')) {
         return TicketStatus.assigned;
+      }
+      // New / unassigned / queue / open — My Requests "Open" tab includes these.
       return TicketStatus.pending;
     }
 
@@ -150,7 +154,13 @@ class SupportTicket {
       description: (json['description'] ?? '').toString(),
       category: parseCategory(
           json['categoryName'] ?? json['category'] ?? json['categoryTag']),
-      status: parseStatus(json['status']),
+      status: parseStatus(
+        json['status'] ??
+            json['statusName'] ??
+            json['state'] ??
+            json['requestStatus'] ??
+            json['workflowStatus'],
+      ),
       priority: parsePriority(json['urgency'] ?? json['priority']),
       location: composeLocation(),
       createdAt: (created ?? DateTime.now()).toIso8601String(),

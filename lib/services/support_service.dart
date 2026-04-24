@@ -279,7 +279,15 @@ class SupportService {
     final root = _unwrapRoot(decoded);
     if (root is List) return root;
     if (root is Map<String, dynamic>) {
-      final listKeys = ['items', 'results', 'data', 'value'];
+      final listKeys = [
+        'items',
+        'results',
+        'data',
+        'value',
+        'supportRequests',
+        'requests',
+        'tickets',
+      ];
       for (final key in listKeys) {
         final candidate = root[key];
         if (candidate is List) return candidate;

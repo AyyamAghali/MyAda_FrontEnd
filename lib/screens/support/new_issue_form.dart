@@ -4,7 +4,7 @@ import '../../models/support_ticket.dart';
 import '../../services/auth_service.dart';
 import '../../services/support_service.dart';
 import '../../utils/constants.dart';
-import '../../widgets/responsive_container.dart';
+import '../../widgets/modern_select_sheet.dart';
 import '../../widgets/support_location_picker.dart';
 import '../../widgets/unified_media_picker.dart';
 import 'my_requests.dart';
@@ -80,6 +80,48 @@ class _NewIssueFormState extends State<NewIssueForm> {
     }
   }
 
+  Future<void> _openCategorySheet(Color primaryColor) async {
+    final names = _categoryOptions.isNotEmpty
+        ? _categoryOptions.map((c) => c.name).toList(growable: false)
+        : const <String>[
+            'Wi-Fi & Network',
+            'Email & Office 365',
+            'Password Reset',
+            'Projector/Display',
+            'Printer/Scanner',
+            'Software Installation',
+            'Computer Repair',
+            'Other',
+          ];
+    final result = await showModernSelectSheet<String>(
+      context: context,
+      title: 'Select Category',
+      accentColor: primaryColor,
+      selectedValue: _categoryController.text.isEmpty
+          ? null
+          : _categoryController.text,
+      options: names
+          .map((n) => SelectOption(value: n, label: n))
+          .toList(growable: false),
+    );
+    if (result == null || !mounted) return;
+    SupportCategoryOption? selected;
+    for (final c in _categoryOptions) {
+      if (c.name == result) {
+        selected = c;
+        break;
+      }
+    }
+    setState(() {
+      _categoryController.text = result;
+      _selectedCategory = selected;
+      _isOtherCategorySelected = result == 'Other';
+      if (!_isOtherCategorySelected) {
+        _otherCategoryController.clear();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isIT = _module == 'IT';
@@ -88,22 +130,39 @@ class _NewIssueFormState extends State<NewIssueForm> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
-      body: SafeArea(
-        top: false,
-        child: ResponsiveContainer(
-          backgroundColor: AppColors.backgroundLight,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                _buildHeader(context, isIT),
-                _buildProgressIndicator(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHeader(context, isIT),
+          Expanded(
+            child: Form(
+              key: _formKey,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 320),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  final curved = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  );
+                  return FadeTransition(
+                    opacity: curved,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.03, 0),
+                        end: Offset.zero,
+                      ).animate(curved),
+                      child: child,
+                    ),
+                  );
+                },
+                child: SingleChildScrollView(
+                  key: ValueKey<String>(_module),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                         _buildNumberedField(
                           number: 1,
                           label: 'Issue Category *',
@@ -112,84 +171,51 @@ class _NewIssueFormState extends State<NewIssueForm> {
                             children: [
                               _buildModuleSwitcher(primaryColor),
                               const SizedBox(height: 10),
-                              TextFormField(
-                                controller: _categoryController,
-                                decoration: InputDecoration(
-                                  hintText: _isLoadingCategories
-                                      ? 'Loading categories...'
-                                      : 'Select category',
-                                  filled: true,
-                                  fillColor: AppColors.gray50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide:
-                                        BorderSide(color: AppColors.gray200),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide:
-                                        BorderSide(color: AppColors.gray200),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(
-                                        color: AppColors.primary, width: 2),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 12),
-                                  hintStyle: TextStyle(
-                                      color: AppColors.gray400.withOpacity(0.7),
-                                      fontSize: 14),
-                                  suffixIcon: PopupMenuButton<String>(
-                                    icon: Icon(Icons.keyboard_arrow_down,
-                                        color: AppColors.gray400, size: 20),
-                                    enabled: !_isLoadingCategories,
-                                    onSelected: (value) {
-                                      SupportCategoryOption? selected;
-                                      for (final c in _categoryOptions) {
-                                        if (c.name == value) {
-                                          selected = c;
-                                          break;
-                                        }
-                                      }
-                                      setState(() {
-                                        _categoryController.text = value;
-                                        _selectedCategory = selected;
-                                        _isOtherCategorySelected =
-                                            value == 'Other';
-                                        if (!_isOtherCategorySelected) {
-                                          _otherCategoryController.clear();
-                                        }
-                                      });
-                                    },
-                                    itemBuilder: (context) {
-                                      final names = _categoryOptions.isNotEmpty
-                                          ? _categoryOptions
-                                              .map((c) => c.name)
-                                              .toList(growable: false)
-                                          : const <String>[
-                                              'Wi-Fi & Network',
-                                              'Email & Office 365',
-                                              'Password Reset',
-                                              'Projector/Display',
-                                              'Printer/Scanner',
-                                              'Software Installation',
-                                              'Computer Repair',
-                                              'Other',
-                                            ];
-                                      return names.map((cat) {
-                                        return PopupMenuItem(
-                                          value: cat,
-                                          child: Text(cat),
-                                        );
-                                      }).toList();
-                                    },
+                              GestureDetector(
+                                onTap: _isLoadingCategories
+                                    ? null
+                                    : () => _openCategorySheet(primaryColor),
+                                child: AbsorbPointer(
+                                  child: TextFormField(
+                                    controller: _categoryController,
+                                    decoration: InputDecoration(
+                                      hintText: _isLoadingCategories
+                                          ? 'Loading categories...'
+                                          : 'Select category',
+                                      filled: true,
+                                      fillColor: AppColors.white,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide:
+                                            BorderSide(color: AppColors.gray200),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide:
+                                            BorderSide(color: AppColors.gray200),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                            color: primaryColor, width: 2),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 14),
+                                      hintStyle: TextStyle(
+                                          color: AppColors.gray400.withValues(alpha: 0.7),
+                                          fontSize: 14),
+                                      suffixIcon: Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        color: AppColors.gray400,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    style: const TextStyle(
+                                        fontSize: 15, color: AppColors.gray900),
+                                    validator: (value) =>
+                                        value?.isEmpty ?? true ? 'Required' : null,
                                   ),
                                 ),
-                                style: const TextStyle(
-                                    fontSize: 15, color: AppColors.gray900),
-                                validator: (value) =>
-                                    value?.isEmpty ?? true ? 'Required' : null,
                               ),
                               if (_isOtherCategorySelected) ...[
                                 const SizedBox(height: 12),
@@ -200,19 +226,19 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                     prefixIcon: Icon(Icons.edit,
                                         color: primaryColor, size: 20),
                                     filled: true,
-                                    fillColor: AppColors.gray50,
+                                    fillColor: AppColors.white,
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(12),
                                       borderSide:
                                           BorderSide(color: AppColors.gray200),
                                     ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(12),
                                       borderSide:
                                           BorderSide(color: AppColors.gray200),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide(
                                           color: primaryColor, width: 2),
                                     ),
@@ -220,7 +246,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                         horizontal: 14, vertical: 12),
                                     hintStyle: TextStyle(
                                         color:
-                                            AppColors.gray400.withOpacity(0.7),
+                                            AppColors.gray400.withValues(alpha: 0.7),
                                         fontSize: 14),
                                   ),
                                   style: const TextStyle(
@@ -245,6 +271,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
                             helperText:
                                 'First choose Building or Campus, then add details.',
                             initialValue: _locationValue,
+                            accentColor: primaryColor,
                             onChanged: (v) =>
                                 setState(() => _locationValue = v),
                           ),
@@ -261,26 +288,26 @@ class _NewIssueFormState extends State<NewIssueForm> {
                               helperText:
                                   'Include error messages, what you were doing when the issue occurred, etc.',
                               filled: true,
-                              fillColor: AppColors.gray50,
+                              fillColor: AppColors.white,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(12),
                                 borderSide:
                                     BorderSide(color: AppColors.gray200),
                               ),
                               enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(12),
                                 borderSide:
                                     BorderSide(color: AppColors.gray200),
                               ),
                               focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(
-                                    color: AppColors.primary, width: 2),
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: primaryColor, width: 2),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 12),
                               hintStyle: TextStyle(
-                                  color: AppColors.gray400.withOpacity(0.7),
+                                  color: AppColors.gray400.withValues(alpha: 0.7),
                                   fontSize: 14),
                               helperStyle: TextStyle(
                                   fontSize: 11, color: AppColors.gray500),
@@ -383,32 +410,38 @@ class _NewIssueFormState extends State<NewIssueForm> {
                     ),
                   ),
                 ),
-                _buildSubmitButton(context, primaryColor),
-              ],
+              ),
             ),
-          ),
-        ),
+          _buildSubmitButton(context, primaryColor),
+        ],
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context, bool isIT) {
     final top = MediaQuery.of(context).padding.top;
-    return Container(
-      padding: EdgeInsets.fromLTRB(12, top + 8, 16, 8),
-      color: AppColors.white,
+    final gradientColors = isIT
+        ? [AppColors.primary, AppColors.primaryDark]
+        : [AppColors.secondary, AppColors.secondaryDark];
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
       width: double.infinity,
+      padding: EdgeInsets.fromLTRB(16, top + 12, 20, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: gradientColors),
+      ),
       child: Row(
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back_ios_new,
-                color: AppColors.gray900, size: 18),
+                color: AppColors.white, size: 18),
             onPressed: () => Navigator.pop(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             visualDensity: VisualDensity.compact,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -417,43 +450,26 @@ class _NewIssueFormState extends State<NewIssueForm> {
                 Text(
                   isIT ? 'Create New IT Request' : 'Create New FM Request',
                   style: const TextStyle(
-                    fontSize: 17,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.gray900,
+                    color: AppColors.white,
                     letterSpacing: -0.3,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Step 1 of 1',
-                  style: TextStyle(fontSize: 12, color: AppColors.gray500),
+                  isIT
+                      ? 'Software, accounts, network issues'
+                      : 'Hardware, equipment, facility issues',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
                 ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildProgressIndicator() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-      color: AppColors.white,
-      width: double.infinity,
-      child: Row(
-        children: List.generate(4, (index) {
-          return Expanded(
-            child: Container(
-              height: 3,
-              margin: EdgeInsets.only(right: index < 3 ? 6 : 0),
-              decoration: BoxDecoration(
-                color: index == 0 ? AppColors.primary : AppColors.gray200,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          );
-        }),
       ),
     );
   }
@@ -478,12 +494,12 @@ class _NewIssueFormState extends State<NewIssueForm> {
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
                 color: selected
-                    ? primaryColor.withOpacity(0.10)
-                    : AppColors.gray50,
+                    ? primaryColor.withValues(alpha: 0.10)
+                    : AppColors.white,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: selected
-                      ? primaryColor.withOpacity(0.45)
+                      ? primaryColor.withValues(alpha: 0.45)
                       : AppColors.gray200,
                 ),
               ),
@@ -554,8 +570,10 @@ class _NewIssueFormState extends State<NewIssueForm> {
     required String label,
     required Widget child,
   }) {
+    final isIT = _module == 'IT';
+    final accentColor = isIT ? AppColors.primary : AppColors.secondary;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -565,7 +583,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  color: accentColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
@@ -599,49 +617,70 @@ class _NewIssueFormState extends State<NewIssueForm> {
   }
 
   Widget _buildWhatHappensNext(String responseTime) {
+    final isIT = _module == 'IT';
+    final accentColor = isIT ? AppColors.primary : AppColors.secondary;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.zero,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accentColor.withValues(alpha: 0.15)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.info_outline, color: AppColors.gray500, size: 16),
-              SizedBox(width: 6),
+              Icon(Icons.info_outline, color: accentColor, size: 18),
+              const SizedBox(width: 8),
               Text(
                 'What happens next?',
                 style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.gray700),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: accentColor,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          _buildInfoItem('Your request will be reviewed by our support team'),
-          _buildInfoItem('You\'ll receive a ticket number for tracking'),
-          _buildInfoItem('Support staff will contact you via chat or call'),
-          _buildInfoItem('Average response time: $responseTime'),
+          const SizedBox(height: 12),
+          _buildInfoItem(
+            'A support ticket is created and routed to the appropriate team.',
+            accentColor,
+          ),
+          _buildInfoItem(
+            'Technician reviews the details and may contact you for clarification.',
+            accentColor,
+          ),
+          _buildInfoItem(
+            'You\'ll be notified when the issue is resolved or an update is available.',
+            accentColor,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoItem(String text) {
+  Widget _buildInfoItem(String text, Color accentColor) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '• ',
-            style: TextStyle(fontSize: 12, color: AppColors.gray500),
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Icon(Icons.circle, size: 6, color: accentColor),
           ),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.gray500, height: 1.35),
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.gray700,
+                height: 1.4,
+              ),
             ),
           ),
         ],
@@ -737,17 +776,13 @@ class _NewIssueFormState extends State<NewIssueForm> {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
         decoration: BoxDecoration(
-          color: AppColors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          color: AppColors.backgroundLight,
+          border: Border(
+            top: BorderSide(color: AppColors.gray200.withValues(alpha: 0.85)),
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

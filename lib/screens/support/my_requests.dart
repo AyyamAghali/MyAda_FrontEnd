@@ -42,10 +42,12 @@ class _MyRequestsState extends State<MyRequests>
     super.dispose();
   }
 
+  /// Open = anything not completed or cancelled (includes newly created
+  /// `pending` / unassigned tickets per Support API lifecycle).
   List<SupportTicket> get openTickets => _tickets
       .where((t) =>
-          t.status == TicketStatus.assigned ||
-          t.status == TicketStatus.inProgress)
+          t.status != TicketStatus.completed &&
+          t.status != TicketStatus.cancelled)
       .toList();
 
   List<SupportTicket> get completedTickets =>
@@ -105,8 +107,7 @@ class _MyRequestsState extends State<MyRequests>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
-      body: SafeArea(
-        child: Column(
+      body: Column(
           children: [
             _buildHeader(context),
             _buildSearchRow(context),
@@ -163,20 +164,25 @@ class _MyRequestsState extends State<MyRequests>
                         ),
             ),
           ],
-        ),
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      color: AppColors.white,
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(16, top + 12, 20, 16),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+        ),
+      ),
       child: Row(
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back_ios_new,
-                color: AppColors.gray900, size: 20),
+                color: AppColors.white, size: 20),
             onPressed: () => Navigator.pop(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -191,7 +197,7 @@ class _MyRequestsState extends State<MyRequests>
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.gray900,
+                    color: AppColors.white,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -200,7 +206,7 @@ class _MyRequestsState extends State<MyRequests>
                   'Track your support tickets',
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.gray600,
+                    color: AppColors.white,
                     fontWeight: FontWeight.w400,
                   ),
                 ),

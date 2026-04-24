@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../services/call/call_controller.dart';
 import '../../utils/constants.dart';
+import '../../widgets/modern_select_sheet.dart';
 import 'my_requests.dart';
 import 'new_issue_form.dart';
 
@@ -745,35 +746,59 @@ class _StartCallSheetState extends State<_StartCallSheet> {
                 ),
               )
             else if (_dispatchers.isNotEmpty)
-              DropdownButtonFormField<String>(
-                key: ValueKey<String?>(_selectedDispatcherId),
-                initialValue: _selectedDispatcherId,
-                items: _dispatchers
-                    .map(
-                      (u) => DropdownMenuItem<String>(
-                        value: u.id,
-                        child: Text(
-                          u.userName.isNotEmpty ? u.userName : u.id,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: _isStarting
+              GestureDetector(
+                onTap: _isStarting
                     ? null
-                    : (v) {
-                        setState(() {
-                          _selectedDispatcherId = v;
-                          _dispatcherIdController.text = v ?? '';
-                        });
+                    : () async {
+                        final result = await showModernSelectSheet<String>(
+                          context: context,
+                          title: 'Select Dispatcher',
+                          selectedValue: _selectedDispatcherId,
+                          options: _dispatchers
+                              .map((u) => SelectOption(
+                                    value: u.id,
+                                    label: u.userName.isNotEmpty
+                                        ? u.userName
+                                        : u.id,
+                                    icon: Icons.support_agent_outlined,
+                                  ))
+                              .toList(growable: false),
+                        );
+                        if (result != null) {
+                          setState(() {
+                            _selectedDispatcherId = result;
+                            _dispatcherIdController.text = result;
+                          });
+                        }
                       },
-                decoration: InputDecoration(
-                  labelText: 'Dispatcher',
-                  hintText: 'Select dispatcher',
-                  prefixIcon:
-                      const Icon(Icons.support_agent_outlined, size: 20),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                child: AbsorbPointer(
+                  child: TextFormField(
+                    controller: TextEditingController(
+                      text: _selectedDispatcherId != null
+                          ? _dispatchers
+                              .where((u) => u.id == _selectedDispatcherId)
+                              .map((u) =>
+                                  u.userName.isNotEmpty ? u.userName : u.id)
+                              .firstOrNull ?? _selectedDispatcherId!
+                          : '',
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Dispatcher',
+                      hintText: 'Select dispatcher',
+                      prefixIcon:
+                          const Icon(Icons.support_agent_outlined, size: 20),
+                      suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.gray400, size: 22),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppColors.gray200),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.gray50,
+                    ),
                   ),
                 ),
               )

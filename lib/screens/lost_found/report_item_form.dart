@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/lost_item.dart';
 import '../../services/lost_found_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/modern_select_sheet.dart';
 
 class ReportItemForm extends StatefulWidget {
   final bool isLostItem;
@@ -328,19 +329,31 @@ class _ReportItemFormState extends State<ReportItemForm> {
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 14),
-                  DropdownButtonFormField<ItemCategory>(
-                    value: _category,
-                    decoration: _field(label: 'Category *'),
-                    style: const TextStyle(
-                        fontSize: 15, color: AppColors.gray900),
-                    dropdownColor: AppColors.white,
-                    items: ItemCategory.values
-                        .map((c) => DropdownMenuItem(
-                            value: c, child: Text(_catName(c))))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) setState(() => _category = v);
+                  GestureDetector(
+                    onTap: () async {
+                      final result = await showModernSelectSheet<ItemCategory>(
+                        context: context,
+                        title: 'Select Category',
+                        selectedValue: _category,
+                        options: ItemCategory.values
+                            .map((c) => SelectOption(
+                                value: c, label: _catName(c)))
+                            .toList(),
+                      );
+                      if (result != null) setState(() => _category = result);
                     },
+                    child: AbsorbPointer(
+                      child: TextFormField(
+                        decoration: _field(
+                          label: 'Category *',
+                          suffix: const Icon(Icons.keyboard_arrow_down_rounded,
+                              color: AppColors.gray400, size: 22),
+                        ),
+                        controller: TextEditingController(text: _catName(_category)),
+                        style: const TextStyle(
+                            fontSize: 15, color: AppColors.gray900),
+                      ),
+                    ),
                   ),
 
                   _divider(),
@@ -478,59 +491,113 @@ class _ReportItemFormState extends State<ReportItemForm> {
         ),
         const SizedBox(height: 14),
         if (_locationType == 'building') ...[
-          DropdownButtonFormField<String>(
-            value: _selectedBuilding,
-            decoration: _field(label: 'Building'),
-            style: const TextStyle(
-                fontSize: 15, color: AppColors.gray900),
-            dropdownColor: AppColors.white,
-            items: _buildings
-                .map((b) => DropdownMenuItem(value: b, child: Text(b)))
-                .toList(),
-            onChanged: (v) => setState(() {
-              _selectedBuilding = v;
-              _isRoomSelection = null;
-              _selectedRoom = null;
-              _locationDetails = '';
-            }),
+          GestureDetector(
+            onTap: () async {
+              final result = await showModernSelectSheet<String>(
+                context: context,
+                title: 'Select Building',
+                selectedValue: _selectedBuilding,
+                options: _buildings
+                    .map((b) => SelectOption(value: b, label: b))
+                    .toList(),
+              );
+              if (result != null) {
+                setState(() {
+                  _selectedBuilding = result;
+                  _isRoomSelection = null;
+                  _selectedRoom = null;
+                  _locationDetails = '';
+                });
+              }
+            },
+            child: AbsorbPointer(
+              child: TextFormField(
+                controller: TextEditingController(
+                    text: _selectedBuilding ?? ''),
+                decoration: _field(
+                  label: 'Building',
+                  hint: 'Select building',
+                  suffix: const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.gray400, size: 22),
+                ),
+                style: const TextStyle(
+                    fontSize: 15, color: AppColors.gray900),
+              ),
+            ),
           ),
           if (_selectedBuilding != null) ...[
             const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              value: _isRoomSelection,
-              decoration: _field(label: 'Is it a room?'),
-              style: const TextStyle(
-                  fontSize: 15, color: AppColors.gray900),
-              dropdownColor: AppColors.white,
-              hint: const Text('Select...',
-                  style: TextStyle(
-                      fontSize: 15, color: AppColors.gray400)),
-              items: const [
-                DropdownMenuItem(
-                    value: 'yes', child: Text('Yes, it is a room')),
-                DropdownMenuItem(
-                    value: 'no', child: Text('No, another area')),
-              ],
-              onChanged: (v) => setState(() {
-                _isRoomSelection = v;
-                _selectedRoom = null;
-                _locationDetails = '';
-              }),
+            GestureDetector(
+              onTap: () async {
+                final result = await showModernSelectSheet<String>(
+                  context: context,
+                  title: 'Is it a room?',
+                  selectedValue: _isRoomSelection,
+                  options: const [
+                    SelectOption(value: 'yes', label: 'Yes, it is a room'),
+                    SelectOption(value: 'no', label: 'No, another area'),
+                  ],
+                );
+                if (result != null) {
+                  setState(() {
+                    _isRoomSelection = result;
+                    _selectedRoom = null;
+                    _locationDetails = '';
+                  });
+                }
+              },
+              child: AbsorbPointer(
+                child: TextFormField(
+                  controller: TextEditingController(
+                    text: _isRoomSelection == 'yes'
+                        ? 'Yes, it is a room'
+                        : _isRoomSelection == 'no'
+                            ? 'No, another area'
+                            : '',
+                  ),
+                  decoration: _field(
+                    label: 'Is it a room?',
+                    hint: 'Select...',
+                    suffix: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.gray400, size: 22),
+                  ),
+                  style: const TextStyle(
+                      fontSize: 15, color: AppColors.gray900),
+                ),
+              ),
             ),
           ],
           if (_isRoomSelection == 'yes') ...[
             const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              value: _selectedRoom,
-              decoration: _field(label: 'Room'),
-              style: const TextStyle(
-                  fontSize: 15, color: AppColors.gray900),
-              dropdownColor: AppColors.white,
-              items: (_buildingRooms[_selectedBuilding] ?? [])
-                  .map((r) =>
-                      DropdownMenuItem(value: r, child: Text(r)))
-                  .toList(),
-              onChanged: (v) => setState(() => _selectedRoom = v),
+            GestureDetector(
+              onTap: () async {
+                final rooms = _buildingRooms[_selectedBuilding] ?? [];
+                final result = await showModernSelectSheet<String>(
+                  context: context,
+                  title: 'Select Room',
+                  selectedValue: _selectedRoom,
+                  options: rooms
+                      .map((r) => SelectOption(value: r, label: r))
+                      .toList(),
+                );
+                if (result != null) {
+                  setState(() => _selectedRoom = result);
+                }
+              },
+              child: AbsorbPointer(
+                child: TextFormField(
+                  controller:
+                      TextEditingController(text: _selectedRoom ?? ''),
+                  decoration: _field(
+                    label: 'Room',
+                    hint: 'Select room',
+                    suffix: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.gray400, size: 22),
+                  ),
+                  style: const TextStyle(
+                      fontSize: 15, color: AppColors.gray900),
+                ),
+              ),
             ),
           ],
           if (_isRoomSelection == 'no') ...[
