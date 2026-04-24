@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/support_ticket.dart';
+import '../../services/auth_service.dart';
+import '../../services/support_service.dart';
 import '../../utils/constants.dart';
 import 'ticket_detail_view.dart';
 
@@ -17,90 +19,19 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
   String _typeFilter = 'all'; // all | IT | FM
   String _urgencyFilter = 'all'; // all | urgent | not_urgent
   final FocusNode _searchFocus = FocusNode();
-
-  final List<SupportTicket> mockTickets = [
-    SupportTicket(
-      id: 'T-1234',
-      title: 'Cannot connect to ADA-WiFi network',
-      description: 'Unable to connect to the campus WiFi network',
-      category: TicketCategory.wifiNetwork,
-      status: TicketStatus.inProgress,
-      priority: TicketPriority.high,
-      location: 'Main Building - Floor 2',
-      createdAt: DateTime.now().subtract(const Duration(hours: 11)).toIso8601String(),
-      assignedTo: 'Farid Mammadov',
-      type: 'IT',
-    ),
-    SupportTicket(
-      id: 'T-1198',
-      title: 'Projector not working in Lecture Hall 101',
-      description: 'The projector in Lecture Hall 101 is not displaying anything',
-      category: TicketCategory.projectorDisplay,
-      status: TicketStatus.assigned,
-      priority: TicketPriority.low,
-      location: 'Lecture Hall 101',
-      createdAt: DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-      assignedTo: 'Leyla Huseynova',
-      type: 'FM',
-    ),
-    SupportTicket(
-      id: 'T-1145',
-      title: 'Cannot access Outlook email',
-      description: 'Unable to log into Outlook email account',
-      category: TicketCategory.emailOffice365,
-      status: TicketStatus.assigned,
-      priority: TicketPriority.low,
-      location: 'Dormitory',
-      createdAt: DateTime(2025, 11, 15).toIso8601String(),
-      assignedTo: 'Support Team',
-      type: 'IT',
-    ),
-    SupportTicket(
-      id: 'T-1089',
-      title: 'Need password reset for student portal',
-      description: 'Forgot password for student portal',
-      category: TicketCategory.passwordReset,
-      status: TicketStatus.completed,
-      priority: TicketPriority.low,
-      location: 'Library',
-      createdAt: DateTime(2025, 11, 10).toIso8601String(),
-      completedAt: DateTime(2025, 11, 14).toIso8601String(),
-      assignedTo: 'Aysel Aliyeva',
-      rating: 5,
-      type: 'IT',
-    ),
-    SupportTicket(
-      id: 'T-0987',
-      title: 'Printer not printing in Computer Lab A',
-      description: 'Printer in Computer Lab A is not responding',
-      category: TicketCategory.printerScanner,
-      status: TicketStatus.completed,
-      priority: TicketPriority.low,
-      location: 'Computer Lab A',
-      createdAt: DateTime(2025, 11, 8).toIso8601String(),
-      completedAt: DateTime(2025, 11, 10).toIso8601String(),
-      assignedTo: 'Rashad Hasanov',
-      rating: 5,
-      type: 'FM',
-    ),
-    SupportTicket(
-      id: 'T-0856',
-      title: 'Need Adobe Creative Suite installed',
-      description: 'Request for Adobe Creative Suite installation',
-      category: TicketCategory.softwareInstallation,
-      status: TicketStatus.cancelled,
-      priority: TicketPriority.low,
-      location: 'Computer Lab B',
-      createdAt: DateTime(2025, 11, 5).toIso8601String(),
-      cancelledReason: 'Found alternative solution',
-      type: 'IT',
-    ),
-  ];
+  final SupportService _service = SupportService();
+  List<SupportTicket> _tickets = const [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _loadTickets();
   }
 
   @override
@@ -111,14 +42,40 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
   }
 
   List<SupportTicket> get openTickets =>
-      mockTickets.where((t) => t.status == TicketStatus.assigned || 
+      _tickets.where((t) => t.status == TicketStatus.assigned ||
                                t.status == TicketStatus.inProgress).toList();
 
   List<SupportTicket> get completedTickets =>
-      mockTickets.where((t) => t.status == TicketStatus.completed).toList();
+      _tickets.where((t) => t.status == TicketStatus.completed).toList();
 
   List<SupportTicket> get cancelledTickets =>
-      mockTickets.where((t) => t.status == TicketStatus.cancelled).toList();
+      _tickets.where((t) => t.status == TicketStatus.cancelled).toList();
+
+  Future<void> _loadTickets() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      await AuthService.instance.loadSession();
+      final memberId = AuthService.instance.studentId;
+      if (memberId == null || memberId.isEmpty) {
+        throw Exception('Authentication required. Please sign in again.');
+      }
+      final tickets = await _service.fetchMyRequests(memberId: memberId);
+      if (!mounted) return;
+      setState(() {
+        _tickets = tickets;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
 
   bool get _hasFilters => _typeFilter != 'all' || _urgencyFilter != 'all';
 
@@ -151,14 +108,48 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
             _buildSearchRow(context),
             _buildSegmentedTabs(),
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildTicketsList(_applySearchAndFilters(openTickets)),
-                  _buildTicketsList(_applySearchAndFilters(completedTickets)),
-                  _buildTicketsList(_applySearchAndFilters(cancelledTickets)),
-                ],
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.cloud_off, size: 44, color: AppColors.gray300),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Failed to load requests',
+                                  style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.gray900),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _error!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 12, color: AppColors.gray500),
+                                ),
+                                const SizedBox(height: 12),
+                                FilledButton.icon(
+                                  onPressed: _loadTickets,
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadTickets,
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildTicketsList(_applySearchAndFilters(openTickets)),
+                              _buildTicketsList(_applySearchAndFilters(completedTickets)),
+                              _buildTicketsList(_applySearchAndFilters(cancelledTickets)),
+                            ],
+                          ),
+                        ),
             ),
           ],
         ),
@@ -563,14 +554,14 @@ class _MyRequestsState extends State<MyRequests> with SingleTickerProviderStateM
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: ticket.type == 'FM' ? const Color(0xFFECFDF5) : const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(7),
                 ),
-                child: const Text(
-                  'IT SERVICES',
+                child: Text(
+                  ticket.type == 'FM' ? 'FM SERVICES' : 'IT SERVICES',
                   style: TextStyle(
                     fontSize: 10,
-                    color: Color(0xFF2563EB),
+                    color: ticket.type == 'FM' ? const Color(0xFF059669) : const Color(0xFF2563EB),
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.2,
                   ),

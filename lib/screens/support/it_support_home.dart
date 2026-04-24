@@ -10,8 +10,6 @@ class ITSupportHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const openTicketsCount = 3;
-
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
@@ -24,10 +22,8 @@ class ITSupportHome extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Column(
                   children: [
-                    if (openTicketsCount > 0) ...[
-                      _buildMyRequestsCard(context),
-                      const SizedBox(height: 12),
-                    ],
+                    _buildMyRequestsCard(context),
+                    const SizedBox(height: 12),
                     _buildImmediateHelpCard(context),
                     const SizedBox(height: 12),
                     _buildITSupportCard(context),
@@ -227,19 +223,25 @@ class ITSupportHome extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             const Expanded(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Track Requests',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: AppColors.gray900,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  SizedBox(height: 2),
                   Text(
-                    '3 active tickets',
+                    'View status and updates',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 13,
                       color: AppColors.gray600,

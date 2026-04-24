@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/support_ticket.dart';
+import '../../services/auth_service.dart';
+import '../../services/support_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 import '../../widgets/support_location_picker.dart';
@@ -26,17 +28,11 @@ class _NewIssueFormState extends State<NewIssueForm> {
   bool _isOtherCategorySelected = false;
   late String _module; // IT | FM
   SupportLocationValue? _locationValue;
-
-  final List<String> _categories = [
-    'Wi-Fi & Network',
-    'Email & Office 365',
-    'Password Reset',
-    'Projector/Display',
-    'Printer/Scanner',
-    'Software Installation',
-    'Computer Repair',
-    'Other',
-  ];
+  final SupportService _supportService = SupportService();
+  List<SupportCategoryOption> _categoryOptions = const [];
+  SupportCategoryOption? _selectedCategory;
+  bool _isLoadingCategories = false;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -50,6 +46,37 @@ class _NewIssueFormState extends State<NewIssueForm> {
   void initState() {
     super.initState();
     _module = widget.category == 'FM' ? 'FM' : 'IT';
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() => _isLoadingCategories = true);
+    try {
+      final categories = await _supportService.fetchCategories(module: _module);
+      if (!mounted) return;
+      setState(() {
+        _categoryOptions = categories;
+        final currentText = _categoryController.text.trim();
+        if (currentText.isEmpty) {
+          _selectedCategory = categories.isNotEmpty ? categories.first : null;
+          _categoryController.text = _selectedCategory?.name ?? '';
+          _isOtherCategorySelected = (_selectedCategory?.name.toLowerCase() ?? '') == 'other';
+        } else {
+          SupportCategoryOption? selected;
+          for (final c in categories) {
+            if (c.name == currentText) {
+              selected = c;
+              break;
+            }
+          }
+          _selectedCategory = selected;
+        }
+      });
+    } catch (_) {
+      // Keep manual fallback categories.
+    } finally {
+      if (mounted) setState(() => _isLoadingCategories = false);
+    }
   }
 
   @override
@@ -87,7 +114,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
                               TextFormField(
                                 controller: _categoryController,
                                 decoration: InputDecoration(
-                                  hintText: 'Select category',
+                                  hintText: _isLoadingCategories ? 'Loading categories...' : 'Select category',
                                   filled: true,
                                   fillColor: AppColors.gray50,
                                   border: OutlineInputBorder(
@@ -106,9 +133,18 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                   hintStyle: TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
                                   suffixIcon: PopupMenuButton<String>(
                                     icon: Icon(Icons.keyboard_arrow_down, color: AppColors.gray400, size: 20),
+                                    enabled: !_isLoadingCategories,
                                     onSelected: (value) {
+                                      SupportCategoryOption? selected;
+                                      for (final c in _categoryOptions) {
+                                        if (c.name == value) {
+                                          selected = c;
+                                          break;
+                                        }
+                                      }
                                       setState(() {
                                         _categoryController.text = value;
+                                        _selectedCategory = selected;
                                         _isOtherCategorySelected = value == 'Other';
                                         if (!_isOtherCategorySelected) {
                                           _otherCategoryController.clear();
@@ -116,7 +152,19 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                       });
                                     },
                                     itemBuilder: (context) {
-                                      return _categories.map((cat) {
+                                      final names = _categoryOptions.isNotEmpty
+                                          ? _categoryOptions.map((c) => c.name).toList(growable: false)
+                                          : const <String>[
+                                              'Wi-Fi & Network',
+                                              'Email & Office 365',
+                                              'Password Reset',
+                                              'Projector/Display',
+                                              'Printer/Scanner',
+                                              'Software Installation',
+                                              'Computer Repair',
+                                              'Other',
+                                            ];
+                                      return names.map((cat) {
                                         return PopupMenuItem(
                                           value: cat,
                                           child: Text(cat),
@@ -211,16 +259,16 @@ class _NewIssueFormState extends State<NewIssueForm> {
                           number: 4,
                           label: 'Attachments (Optional)',
                           child: UnifiedMediaPicker(
-                            label: 'Add Photo or Video',
+                            label: 'Add Photo',
                             icon: Icons.add_photo_alternate,
-                            showVideoOption: true,
+                            showVideoOption: false,
                             onCameraSelected: () async {
                               final picker = ImagePicker();
                               final image = await picker.pickImage(source: ImageSource.camera);
                               if (image != null) {
                                 setState(() => _attachments.add(image.path));
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Photo added (mock)')),
+                                  const SnackBar(content: Text('Photo added')),
                                 );
                               }
                             },
@@ -230,16 +278,11 @@ class _NewIssueFormState extends State<NewIssueForm> {
                               if (image != null) {
                                 setState(() => _attachments.add(image.path));
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Photo added (mock)')),
+                                  const SnackBar(content: Text('Photo added')),
                                 );
                               }
                             },
-                            onVideoSelected: () {
-                              setState(() => _attachments.add('video_${_attachments.length}.mp4'));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Video added (mock)')),
-                              );
-                            },
+                            onVideoSelected: () {},
                           ),
                         ),
                         if (_attachments.isNotEmpty) ...[
@@ -419,14 +462,34 @@ class _NewIssueFormState extends State<NewIssueForm> {
           label: 'IT & Network',
           icon: Icons.computer_outlined,
           selected: _module == 'IT',
-          onTap: () => setState(() => _module = 'IT'),
+          onTap: () {
+            if (_module == 'IT') return;
+            setState(() {
+              _module = 'IT';
+              _selectedCategory = null;
+              _categoryController.clear();
+              _otherCategoryController.clear();
+              _isOtherCategorySelected = false;
+            });
+            _loadCategories();
+          },
         ),
         const SizedBox(width: 10),
         pill(
           label: 'Facilities (FM)',
           icon: Icons.build_outlined,
           selected: _module == 'FM',
-          onTap: () => setState(() => _module = 'FM'),
+          onTap: () {
+            if (_module == 'FM') return;
+            setState(() {
+              _module = 'FM';
+              _selectedCategory = null;
+              _categoryController.clear();
+              _otherCategoryController.clear();
+              _isOtherCategorySelected = false;
+            });
+            _loadCategories();
+          },
         ),
       ],
     );
@@ -528,6 +591,88 @@ class _NewIssueFormState extends State<NewIssueForm> {
     );
   }
 
+  Future<void> _submitRequest(BuildContext context) async {
+    final ok = _formKey.currentState?.validate() ?? false;
+    final locOk = _locationValue?.isComplete ?? false;
+    if (!ok) return;
+    if (!locOk) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please complete the Location section'),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+    final categoryName = _categoryController.text.trim();
+    if (categoryName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a category.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await AuthService.instance.loadSession();
+      final memberId = AuthService.instance.studentId;
+      if (memberId == null || memberId.isEmpty) {
+        throw Exception('Authentication required. Please sign in again.');
+      }
+
+      var categoryId = _selectedCategory?.id ?? 0;
+      if (categoryId <= 0) {
+        final options = await _supportService.fetchCategories(module: _module);
+        for (final c in options) {
+          if (c.name.toLowerCase() == categoryName.toLowerCase()) {
+            categoryId = c.id;
+            break;
+          }
+        }
+      }
+      if (categoryId <= 0) {
+        throw Exception('Selected category is not available on backend.');
+      }
+
+      await _supportService.createRequest(
+        memberId: memberId,
+        area: _module,
+        categoryId: categoryId,
+        location: _locationValue!,
+        description: _descriptionController.text.trim(),
+        urgency: _urgencyLevel,
+        attachmentPaths: _attachments,
+      );
+
+      if (!context.mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MyRequests()),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$_module request submitted successfully!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   Widget _buildSubmitButton(BuildContext context, Color primaryColor) {
     return SafeArea(
       top: false,
@@ -547,48 +692,17 @@ class _NewIssueFormState extends State<NewIssueForm> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_formKey.currentState == null || !_formKey.currentState!.validate())
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'Please fill in all required fields',
-                  style: TextStyle(fontSize: 11, color: Colors.red.shade700),
-                ),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Required fields are marked with *',
+                style: TextStyle(fontSize: 11, color: AppColors.gray500),
               ),
+            ),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  final ok = _formKey.currentState!.validate();
-                  final locOk = _locationValue?.isComplete ?? false;
-                  if (ok && locOk) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const MyRequests()),
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('$_module request submitted successfully!'),
-                        backgroundColor: Colors.green,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    );
-                  } else if (ok && !locOk) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Please complete the Location section'),
-                        backgroundColor: Colors.red.shade700,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    );
-                  }
-                },
+                onPressed: _isSubmitting ? null : () => _submitRequest(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: AppColors.white,
@@ -598,10 +712,19 @@ class _NewIssueFormState extends State<NewIssueForm> {
                   ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Submit Request',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
-                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Submit Request',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
+                      ),
               ),
             ),
           ],

@@ -155,20 +155,19 @@ class _ActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasLocal = controller.localStream != null;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _CircularToggle(
           icon: controller.isMuted ? Icons.mic_off : Icons.mic,
-          label: controller.isMuted ? 'Unmute' : 'Mute',
+          label: controller.isMuted ? 'Muted' : 'Mute',
           active: controller.isMuted,
-          enabled: hasLocal,
+          enabled: true,
           onTap: controller.toggleMute,
         ),
         _CircularToggle(
           icon: controller.isSpeakerOn ? Icons.volume_up : Icons.hearing,
-          label: controller.isSpeakerOn ? 'Speaker' : 'Earpiece',
+          label: controller.isSpeakerOn ? 'Loud' : 'Normal',
           active: controller.isSpeakerOn,
           enabled: true,
           onTap: () => controller.toggleSpeaker(),

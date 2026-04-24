@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -114,6 +115,8 @@ class CallController extends ChangeNotifier {
   Duration _callDuration = Duration.zero;
 
   bool _listenersAttached = false;
+  final AudioPlayer _ringPlayer = AudioPlayer();
+  bool _ringtoneActive = false;
 
   // ---- Public getters -------------------------------------------------------
 
@@ -263,11 +266,12 @@ class CallController extends ChangeNotifier {
 
   /// Toggles the mute state of the local microphone track.
   void toggleMute() {
-    final stream = _localStream;
-    if (stream == null) return;
     _isMuted = !_isMuted;
-    for (final track in stream.getAudioTracks()) {
-      track.enabled = !_isMuted;
+    final stream = _localStream;
+    if (stream != null) {
+      for (final track in stream.getAudioTracks()) {
+        track.enabled = !_isMuted;
+      }
     }
     notifyListeners();
   }
@@ -590,6 +594,8 @@ class CallController extends ChangeNotifier {
     _callStartedAt = null;
     _callDuration = Duration.zero;
     _isMuted = false;
+    _isSpeakerOn = true;
+    await _stopRingingTone();
 
     final pc = _peerConnection;
     _peerConnection = null;
@@ -643,6 +649,11 @@ class CallController extends ChangeNotifier {
   void _setPhase(CallPhase next) {
     if (_phase == next) return;
     _phase = next;
+    if (next == CallPhase.ringing) {
+      unawaited(_startRingingTone());
+    } else {
+      unawaited(_stopRingingTone());
+    }
     notifyListeners();
   }
 
@@ -653,11 +664,21 @@ class CallController extends ChangeNotifier {
   }
 
   Future<void> _ensureMicrophonePermission() async {
-    final status = await Permission.microphone.request();
-    if (!status.isGranted) {
+    final mic = await Permission.microphone.request();
+    if (!mic.isGranted) {
       throw StateError(
         'Microphone permission is required to start a voice call.',
       );
+    }
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
+      return;
+    }
+    // iOS audio routing to Bluetooth headsets/speaker may require explicit
+    // bluetooth permission grants, depending on OS version and device settings.
+    final bluetoothStatus = await Permission.bluetooth.request();
+    if (bluetoothStatus.isDenied || bluetoothStatus.isPermanentlyDenied) {
+      // Do not block the call on bluetooth permission; speaker/earpiece still works.
+      return;
     }
   }
 
@@ -687,4 +708,28 @@ class CallController extends ChangeNotifier {
   /// Returns the JWT `sub` of the currently authenticated user. Used by the
   /// UI to label the active call screen.
   String? get selfLabel => _selfDisplayName ?? _selfUserId ?? AuthService.instance.studentId;
+
+  Future<void> _startRingingTone() async {
+    if (_ringtoneActive) return;
+    _ringtoneActive = true;
+    try {
+      await _ringPlayer.stop();
+      await _ringPlayer.setReleaseMode(ReleaseMode.loop);
+      await _ringPlayer.play(
+        AssetSource('ringing.mp3'),
+        volume: 1.0,
+        mode: PlayerMode.mediaPlayer,
+      );
+    } catch (_) {
+      _ringtoneActive = false;
+    }
+  }
+
+  Future<void> _stopRingingTone() async {
+    if (!_ringtoneActive) return;
+    _ringtoneActive = false;
+    try {
+      await _ringPlayer.stop();
+    } catch (_) {}
+  }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/support_ticket.dart';
+import '../../services/auth_service.dart';
+import '../../services/support_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
 
@@ -16,11 +18,36 @@ class TicketDetailView extends StatefulWidget {
 
 class _TicketDetailViewState extends State<TicketDetailView> {
   late SupportTicket _ticket;
+  final SupportService _service = SupportService();
+  List<SupportTimelineEvent> _timeline = const [];
+  bool _timelineLoading = true;
 
   @override
   void initState() {
     super.initState();
     _ticket = widget.ticket;
+    _loadDetail();
+  }
+
+  Future<void> _loadDetail() async {
+    final id = _ticket.requestId;
+    if (id == null) {
+      setState(() => _timelineLoading = false);
+      return;
+    }
+    try {
+      final detail = await _service.fetchRequestById(id);
+      final timeline = await _service.fetchRequestTimeline(id);
+      if (!mounted) return;
+      setState(() {
+        _ticket = detail;
+        _timeline = timeline;
+        _timelineLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _timelineLoading = false);
+    }
   }
 
   // ── Accent color helpers ──────────────────────────────────────────────
@@ -286,6 +313,48 @@ class _TicketDetailViewState extends State<TicketDetailView> {
   // ── Timeline ───────────────────────────────────────────────────────────
 
   Widget _buildTimelineSection() {
+    if (_timelineLoading) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text(
+            'Timeline',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: AppColors.gray900,
+              letterSpacing: -0.2,
+            ),
+          ),
+          SizedBox(height: 12),
+          LinearProgressIndicator(minHeight: 2),
+        ],
+      );
+    }
+
+    if (_timeline.isNotEmpty) {
+      final sorted = [..._timeline]
+        ..sort((a, b) => (a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+            .compareTo(b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)));
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Timeline'),
+          const SizedBox(height: 14),
+          for (var i = 0; i < sorted.length; i++)
+            _buildTimelineItem(
+              sorted[i].title,
+              sorted[i].description ??
+                  (sorted[i].createdAt != null
+                      ? DateFormat('MMM d, yyyy • h:mm a').format(sorted[i].createdAt!)
+                      : ''),
+              isActive: true,
+              isLast: i == sorted.length - 1,
+            ),
+        ],
+      );
+    }
+
     final doneAssigned =
         _ticket.status.index >= TicketStatus.assigned.index;
     final doneProgress = _ticket.status == TicketStatus.inProgress ||
@@ -655,7 +724,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
             child: const Text('Back'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final reason = controller.text.trim();
               if (reason.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -669,31 +738,55 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                 );
                 return;
               }
-              setState(() {
-                _ticket = SupportTicket(
-                  id: _ticket.id,
-                  title: _ticket.title,
-                  description: _ticket.description,
-                  category: _ticket.category,
-                  status: TicketStatus.cancelled,
-                  priority: _ticket.priority,
-                  location: _ticket.location,
-                  createdAt: _ticket.createdAt,
-                  assignedTo: _ticket.assignedTo,
-                  completedAt: _ticket.completedAt,
-                  cancelledReason: reason,
-                  rating: _ticket.rating,
-                  type: _ticket.type,
+              try {
+                await AuthService.instance.loadSession();
+                final memberId = AuthService.instance.studentId;
+                final requestId = _ticket.requestId;
+                if (memberId == null || memberId.isEmpty || requestId == null) {
+                  throw Exception('Unable to cancel this ticket.');
+                }
+                await _service.cancelRequest(
+                  requestId: requestId,
+                  memberId: memberId,
+                  reason: reason,
                 );
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Request cancelled (mock)'),
-                  backgroundColor: Colors.orange,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+                if (!mounted) return;
+                setState(() {
+                  _ticket = SupportTicket(
+                    requestId: _ticket.requestId,
+                    id: _ticket.id,
+                    title: _ticket.title,
+                    description: _ticket.description,
+                    category: _ticket.category,
+                    status: TicketStatus.cancelled,
+                    priority: _ticket.priority,
+                    location: _ticket.location,
+                    createdAt: _ticket.createdAt,
+                    assignedTo: _ticket.assignedTo,
+                    completedAt: _ticket.completedAt,
+                    cancelledReason: reason,
+                    rating: _ticket.rating,
+                    type: _ticket.type,
+                  );
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Request cancelled successfully.'),
+                    backgroundColor: Colors.orange,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(e.toString().replaceFirst('Exception: ', '')),
+                    backgroundColor: Colors.red.shade700,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444)),
