@@ -125,19 +125,26 @@ class AttendanceService {
     return _authorizedGetJson(uri);
   }
 
+  /// Fetches one lesson by id so the UI can resolve names when enrollment
+  /// aggregates only include the lesson id.
+  ///
+  /// Endpoint: `GET /attendance/api/admin/lessons/{lessonId}`
+  Future<Object?> fetchLessonById({required int lessonId}) async {
+    final uri = Uri.parse('$_baseUrl/api/admin/lessons/$lessonId');
+    return _authorizedGetJson(uri);
+  }
+
   Future<Object?> _authorizedGetJson(Uri uri) async {
     try {
       final response = await AuthService.instance
           .sendAuthorized(
-            (accessToken) => http
-                .get(
-                  uri,
-                  headers: {
-                    'Authorization': 'Bearer $accessToken',
-                    'Accept': 'application/json',
-                  },
-                )
-                .timeout(const Duration(seconds: 30)),
+            (accessToken) => http.get(
+              uri,
+              headers: {
+                'Authorization': 'Bearer $accessToken',
+                'Accept': 'application/json',
+              },
+            ).timeout(const Duration(seconds: 30)),
           )
           .timeout(const Duration(seconds: 35));
 

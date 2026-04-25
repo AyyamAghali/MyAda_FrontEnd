@@ -7,7 +7,7 @@ import '../widgets/id_card.dart';
 import 'lost_found/home_screen.dart';
 import 'clubs/club_management_hub.dart';
 import 'support/support_module.dart';
-import 'attendance/qr_scanner_screen.dart';
+import 'attendance/attendance_home.dart';
 import 'account_page.dart';
 import 'login_page.dart';
 
@@ -201,7 +201,7 @@ class MasterHomePage extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const QrScannerScreen(),
+                          builder: (context) => const AttendanceHome(),
                         ),
                       );
                     },

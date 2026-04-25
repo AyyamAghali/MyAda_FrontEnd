@@ -29,31 +29,40 @@ class ClubPublicEvent {
   });
 
   factory ClubPublicEvent.fromJson(Map<String, dynamic> json) {
-    final id = int.tryParse((json['id'] ?? json['eventId'] ?? 0).toString()) ?? 0;
+    String? text(dynamic value) {
+      final str = value?.toString().trim();
+      return str == null || str.isEmpty ? null : str;
+    }
+
+    final club = json['club'] is Map<String, dynamic>
+        ? json['club'] as Map<String, dynamic>
+        : null;
+    final id =
+        int.tryParse((json['id'] ?? json['eventId'] ?? 0).toString()) ?? 0;
     final clubId = int.tryParse((json['clubId'] ?? 0).toString()) ?? 0;
-    final clubName = (json['clubName'] ?? json['club']?['name'] ?? '') as String;
-    final title = (json['title'] ?? json['name'] ?? '') as String;
-    final category = (json['category'] ?? json['categoryName'] ?? '') as String;
-    final description = json['description'] as String?;
-    final dateRaw = (json['date'] ?? json['startDate'] ?? json['eventDate'] ?? '').toString();
+    final startTime = text(json['startTime']);
+    final dateRaw = text(json['date']) ??
+        text(json['startDate']) ??
+        text(json['eventDate']) ??
+        startTime ??
+        '';
     final date = dateRaw.length >= 10 ? dateRaw.substring(0, 10) : dateRaw;
-    final time = (json['time'] ?? json['startTime'] ?? '').toString();
-    final endTime = json['endTime']?.toString();
-    final location = (json['location'] ?? '') as String;
-    final imageAsset = (json['imageUrl'] ?? json['imageAsset'] ?? json['coverUrl']) as String?;
 
     return ClubPublicEvent(
       id: id,
       clubId: clubId,
-      clubName: clubName,
-      title: title,
-      category: category,
-      description: description,
+      clubName: text(json['clubName']) ?? text(club?['name']) ?? 'ADA Clubs',
+      title: text(json['title']) ?? text(json['name']) ?? 'Untitled Event',
+      category:
+          text(json['category']) ?? text(json['categoryName']) ?? 'General',
+      description: text(json['description']),
       date: date,
-      time: time,
-      endTime: endTime,
-      location: location,
-      imageAsset: imageAsset,
+      time: text(json['time']) ?? startTime ?? '',
+      endTime: text(json['endTime']),
+      location: text(json['location']) ?? 'Location TBA',
+      imageAsset: text(json['imageUrl']) ??
+          text(json['imageAsset']) ??
+          text(json['coverUrl']),
     );
   }
 }

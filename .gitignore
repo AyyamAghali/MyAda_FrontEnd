@@ -45,3 +45,19 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Xcode local/user-specific files
+**/DerivedData/
+**/xcuserdata/
+**/*.xcuserstate
+**/*.pbxuser
+**/*.mode1v3
+**/*.mode2v3
+**/*.perspectivev3
+**/*.moved-aside
+**/*.xccheckout
+**/*.xcscmblueprint
+**/xcshareddata/WorkspaceSettings.xcsettings
+
+# Local signing overrides for per-machine Apple Developer accounts.
+**/LocalSigning.xcconfig
+
