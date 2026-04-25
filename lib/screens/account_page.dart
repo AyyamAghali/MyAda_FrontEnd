@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
-import '../widgets/responsive_container.dart';
 import 'login_page.dart';
 
 class AccountPage extends StatelessWidget {
@@ -23,27 +22,30 @@ class AccountPage extends StatelessWidget {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Column(
-                  children: [
-                    _buildProfileSection(),
-                    const SizedBox(height: 20),
-                    _buildPersonalInfoSection(),
-                    const SizedBox(height: 16),
-                    _buildSettingsSection(context),
-                    const SizedBox(height: 16),
-                    _buildSupportSection(context),
-                    const SizedBox(height: 16),
-                    _buildLogoutButton(context),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
+              child: buildContent(context),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget buildContent(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Column(
+        children: [
+          _buildProfileSection(),
+          const SizedBox(height: 20),
+          _buildPersonalInfoSection(),
+          const SizedBox(height: 16),
+          _buildSettingsSection(context),
+          const SizedBox(height: 16),
+          _buildSupportSection(context),
+          const SizedBox(height: 16),
+          _buildLogoutButton(context),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }
@@ -90,7 +92,7 @@ class AccountPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -145,7 +147,7 @@ class AccountPage extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -295,7 +297,7 @@ class AccountPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -379,7 +381,7 @@ class AccountPage extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, size: 20, color: AppColors.primary),
@@ -423,7 +425,7 @@ class AccountPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -442,7 +444,7 @@ class AccountPage extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.logout, size: 20, color: Colors.red),

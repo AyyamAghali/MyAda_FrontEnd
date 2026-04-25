@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -115,7 +116,9 @@ class CallController extends ChangeNotifier {
   Duration _callDuration = Duration.zero;
 
   bool _listenersAttached = false;
-  final AudioPlayer _ringPlayer = AudioPlayer();
+  /// Created only when a ringtone is needed; avoids [MissingPluginException]
+  /// on app start / hot restart when the native audioplayers bridge is not ready.
+  AudioPlayer? _ringPlayer;
   bool _ringtoneActive = false;
 
   // ---- Public getters -------------------------------------------------------
@@ -170,6 +173,7 @@ class CallController extends ChangeNotifier {
   /// Stops the hub and tears down any in-flight call. Called on logout.
   Future<void> disconnect() async {
     await _cleanupPeer();
+    await _disposeRingPlayer();
     await _signaling.disconnect();
     _incomingCall = null;
     _callId = null;
@@ -709,27 +713,62 @@ class CallController extends ChangeNotifier {
   /// UI to label the active call screen.
   String? get selfLabel => _selfDisplayName ?? _selfUserId ?? AuthService.instance.studentId;
 
+  Future<AudioPlayer?> _ensureRingPlayer() async {
+    if (_ringPlayer != null) return _ringPlayer;
+    try {
+      _ringPlayer = AudioPlayer();
+      return _ringPlayer;
+    } on MissingPluginException {
+      _ringPlayer = null;
+      return null;
+    } catch (_) {
+      _ringPlayer = null;
+      return null;
+    }
+  }
+
+  Future<void> _disposeRingPlayer() async {
+    _ringtoneActive = false;
+    final p = _ringPlayer;
+    _ringPlayer = null;
+    if (p == null) return;
+    try {
+      await p.stop();
+    } catch (_) {}
+    try {
+      await p.dispose();
+    } catch (_) {}
+  }
+
   Future<void> _startRingingTone() async {
     if (_ringtoneActive) return;
-    _ringtoneActive = true;
     try {
-      await _ringPlayer.stop();
-      await _ringPlayer.setReleaseMode(ReleaseMode.loop);
-      await _ringPlayer.play(
+      final player = await _ensureRingPlayer();
+      if (player == null) return;
+      _ringtoneActive = true;
+      await player.stop();
+      await player.setReleaseMode(ReleaseMode.loop);
+      await player.play(
         AssetSource('ringing.mp3'),
         volume: 1.0,
         mode: PlayerMode.mediaPlayer,
       );
+    } on MissingPluginException {
+      _ringtoneActive = false;
+      await _disposeRingPlayer();
     } catch (_) {
       _ringtoneActive = false;
+      await _disposeRingPlayer();
     }
   }
 
   Future<void> _stopRingingTone() async {
-    if (!_ringtoneActive) return;
+    if (!_ringtoneActive && _ringPlayer == null) return;
     _ringtoneActive = false;
+    final p = _ringPlayer;
+    if (p == null) return;
     try {
-      await _ringPlayer.stop();
+      await p.stop();
     } catch (_) {}
   }
 }

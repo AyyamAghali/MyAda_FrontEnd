@@ -7,6 +7,7 @@ class IdCard extends StatelessWidget {
   final String surname;
   final String status;
   final String idNumber;
+  final String idLabel;
   final String? photoUrl;
 
   const IdCard({
@@ -15,6 +16,7 @@ class IdCard extends StatelessWidget {
     required this.surname,
     required this.status,
     required this.idNumber,
+    this.idLabel = 'ID',
     this.photoUrl,
   });
 
@@ -22,18 +24,21 @@ class IdCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     // Card dimensions - modern aspect ratio (reduced outer spacing)
-    final cardWidth = isMobile ? screenWidth - 16 : 360.0; // Reduced from 32 to 16 for tighter fit
+    final cardWidth = isMobile
+        ? screenWidth - 16
+        : 360.0; // Reduced from 32 to 16 for tighter fit
     final cardHeight = isMobile ? (cardWidth * 0.58) : 210.0;
-    
+
     // Modern spacing system
     final padding = isMobile ? 20.0 : 24.0;
     final photoSize = isMobile ? 100.0 : 110.0;
-    
+
     // Softer ADA brand colors
     final primaryColor = AppColors.primary.withOpacity(0.15); // Soft blue tint
-    final accentColor = AppColors.secondary.withOpacity(0.12); // Soft bordeaux tint
+    final accentColor =
+        AppColors.secondary.withOpacity(0.12); // Soft bordeaux tint
 
     return Container(
       margin: EdgeInsets.symmetric(
@@ -87,22 +92,33 @@ class IdCard extends StatelessWidget {
                     // Logo height + spacing + (name + surname + status) / 2
                     final logoHeight = isMobile ? 30.0 : 36.0;
                     final topSpacing = isMobile ? 16.0 : 20.0;
-                    final nameHeight = (isMobile ? 20.0 : 22.0) * 1.2; // name line height
-                    final surnameHeight = (isMobile ? 20.0 : 22.0) * 1.2; // surname line height
+                    final nameHeight =
+                        (isMobile ? 20.0 : 22.0) * 1.2; // name line height
+                    final surnameHeight =
+                        (isMobile ? 20.0 : 22.0) * 1.2; // surname line height
                     final nameGap = 2.0;
-                    final statusHeight = 28.0; // approximate status badge height
+                    final statusHeight =
+                        28.0; // approximate status badge height
                     final statusGap = 8.0;
-                    
+
                     // Center of name block = logo height + top spacing + (name block total height / 2)
-                    final nameBlockCenter = logoHeight + topSpacing + (nameHeight + nameGap + surnameHeight + statusGap + statusHeight) / 2;
+                    final nameBlockCenter = logoHeight +
+                        topSpacing +
+                        (nameHeight +
+                                nameGap +
+                                surnameHeight +
+                                statusGap +
+                                statusHeight) /
+                            2;
                     final photoTopOffset = nameBlockCenter - (photoSize / 2);
-                    
+
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Photo section - positioned to align with name block center
                         Padding(
-                          padding: EdgeInsets.only(top: photoTopOffset.clamp(0.0, double.infinity)),
+                          padding: EdgeInsets.only(
+                              top: photoTopOffset.clamp(0.0, double.infinity)),
                           child: Container(
                             width: photoSize,
                             height: photoSize,
@@ -124,10 +140,13 @@ class IdCard extends StatelessWidget {
                                       width: photoSize,
                                       height: photoSize,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          _buildPlaceholderPhoto(photoSize, photoSize),
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              _buildPlaceholderPhoto(
+                                                  photoSize, photoSize),
                                     )
-                                  : _buildPlaceholderPhoto(photoSize, photoSize),
+                                  : _buildPlaceholderPhoto(
+                                      photoSize, photoSize),
                             ),
                           ),
                         ),
@@ -139,7 +158,8 @@ class IdCard extends StatelessWidget {
                             children: [
                               // Top section: Logo and University name
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   // ADA Logo
@@ -149,11 +169,13 @@ class IdCard extends StatelessWidget {
                                     child: Image.asset(
                                       'assets/images/ada_logo.png',
                                       fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) {
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
                                         return Container(
                                           decoration: BoxDecoration(
                                             color: AppColors.primary,
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                           child: Center(
                                             child: Text(
@@ -213,7 +235,8 @@ class IdCard extends StatelessWidget {
                                   const SizedBox(height: 8),
                                   // Status badge
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: accentColor,
                                       borderRadius: BorderRadius.circular(8),
@@ -233,7 +256,7 @@ class IdCard extends StatelessWidget {
                               SizedBox(height: isMobile ? 16 : 20),
                               // ID number
                               Text(
-                                'ID: P$idNumber',
+                                '$idLabel: $idNumber',
                                 style: TextStyle(
                                   fontSize: isMobile ? 11 : 12,
                                   fontWeight: FontWeight.w500,
@@ -280,4 +303,3 @@ class IdCard extends StatelessWidget {
     );
   }
 }
-

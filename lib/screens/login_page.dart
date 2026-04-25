@@ -7,8 +7,6 @@ import '../widgets/responsive_container.dart';
 import '../services/auth_service.dart';
 import '../services/call/call_controller.dart';
 import 'master_home_page.dart';
-import 'admin/module_admin_screen.dart';
-import 'admin/support_staff_dashboard.dart';
 import 'auth/forgot_password_screen.dart';
 
 class LoginPage extends StatefulWidget {
@@ -519,35 +517,10 @@ class _LoginPageState extends State<LoginPage>
 
       if (!mounted) return;
 
-      final normalizedUsername = username.toLowerCase();
-      final staffRole = _resolveStaffRole(normalizedUsername);
-      if (staffRole != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SupportStaffDashboard(
-              staffName: 'Staff User',
-              roleType: staffRole,
-            ),
-          ),
-        );
-        return;
-      }
-
-      final module = ModuleAdminScreen.resolveModule(normalizedUsername);
-      if (module != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ModuleAdminScreen(module: module),
-          ),
-        );
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MasterHomePage()),
-        );
-      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MasterHomePage()),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -562,16 +535,6 @@ class _LoginPageState extends State<LoginPage>
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
-  }
-
-  StaffRoleType? _resolveStaffRole(String username) {
-    if (username.contains('staff') && username.contains('it')) {
-      return StaffRoleType.it;
-    }
-    if (username.contains('staff') && username.contains('fm')) {
-      return StaffRoleType.fm;
-    }
-    return null;
   }
 }
 

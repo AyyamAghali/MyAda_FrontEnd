@@ -21,7 +21,8 @@ class ClubDetails extends StatefulWidget {
 }
 
 class _ClubDetailsState extends State<ClubDetails> {
-  Club get club => widget.club;
+  /// Latest club payload; refreshed from `GET /api/v1/clubs/{id}` for full projection.
+  late Club _club;
   final ClubApiService _api = ClubApiService();
   int _openRolesCount = 0;
   List<Map<String, dynamic>> _members = [];
@@ -30,14 +31,27 @@ class _ClubDetailsState extends State<ClubDetails> {
   @override
   void initState() {
     super.initState();
+    _club = widget.club;
+    _loadClubDetail();
     _loadVacancyCount();
     _loadMembers();
     _checkMembership();
   }
 
+  /// Fetches public club detail (focus areas, social links, officers, etc.) per API docs.
+  Future<void> _loadClubDetail() async {
+    try {
+      final detailed = await _api.fetchClubDetail(widget.club.id);
+      if (!mounted) return;
+      setState(() => _club = detailed);
+    } catch (_) {
+      // Keep navigation [widget.club] if detail fails (e.g. offline).
+    }
+  }
+
   Future<void> _loadVacancyCount() async {
     try {
-      final id = int.tryParse(club.id);
+      final id = int.tryParse(_club.id);
       if (id == null) return;
       final vacancies = await _api.fetchVacancies(clubId: id);
       if (mounted) setState(() => _openRolesCount = vacancies.length);
@@ -46,7 +60,7 @@ class _ClubDetailsState extends State<ClubDetails> {
 
   Future<void> _loadMembers() async {
     try {
-      final members = await _api.fetchClubMembers(club.id);
+      final members = await _api.fetchClubMembers(_club.id);
       if (mounted) setState(() => _members = members);
     } catch (_) {}
   }
@@ -57,16 +71,22 @@ class _ClubDetailsState extends State<ClubDetails> {
       final found = memberships.any((m) {
         final cid = (m['clubId'] ?? '').toString();
         final status = (m['status'] ?? '').toString().toLowerCase();
-        return cid == club.id && (status == 'active' || status == 'approved');
+        return cid == _club.id && (status == 'active' || status == 'approved');
       });
       if (mounted) setState(() => _isMember = found);
     } catch (_) {}
   }
 
-  String get _heroImageUrl => club.banner.isNotEmpty ? club.banner : club.logo;
+  String get _heroImageUrl {
+    final banner = _club.banner.trim();
+    final logo = _club.logo.trim();
+    if (banner.isNotEmpty) return resolveMediaUrl(banner);
+    if (logo.isNotEmpty) return resolveMediaUrl(logo);
+    return resolveMediaUrl('/clubs/default.png');
+  }
 
   List<ClubEvent> get _upcomingEvents {
-    return club.events.where((event) {
+    return _club.events.where((event) {
       final d = DateTime.tryParse(event.date);
       if (d == null) return true;
       return d.isAfter(DateTime.now()) || d.isAtSameMomentAs(DateTime.now());
@@ -77,8 +97,110 @@ class _ClubDetailsState extends State<ClubDetails> {
     if (email == null || email.trim().isEmpty) return;
     final uri = Uri.parse('mailto:${email.trim()}');
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  Uri? _absoluteLaunchUri(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return null;
+    try {
+      final parsed = Uri.parse(t);
+      if (parsed.hasScheme &&
+          (parsed.scheme == 'http' || parsed.scheme == 'https')) {
+        return parsed;
+      }
+    } catch (_) {}
+    if (t.startsWith('//')) return Uri.parse('https:$t');
+    if (t.contains('.') && !t.contains(' ')) {
+      return Uri.parse('https://$t');
+    }
+    return null;
+  }
+
+  Future<void> _openExternalUrl(String raw) async {
+    final uri = _absoluteLaunchUri(raw);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  IconData _focusAreaIcon(String key) {
+    switch (key.toLowerCase()) {
+      case 'target':
+        return Icons.track_changes_outlined;
+      case 'lightbulb':
+      case 'idea':
+        return Icons.lightbulb_outline;
+      case 'people':
+      case 'community':
+        return Icons.groups_outlined;
+      case 'star':
+        return Icons.star_outline;
+      case 'school':
+        return Icons.school_outlined;
+      case 'eco':
+      case 'leaf':
+        return Icons.eco_outlined;
+      default:
+        return Icons.flag_outlined;
+    }
+  }
+
+  static const List<String> _socialDisplayOrder = [
+    'website',
+    'instagram',
+    'x',
+    'tiktok',
+  ];
+
+  String _socialLabel(String key) {
+    switch (key) {
+      case 'website':
+        return 'Website';
+      case 'instagram':
+        return 'Instagram';
+      case 'x':
+        return 'X';
+      case 'tiktok':
+        return 'TikTok';
+      default:
+        return key;
+    }
+  }
+
+  IconData _socialIcon(String key) {
+    switch (key) {
+      case 'website':
+        return Icons.language;
+      case 'instagram':
+        return Icons.camera_alt_outlined;
+      case 'x':
+        return Icons.chat_bubble_outline;
+      case 'tiktok':
+        return Icons.music_note_outlined;
+      default:
+        return Icons.link;
+    }
+  }
+
+  /// True when the club exposes at least one public contact channel (email or launchable URL).
+  bool _hasContactAndLinks(Club c) {
+    final email = c.contactEmail?.trim();
+    if (email != null && email.isNotEmpty) return true;
+    for (final key in _socialDisplayOrder) {
+      final raw = c.socialLinks[key];
+      if (raw == null || raw.trim().isEmpty) continue;
+      if (_absoluteLaunchUri(raw) != null) return true;
+    }
+    for (final entry in c.socialLinks.entries) {
+      if (_socialDisplayOrder.contains(entry.key)) continue;
+      final raw = entry.value.trim();
+      if (raw.isEmpty) continue;
+      if (_absoluteLaunchUri(raw) != null) return true;
+    }
+    return false;
   }
 
   @override
@@ -94,7 +216,7 @@ class _ClubDetailsState extends State<ClubDetails> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          club.name,
+          _club.name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -138,19 +260,19 @@ class _ClubDetailsState extends State<ClubDetails> {
                     _sectionHeading('About'),
                     const SizedBox(height: 10),
                     Text(
-                      club.effectiveShortDescription,
+                      _club.effectiveShortDescription,
                       style: const TextStyle(
                         fontSize: 15,
                         height: 1.55,
                         color: AppColors.gray700,
                       ),
                     ),
-                    if (club.mainGoals != null && club.mainGoals!.trim().isNotEmpty) ...[
+                    if (_club.mainGoals != null && _club.mainGoals!.trim().isNotEmpty) ...[
                       const SizedBox(height: 24),
                       _sectionHeading('Main goals'),
                       const SizedBox(height: 10),
                       Text(
-                        club.mainGoals!.trim(),
+                        _club.mainGoals!.trim(),
                         style: const TextStyle(
                           fontSize: 15,
                           height: 1.55,
@@ -158,11 +280,17 @@ class _ClubDetailsState extends State<ClubDetails> {
                         ),
                       ),
                     ],
-                    if (club.officers.isNotEmpty) ...[
+                    if (_club.focusAreas.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      _sectionHeading('Key Focus Areas'),
+                      const SizedBox(height: 12),
+                      ..._club.focusAreas.map(_buildFocusAreaCard),
+                    ],
+                    if (_club.officers.isNotEmpty) ...[
                       const SizedBox(height: 24),
                       _sectionHeading('Leadership'),
                       const SizedBox(height: 12),
-                      ...club.officers.map((o) => _officerRow(o)),
+                      ..._club.officers.map((o) => _officerRow(o)),
                     ],
                     if (_members.isNotEmpty) ...[
                       const SizedBox(height: 24),
@@ -180,7 +308,7 @@ class _ClubDetailsState extends State<ClubDetails> {
                     _sectionHeading('Events'),
                     const SizedBox(height: 6),
                     Text(
-                      'Upcoming activities hosted by this club.',
+                      'Upcoming activities hosted by this _club.',
                       style: TextStyle(fontSize: 13, color: AppColors.gray500),
                     ),
                     const SizedBox(height: 12),
@@ -191,15 +319,76 @@ class _ClubDetailsState extends State<ClubDetails> {
                       const SizedBox(height: 10),
                       _buildVacanciesCard(context),
                     ],
-                    const SizedBox(height: 24),
-                    _sectionHeading('Contact'),
-                    const SizedBox(height: 10),
-                    _buildContactCard(context),
+                    if (_hasContactAndLinks(_club)) ...[
+                      const SizedBox(height: 24),
+                      _sectionHeading('Contact & Links'),
+                      const SizedBox(height: 10),
+                      _buildContactAndLinks(context),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFocusAreaCard(ClubFocusArea area) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.gray200),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                _focusAreaIcon(area.icon),
+                color: AppColors.primary,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    area.title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.gray900,
+                    ),
+                  ),
+                  if (area.description.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      area.description,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: AppColors.gray600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -249,7 +438,7 @@ class _ClubDetailsState extends State<ClubDetails> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      club.name,
+                      _club.name,
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -265,7 +454,7 @@ class _ClubDetailsState extends State<ClubDetails> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        club.category,
+                        _club.category,
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -298,7 +487,7 @@ class _ClubDetailsState extends State<ClubDetails> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => JoinClubSheet(club: club),
+                  builder: (context) => JoinClubSheet(club: _club),
                 ),
               );
             },
@@ -325,13 +514,13 @@ class _ClubDetailsState extends State<ClubDetails> {
 
   Widget _buildMetaChips() {
     final chips = <Widget>[];
-    if (club.establishedYear != null) {
-      chips.add(_metaChip(Icons.flag_outlined, 'Est. ${club.establishedYear}'));
+    if (_club.establishedYear != null) {
+      chips.add(_metaChip(Icons.flag_outlined, 'Est. ${_club.establishedYear}'));
     }
-    if (club.location != null && club.location!.isNotEmpty) {
-      chips.add(_metaChip(Icons.place_outlined, club.location!));
+    if (_club.location != null && _club.location!.isNotEmpty) {
+      chips.add(_metaChip(Icons.place_outlined, _club.location!));
     }
-    chips.add(_metaChip(Icons.groups_outlined, '${club.memberCount} members'));
+    chips.add(_metaChip(Icons.groups_outlined, '${_club.memberCount} members'));
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -387,7 +576,7 @@ class _ClubDetailsState extends State<ClubDetails> {
             backgroundColor: AppColors.gray100,
             child: ClipOval(
               child: Image.network(
-                o.photo,
+                resolveMediaUrl(o.photo),
                 width: 44,
                 height: 44,
                 fit: BoxFit.cover,
@@ -454,15 +643,48 @@ class _ClubDetailsState extends State<ClubDetails> {
     );
   }
 
-  Widget _buildContactCard(BuildContext context) {
-    final email = club.contactEmail;
-    if (email == null || email.trim().isEmpty) {
-      return Text(
-        'Contact details will be shared by the club.',
-        style: TextStyle(fontSize: 14, height: 1.45, color: AppColors.gray500),
-      );
+  Widget _buildContactAndLinks(BuildContext context) {
+    final email = _club.contactEmail?.trim();
+    final hasEmail = email != null && email.isNotEmpty;
+
+    final linkRows = <Widget>[];
+    for (final key in _socialDisplayOrder) {
+      final raw = _club.socialLinks[key];
+      if (raw == null || raw.trim().isEmpty) continue;
+      if (_absoluteLaunchUri(raw) == null) continue;
+      linkRows.add(_buildLinkRow(
+        icon: _socialIcon(key),
+        label: _socialLabel(key),
+        url: raw.trim(),
+      ));
     }
-    final trimmed = email.trim();
+    for (final entry in _club.socialLinks.entries) {
+      if (_socialDisplayOrder.contains(entry.key)) continue;
+      final raw = entry.value.trim();
+      if (raw.isEmpty) continue;
+      if (_absoluteLaunchUri(raw) == null) continue;
+      linkRows.add(_buildLinkRow(
+        icon: Icons.link,
+        label: _socialLabel(entry.key),
+        url: raw,
+      ));
+    }
+
+    if (!hasEmail && linkRows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hasEmail) _buildEmailRow(email),
+        if (hasEmail && linkRows.isNotEmpty) const SizedBox(height: 10),
+        ...linkRows,
+      ],
+    );
+  }
+
+  Widget _buildEmailRow(String trimmed) {
     const iconColW = 44.0;
     return Material(
       color: AppColors.white,
@@ -491,10 +713,11 @@ class _ClubDetailsState extends State<ClubDetails> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
+                            color: AppColors.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.email_outlined, color: AppColors.primary, size: 20),
+                          child: const Icon(Icons.email_outlined,
+                              color: AppColors.primary, size: 20),
                         ),
                       ),
                     ),
@@ -504,8 +727,11 @@ class _ClubDetailsState extends State<ClubDetails> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Club email',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.gray500),
+                            'Email',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.gray500),
                           ),
                           const SizedBox(height: 6),
                           SelectableText(
@@ -535,6 +761,80 @@ class _ClubDetailsState extends State<ClubDetails> {
     );
   }
 
+  Widget _buildLinkRow({
+    required IconData icon,
+    required String label,
+    required String url,
+  }) {
+    const iconColW = 44.0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: () => _openExternalUrl(url),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.gray200),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: iconColW,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, color: AppColors.primary, size: 20),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.gray500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        url,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                          height: 1.35,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.open_in_new, size: 18, color: AppColors.gray400),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildVacanciesCard(BuildContext context) {
     final n = _openRolesCount;
     return Material(
@@ -542,13 +842,13 @@ class _ClubDetailsState extends State<ClubDetails> {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: () {
-          final id = int.tryParse(club.id);
+          final id = int.tryParse(_club.id);
           Navigator.pop(
             context,
             ClubHubDeepLink(
               tabIndex: ClubHubTabs.openings,
               clubId: id,
-              clubName: club.name,
+              clubName: _club.name,
             ),
           );
         },
@@ -658,7 +958,7 @@ class _ClubDetailsState extends State<ClubDetails> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => EventRegistration(event: event, clubName: club.name),
+              builder: (context) => EventRegistration(event: event, clubName: _club.name),
             ),
           );
         },

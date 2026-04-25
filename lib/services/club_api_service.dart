@@ -10,23 +10,29 @@ import '../models/club_public_event.dart';
 import '../models/club_vacancy.dart';
 import 'auth_service.dart';
 
-/// Gateway origin (shared for media URL resolution).
-const String kGatewayOrigin = 'http://13.60.31.141:5000';
+/// Gateway origin (shared for media URL resolution when no club request succeeded yet).
+/// See Club Management API: gateway host uses port `500`, path prefix `/club`.
+const String kGatewayOrigin = 'http://13.60.31.141:500';
 
-/// Gateway base for the Club Management microservice.
-///
-/// All requests go through the API gateway with `/club` prefix.
-/// The gateway strips `/club` before forwarding to the service container.
-const String kClubApiBase = '$kGatewayOrigin/club';
+/// Ordered club gateway roots to try (new gateway first, then legacy).
+/// Fixes timeouts when only one port is reachable in a given environment.
+const List<String> kClubApiBaseCandidates = [
+  'http://13.60.31.141:500/club',
+  'http://13.60.31.141:5000/club',
+];
+
+/// Preferred club API root (first candidate), for callers that need a single string.
+const String kClubApiBase = 'http://13.60.31.141:500/club';
 
 /// Resolve a potentially relative media path to an absolute URL.
 /// If [path] is already absolute (starts with http), returns as-is.
-/// Otherwise, prefixes with [kGatewayOrigin].
+/// Otherwise, prefixes with the gateway that last worked for club API, then [kGatewayOrigin].
 String resolveMediaUrl(String? path) {
   if (path == null || path.isEmpty) return '';
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  final origin = ClubApiService.clubMediaOrigin ?? kGatewayOrigin;
   final sep = path.startsWith('/') ? '' : '/';
-  return '$kGatewayOrigin$sep$path';
+  return '$origin$sep$path';
 }
 
 class ClubApiException implements Exception {
@@ -39,23 +45,150 @@ class ClubApiException implements Exception {
 }
 
 class ClubApiService {
+  /// Last club gateway that responded successfully (session-wide).
+  static String? _sessionClubBase;
+  static String? _sessionMediaOrigin;
+
+  static String? get clubMediaOrigin => _sessionMediaOrigin;
+
+  List<String> _orderedClubBases() {
+    final out = <String>[];
+    if (_sessionClubBase != null) out.add(_sessionClubBase!);
+    for (final b in kClubApiBaseCandidates) {
+      if (!out.contains(b)) out.add(b);
+    }
+    return out;
+  }
+
+  void _rememberClubGateway(String base) {
+    _sessionClubBase = base;
+    try {
+      _sessionMediaOrigin = Uri.parse(base).origin;
+    } catch (_) {
+      _sessionMediaOrigin = null;
+    }
+  }
+
+  bool _shouldRetryOnOtherClubGateway(ClubApiException e) {
+    final code = e.statusCode;
+    if (code == 502 || code == 503 || code == 504) return true;
+    if (code != null) return false;
+    final m = e.message.toLowerCase();
+    return m.contains('timeout') ||
+        m.contains('internet') ||
+        m.contains('socket') ||
+        m.contains('connection refused') ||
+        m.contains('failed host lookup');
+  }
+
+  /// GET with Bearer, trying each club gateway until one succeeds.
+  Future<Object?> _clubAuthorizedGet(Uri Function(String base) buildUri) async {
+    ClubApiException? last;
+    for (final base in _orderedClubBases()) {
+      try {
+        final json = await _authorizedGet(buildUri(base));
+        _rememberClubGateway(base);
+        return json;
+      } on ClubApiException catch (e) {
+        last = e;
+        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        rethrow;
+      }
+    }
+    throw last ??
+        const ClubApiException(
+            message: 'Club service unreachable on all gateways.');
+  }
+
+  Future<Object?> _clubAuthorizedPost(
+    Uri Function(String base) buildUri, {
+    Map<String, dynamic>? body,
+  }) async {
+    ClubApiException? last;
+    for (final base in _orderedClubBases()) {
+      try {
+        final json = await _authorizedPost(buildUri(base), body: body);
+        _rememberClubGateway(base);
+        return json;
+      } on ClubApiException catch (e) {
+        last = e;
+        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        rethrow;
+      }
+    }
+    throw last ??
+        const ClubApiException(
+            message: 'Club service unreachable on all gateways.');
+  }
+
+  Future<Object?> _clubAuthorizedPatch(
+    Uri Function(String base) buildUri, {
+    Map<String, dynamic>? body,
+  }) async {
+    ClubApiException? last;
+    for (final base in _orderedClubBases()) {
+      try {
+        final json = await _authorizedPatch(buildUri(base), body: body);
+        _rememberClubGateway(base);
+        return json;
+      } on ClubApiException catch (e) {
+        last = e;
+        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        rethrow;
+      }
+    }
+    throw last ??
+        const ClubApiException(
+            message: 'Club service unreachable on all gateways.');
+  }
+
+  Future<void> _clubAuthorizedDelete(Uri Function(String base) buildUri) async {
+    ClubApiException? last;
+    for (final base in _orderedClubBases()) {
+      try {
+        await _authorizedDelete(buildUri(base));
+        _rememberClubGateway(base);
+        return;
+      } on ClubApiException catch (e) {
+        last = e;
+        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        rethrow;
+      }
+    }
+    throw last ??
+        const ClubApiException(
+            message: 'Club service unreachable on all gateways.');
+  }
+
   // ── Categories ─────────────────────────────────────────────────────────
 
   /// `GET /api/v1/categories` (public)
   Future<List<String>> fetchCategories() async {
-    final uri = Uri.parse('$kClubApiBase/api/v1/categories');
     try {
-      final response = await http
-          .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 15));
-      if (response.statusCode == 200 && response.body.isNotEmpty) {
-        final json = jsonDecode(response.body);
-        final list = _unwrapList(json);
-        return list
-            .map((e) => (e['name'] ?? '').toString())
-            .where((n) => n.isNotEmpty)
-            .toList();
+      Object? decoded;
+      for (final base in _orderedClubBases()) {
+        final uri = Uri.parse('$base/api/v1/categories');
+        try {
+          final response = await http.get(uri, headers: {
+            'Accept': 'application/json'
+          }).timeout(const Duration(seconds: 30));
+          if (response.statusCode == 200 && response.body.isNotEmpty) {
+            decoded = jsonDecode(response.body);
+            _rememberClubGateway(base);
+            break;
+          }
+        } on TimeoutException {
+          continue;
+        } on SocketException {
+          continue;
+        }
       }
+      if (decoded == null) return [];
+      final list = _unwrapList(decoded);
+      return list
+          .map((e) => (e['name'] ?? '').toString())
+          .where((n) => n.isNotEmpty)
+          .toList();
     } catch (_) {}
     return [];
   }
@@ -79,16 +212,18 @@ class ClubApiService {
     if (category != null && category != 'All' && category.isNotEmpty) {
       params['category'] = category;
     }
-    final uri = Uri.parse('$kClubApiBase/api/v1/clubs')
-        .replace(queryParameters: params);
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) =>
+          Uri.parse('$base/api/v1/clubs').replace(queryParameters: params),
+    );
     return _unwrapList(json).map((e) => Club.fromJson(e)).toList();
   }
 
   /// `GET /api/v1/clubs/{clubId}`
   Future<Club> fetchClubDetail(String clubId) async {
-    final uri = Uri.parse('$kClubApiBase/api/v1/clubs/$clubId');
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) => Uri.parse('$base/api/v1/clubs/$clubId'),
+    );
     final inner = _unwrapSingle(json);
     return Club.fromJson(inner);
   }
@@ -100,37 +235,53 @@ class ClubApiService {
     String? portfolioLinks,
     XFile? portfolioFile,
   }) async {
-    final uri =
-        Uri.parse('$kClubApiBase/api/v1/clubs/$clubId/join-applications');
-    try {
-      final req = http.MultipartRequest('POST', uri);
-      final token = AuthService.instance.accessToken ?? '';
-      req.headers['Authorization'] = 'Bearer $token';
-      req.fields['letterOfPurpose'] = letterOfPurpose;
-      if (portfolioLinks != null && portfolioLinks.trim().isNotEmpty) {
-        req.fields['portfolioLinks'] = portfolioLinks.trim();
+    ClubApiException? last;
+    for (final base in _orderedClubBases()) {
+      final uri = Uri.parse('$base/api/v1/clubs/$clubId/join-applications');
+      try {
+        final req = http.MultipartRequest('POST', uri);
+        final token = AuthService.instance.accessToken ?? '';
+        req.headers['Authorization'] = 'Bearer $token';
+        req.fields['letterOfPurpose'] = letterOfPurpose;
+        if (portfolioLinks != null && portfolioLinks.trim().isNotEmpty) {
+          req.fields['portfolioLinks'] = portfolioLinks.trim();
+        }
+        if (portfolioFile != null) {
+          req.files.add(
+            await http.MultipartFile.fromPath(
+                'portfolioFiles', portfolioFile.path),
+          );
+        }
+        final streamed = await req.send().timeout(const Duration(seconds: 45));
+        final response = await http.Response.fromStream(streamed);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          _rememberClubGateway(base);
+          return;
+        }
+        final msg = _extractMsg(response.body) ?? 'Application failed.';
+        final err =
+            ClubApiException(statusCode: response.statusCode, message: msg);
+        last = err;
+        if (_shouldRetryOnOtherClubGateway(err)) continue;
+        throw err;
+      } on ClubApiException catch (e) {
+        last = e;
+        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        rethrow;
+      } on SocketException {
+        last = const ClubApiException(message: 'No internet connection.');
+        continue;
+      } on TimeoutException {
+        last = const ClubApiException(message: 'Request timed out.');
+        continue;
+      } catch (e) {
+        if (e is ClubApiException) rethrow;
+        throw ClubApiException(message: 'Unexpected error: ${e.runtimeType}');
       }
-      if (portfolioFile != null) {
-        req.files.add(
-          await http.MultipartFile.fromPath('portfolioFiles', portfolioFile.path),
-        );
-      }
-      final streamed =
-          await req.send().timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamed);
-      if (response.statusCode >= 200 && response.statusCode < 300) return;
-      final msg = _extractMsg(response.body) ?? 'Application failed.';
-      throw ClubApiException(statusCode: response.statusCode, message: msg);
-    } on ClubApiException {
-      rethrow;
-    } on SocketException {
-      throw const ClubApiException(message: 'No internet connection.');
-    } on TimeoutException {
-      throw const ClubApiException(message: 'Request timed out.');
-    } catch (e) {
-      if (e is ClubApiException) rethrow;
-      throw ClubApiException(message: 'Unexpected error: ${e.runtimeType}');
     }
+    throw last ??
+        const ClubApiException(
+            message: 'Club service unreachable on all gateways.');
   }
 
   // ── Events ─────────────────────────────────────────────────────────────
@@ -150,17 +301,19 @@ class ClubApiService {
       params['search'] = search.trim();
     }
     if (clubId != null) params['clubId'] = '$clubId';
-    final uri = Uri.parse('$kClubApiBase/api/v1/events')
-        .replace(queryParameters: params);
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) =>
+          Uri.parse('$base/api/v1/events').replace(queryParameters: params),
+    );
     return _unwrapList(json).map((e) => ClubPublicEvent.fromJson(e)).toList();
   }
 
   /// `GET /api/v1/events/{eventId}`
   Future<ClubPublicEvent?> fetchEventById(int eventId) async {
-    final uri = Uri.parse('$kClubApiBase/api/v1/events/$eventId');
     try {
-      final json = await _authorizedGet(uri);
+      final json = await _clubAuthorizedGet(
+        (base) => Uri.parse('$base/api/v1/events/$eventId'),
+      );
       final inner = _unwrapSingle(json);
       if (inner.isEmpty) return null;
       return ClubPublicEvent.fromJson(inner);
@@ -171,35 +324,35 @@ class ClubApiService {
 
   /// `POST /api/v1/events/{eventId}/registrations`
   Future<Map<String, dynamic>> registerForEvent(String eventId) async {
-    final uri = Uri.parse(
-        '$kClubApiBase/api/v1/events/$eventId/registrations');
-    final body = await _authorizedPost(uri);
+    final body = await _clubAuthorizedPost(
+      (base) => Uri.parse('$base/api/v1/events/$eventId/registrations'),
+    );
     return _unwrapSingle(body);
   }
 
   /// `DELETE /api/v1/events/{eventId}/registrations`
   Future<void> cancelRegistration(String eventId) async {
-    final uri = Uri.parse(
-        '$kClubApiBase/api/v1/events/$eventId/registrations');
-    await _authorizedDelete(uri);
+    await _clubAuthorizedDelete(
+      (base) => Uri.parse('$base/api/v1/events/$eventId/registrations'),
+    );
   }
 
   /// `GET /api/v1/events/{eventId}/ticket`
   Future<Map<String, dynamic>> getTicket(String eventId) async {
-    final uri = Uri.parse('$kClubApiBase/api/v1/events/$eventId/ticket');
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) => Uri.parse('$base/api/v1/events/$eventId/ticket'),
+    );
     return _unwrapSingle(json);
   }
 
   /// `GET /api/v1/users/me/event-registrations`
   Future<List<Map<String, dynamic>>> listMyRegistrations() async {
     final studentId = AuthService.instance.studentId;
-    final uri = (studentId != null && studentId.isNotEmpty)
-        ? Uri.parse(
-            '$kClubApiBase/api/v1/users/$studentId/event-registrations')
-        : Uri.parse(
-            '$kClubApiBase/api/v1/users/me/event-registrations');
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) => (studentId != null && studentId.isNotEmpty)
+          ? Uri.parse('$base/api/v1/users/$studentId/event-registrations')
+          : Uri.parse('$base/api/v1/users/me/event-registrations'),
+    );
     return _unwrapList(json);
   }
 
@@ -208,9 +361,10 @@ class ClubApiService {
     required String eventId,
     required String jwt,
   }) async {
-    final uri =
-        Uri.parse('$kClubApiBase/api/v1/events/$eventId/check-in');
-    final body = await _authorizedPost(uri, body: {'jwt': jwt});
+    final body = await _clubAuthorizedPost(
+      (base) => Uri.parse('$base/api/v1/events/$eventId/check-in'),
+      body: {'jwt': jwt},
+    );
     return _unwrapSingle(body);
   }
 
@@ -222,9 +376,8 @@ class ClubApiService {
     String? gateId,
     DateTime? scannedAtUtc,
   }) async {
-    final uri = Uri.parse('$kClubApiBase/api/v1/events/$eventId/tickets/scan');
-    final body = await _authorizedPost(
-      uri,
+    final body = await _clubAuthorizedPost(
+      (base) => Uri.parse('$base/api/v1/events/$eventId/tickets/scan'),
       body: {
         'token': token,
         if (scannerDeviceId != null && scannerDeviceId.isNotEmpty)
@@ -253,11 +406,12 @@ class ClubApiService {
     if (search != null && search.trim().isNotEmpty) {
       params['search'] = search.trim();
     }
-    final uri = (clubId != null)
-        ? Uri.parse('$kClubApiBase/api/v1/vacancies/by-club/$clubId')
-        : Uri.parse('$kClubApiBase/api/v1/vacancies')
-            .replace(queryParameters: params);
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) => clubId != null
+          ? Uri.parse('$base/api/v1/vacancies/by-club/$clubId')
+          : Uri.parse('$base/api/v1/vacancies')
+              .replace(queryParameters: params),
+    );
     return _unwrapList(json).map((e) => ClubVacancy.fromJson(e)).toList();
   }
 
@@ -267,43 +421,61 @@ class ClubApiService {
     required String purposeOfApplication,
     XFile? cvFile,
   }) async {
-    final uri = Uri.parse(
-        '$kClubApiBase/api/v1/vacancies/$vacancyId/applications');
-    try {
-      final req = http.MultipartRequest('POST', uri);
-      final token = AuthService.instance.accessToken ?? '';
-      req.headers['Authorization'] = 'Bearer $token';
-      req.fields['purposeOfApplication'] = purposeOfApplication;
-      if (cvFile != null) {
-        req.files.add(
-          await http.MultipartFile.fromPath('cvFile', cvFile.path),
-        );
+    ClubApiException? last;
+    for (final base in _orderedClubBases()) {
+      final uri = Uri.parse('$base/api/v1/vacancies/$vacancyId/applications');
+      try {
+        final req = http.MultipartRequest('POST', uri);
+        final token = AuthService.instance.accessToken ?? '';
+        req.headers['Authorization'] = 'Bearer $token';
+        req.fields['purposeOfApplication'] = purposeOfApplication;
+        if (cvFile != null) {
+          req.files.add(
+            await http.MultipartFile.fromPath('cvFile', cvFile.path),
+          );
+        }
+        final streamed = await req.send().timeout(const Duration(seconds: 45));
+        final response = await http.Response.fromStream(streamed);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          _rememberClubGateway(base);
+          return;
+        }
+        final msg = _extractMsg(response.body) ?? 'Application failed.';
+        final err =
+            ClubApiException(statusCode: response.statusCode, message: msg);
+        if (_shouldRetryOnOtherClubGateway(err)) {
+          last = err;
+          continue;
+        }
+        throw err;
+      } on ClubApiException catch (e) {
+        last = e;
+        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        rethrow;
+      } on SocketException {
+        last = const ClubApiException(message: 'No internet connection.');
+        continue;
+      } on TimeoutException {
+        last = const ClubApiException(message: 'Request timed out.');
+        continue;
+      } catch (e) {
+        if (e is ClubApiException) rethrow;
+        throw ClubApiException(message: 'Unexpected error: ${e.runtimeType}');
       }
-      final streamed =
-          await req.send().timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamed);
-      if (response.statusCode >= 200 && response.statusCode < 300) return;
-      final msg = _extractMsg(response.body) ?? 'Application failed.';
-      throw ClubApiException(statusCode: response.statusCode, message: msg);
-    } on ClubApiException {
-      rethrow;
-    } on SocketException {
-      throw const ClubApiException(message: 'No internet connection.');
-    } on TimeoutException {
-      throw const ClubApiException(message: 'Request timed out.');
-    } catch (e) {
-      if (e is ClubApiException) rethrow;
-      throw ClubApiException(message: 'Unexpected error: ${e.runtimeType}');
     }
+    throw last ??
+        const ClubApiException(
+            message: 'Club service unreachable on all gateways.');
   }
 
   // ── Vacancy by ID ──────────────────────────────────────────────────────
 
   /// `GET /api/v1/vacancies/{vacancyId}`
   Future<ClubVacancy?> fetchVacancyById(int vacancyId) async {
-    final uri = Uri.parse('$kClubApiBase/api/v1/vacancies/$vacancyId');
     try {
-      final json = await _authorizedGet(uri);
+      final json = await _clubAuthorizedGet(
+        (base) => Uri.parse('$base/api/v1/vacancies/$vacancyId'),
+      );
       final inner = _unwrapSingle(json);
       if (inner.isEmpty) return null;
       return ClubVacancy.fromJson(inner);
@@ -318,17 +490,18 @@ class ClubApiService {
 
   /// `GET /api/v1/users/{userId}/club-memberships`
   Future<List<Map<String, dynamic>>> fetchMyMemberships() async {
-    final uri =
-        Uri.parse('$kClubApiBase/api/v1/users/$_userId/club-memberships');
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) => Uri.parse('$base/api/v1/users/$_userId/club-memberships'),
+    );
     return _unwrapList(json);
   }
 
   /// `GET /api/v1/users/{userId}/membership-applications`
   Future<List<Map<String, dynamic>>> fetchMyMembershipApplications() async {
-    final uri = Uri.parse(
-        '$kClubApiBase/api/v1/users/$_userId/membership-applications');
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) =>
+          Uri.parse('$base/api/v1/users/$_userId/membership-applications'),
+    );
     return _unwrapList(json);
   }
 
@@ -337,10 +510,10 @@ class ClubApiService {
     int page = 1,
     int limit = 50,
   }) async {
-    final uri = Uri.parse(
-            '$kClubApiBase/api/v1/users/$_userId/vacancy-applications')
-        .replace(queryParameters: {'page': '$page', 'limit': '$limit'});
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) => Uri.parse('$base/api/v1/users/$_userId/vacancy-applications')
+          .replace(queryParameters: {'page': '$page', 'limit': '$limit'}),
+    );
     return _unwrapList(json);
   }
 
@@ -348,18 +521,20 @@ class ClubApiService {
   Future<List<Map<String, dynamic>>> fetchMyNotifications({
     String type = 'all',
   }) async {
-    final uri = Uri.parse(
-            '$kClubApiBase/api/v1/users/$_userId/club-notifications')
-        .replace(queryParameters: {'type': type});
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) => Uri.parse('$base/api/v1/users/$_userId/club-notifications')
+          .replace(queryParameters: {'type': type}),
+    );
     return _unwrapList(json);
   }
 
   /// `PATCH /api/v1/users/{userId}/club-notifications/{notificationId}/read`
   Future<void> markNotificationRead(String notificationId) async {
-    final uri = Uri.parse(
-        '$kClubApiBase/api/v1/users/$_userId/club-notifications/$notificationId/read');
-    await _authorizedPatch(uri, body: {});
+    await _clubAuthorizedPatch(
+      (base) => Uri.parse(
+          '$base/api/v1/users/$_userId/club-notifications/$notificationId/read'),
+      body: {},
+    );
   }
 
   // ── Interview slots ───────────────────────────────────────────────────
@@ -367,9 +542,10 @@ class ClubApiService {
   /// `GET /api/v1/applications/{applicationId}/interview-slots`
   Future<List<Map<String, dynamic>>> fetchInterviewSlots(
       String applicationId) async {
-    final uri = Uri.parse(
-        '$kClubApiBase/api/v1/applications/$applicationId/interview-slots');
-    final json = await _authorizedGet(uri);
+    final json = await _clubAuthorizedGet(
+      (base) =>
+          Uri.parse('$base/api/v1/applications/$applicationId/interview-slots'),
+    );
     return _unwrapList(json);
   }
 
@@ -378,16 +554,19 @@ class ClubApiService {
     required String applicationId,
     required String slotId,
   }) async {
-    final uri = Uri.parse(
-        '$kClubApiBase/api/v1/applications/$applicationId/interview-slot');
-    await _authorizedPost(uri, body: {'slotId': slotId});
+    await _clubAuthorizedPost(
+      (base) =>
+          Uri.parse('$base/api/v1/applications/$applicationId/interview-slot'),
+      body: {'slotId': slotId},
+    );
   }
 
   /// `GET /api/v1/clubs/{clubId}/members`
   Future<List<Map<String, dynamic>>> fetchClubMembers(String clubId) async {
-    final uri = Uri.parse('$kClubApiBase/api/v1/clubs/$clubId/members');
     try {
-      final json = await _authorizedGet(uri);
+      final json = await _clubAuthorizedGet(
+        (base) => Uri.parse('$base/api/v1/clubs/$clubId/members'),
+      );
       return _unwrapList(json);
     } catch (_) {
       return [];
@@ -400,14 +579,12 @@ class ClubApiService {
     try {
       final response = await AuthService.instance
           .sendAuthorized(
-            (token) => http
-                .get(uri, headers: {
-                  'Authorization': 'Bearer $token',
-                  'Accept': 'application/json',
-                })
-                .timeout(const Duration(seconds: 20)),
+            (token) => http.get(uri, headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            }).timeout(const Duration(seconds: 40)),
           )
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 55));
       if (response.statusCode == 200) {
         return response.body.isNotEmpty ? jsonDecode(response.body) : null;
       }
@@ -435,9 +612,9 @@ class ClubApiService {
                   },
                   body: body != null ? jsonEncode(body) : null,
                 )
-                .timeout(const Duration(seconds: 20)),
+                .timeout(const Duration(seconds: 40)),
           )
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 55));
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return response.body.isNotEmpty ? jsonDecode(response.body) : null;
       }
@@ -451,7 +628,8 @@ class ClubApiService {
     }
   }
 
-  Future<Object?> _authorizedPatch(Uri uri, {Map<String, dynamic>? body}) async {
+  Future<Object?> _authorizedPatch(Uri uri,
+      {Map<String, dynamic>? body}) async {
     try {
       final response = await AuthService.instance
           .sendAuthorized(
@@ -465,9 +643,9 @@ class ClubApiService {
                   },
                   body: body != null ? jsonEncode(body) : null,
                 )
-                .timeout(const Duration(seconds: 20)),
+                .timeout(const Duration(seconds: 40)),
           )
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 55));
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return response.body.isNotEmpty ? jsonDecode(response.body) : null;
       }
@@ -485,14 +663,12 @@ class ClubApiService {
     try {
       final response = await AuthService.instance
           .sendAuthorized(
-            (token) => http
-                .delete(uri, headers: {
-                  'Authorization': 'Bearer $token',
-                  'Accept': 'application/json',
-                })
-                .timeout(const Duration(seconds: 20)),
+            (token) => http.delete(uri, headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            }).timeout(const Duration(seconds: 40)),
           )
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 55));
       if (response.statusCode >= 200 && response.statusCode < 300) return;
       _throwForStatus(response);
     } on ClubApiException {
@@ -508,7 +684,8 @@ class ClubApiService {
     final msg = _extractMsg(response.body);
     if (response.statusCode == 409) {
       throw ClubApiException(
-          statusCode: 409, message: msg ?? 'Conflict (already exists or full).');
+          statusCode: 409,
+          message: msg ?? 'Conflict (already exists or full).');
     }
     if (response.statusCode == 404) {
       throw ClubApiException(statusCode: 404, message: msg ?? 'Not found.');
