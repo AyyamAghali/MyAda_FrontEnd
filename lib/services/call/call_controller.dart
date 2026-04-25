@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../auth_service.dart';
 import 'call_api.dart';
+import 'call_history_controller.dart';
 import 'call_signaling.dart';
 
 /// High-level state of the in-app voice call feature. Mirrors the phases used
@@ -110,16 +111,21 @@ class CallController extends ChangeNotifier {
   MediaStream? _remoteStream;
 
   bool _isMuted = false;
-  bool _isSpeakerOn = true;
+  bool _isSpeakerOn = false;
   DateTime? _callStartedAt;
   Timer? _durationTicker;
   Duration _callDuration = Duration.zero;
+
+  DateTime? _connectingStartedAt;
+  Timer? _connectingTicker;
+  Duration _connectingDuration = Duration.zero;
 
   bool _listenersAttached = false;
   /// Created only when a ringtone is needed; avoids [MissingPluginException]
   /// on app start / hot restart when the native audioplayers bridge is not ready.
   AudioPlayer? _ringPlayer;
   bool _ringtoneActive = false;
+  bool _localAudioEnsureInFlight = false;
 
   // ---- Public getters -------------------------------------------------------
 
@@ -134,6 +140,7 @@ class CallController extends ChangeNotifier {
   bool get isMuted => _isMuted;
   bool get isSpeakerOn => _isSpeakerOn;
   Duration get callDuration => _callDuration;
+  Duration get connectingDuration => _connectingDuration;
   bool get isHubConnected => _signaling.isConnected;
 
   /// True if an incoming call modal should be shown over any screen.
@@ -187,7 +194,10 @@ class CallController extends ChangeNotifier {
   // ---- Actions --------------------------------------------------------------
 
   /// Starts an outbound call to the given dispatcher (their JWT `sub`).
-  Future<void> requestCall(String dispatcherUserId) async {
+  Future<void> requestCall(
+    String dispatcherUserId, {
+    String? dispatcherDisplayName,
+  }) async {
     final trimmed = dispatcherUserId.trim();
     if (trimmed.isEmpty) {
       _setError('Please provide the dispatcher user id.');
@@ -196,8 +206,19 @@ class CallController extends ChangeNotifier {
     try {
       await _ensureMicrophonePermission();
       await connect();
+      _peer = CallParticipant(
+        connectionId: '',
+        userId: trimmed,
+        displayName: dispatcherDisplayName?.trim().isNotEmpty == true
+            ? dispatcherDisplayName!.trim()
+            : trimmed,
+      );
+      _setPhase(CallPhase.ringing);
+      unawaited(ensureLocalAudioForControls());
       await _signaling.invoke('RequestCall', args: [trimmed]);
     } catch (err) {
+      await _cleanupPeer();
+      _clearCallIdentity();
       _setError(_stringify(err));
     }
   }
@@ -225,8 +246,7 @@ class CallController extends ChangeNotifier {
     final info = _incomingCall;
     if (info == null) return;
     try {
-      await _signaling
-          .invoke('RejectCall', args: [info.callId, reason]);
+      await _signaling.invoke('RejectCall', args: [info.callId, reason]);
     } catch (err) {
       _setError(_stringify(err));
     } finally {
@@ -263,20 +283,17 @@ class CallController extends ChangeNotifier {
     } catch (_) {
       // ignore; we still tear down locally
     }
+    _errorMessage = 'Call ended.';
     await _cleanupPeer();
     _clearCallIdentity();
-    _setPhase(CallPhase.connected);
+    CallHistoryController.instance.refreshAfterRealtimeEvent();
+    _setPhase(CallPhase.ended);
   }
 
   /// Toggles the mute state of the local microphone track.
   void toggleMute() {
     _isMuted = !_isMuted;
-    final stream = _localStream;
-    if (stream != null) {
-      for (final track in stream.getAudioTracks()) {
-        track.enabled = !_isMuted;
-      }
-    }
+    _applyMuteToLocalTracks();
     notifyListeners();
   }
 
@@ -285,10 +302,67 @@ class CallController extends ChangeNotifier {
     _isSpeakerOn = !_isSpeakerOn;
     try {
       await Helper.setSpeakerphoneOn(_isSpeakerOn);
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await Future<void>.delayed(const Duration(milliseconds: 90));
+        await Helper.setSpeakerphoneOn(_isSpeakerOn);
+      }
     } catch (_) {
       // ignore on platforms that do not support audio routing
     }
     notifyListeners();
+  }
+
+  /// Ensures a local microphone stream exists so mute works while ringing and
+  /// before the peer connection is created.
+  Future<void> ensureLocalAudioForControls() async {
+    if (_localStream != null && _localStream!.getAudioTracks().isNotEmpty) {
+      _applyMuteToLocalTracks();
+      notifyListeners();
+      return;
+    }
+    if (_localAudioEnsureInFlight) return;
+    _localAudioEnsureInFlight = true;
+    try {
+      await _ensureMicrophonePermission();
+      final local = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': false,
+      });
+      _localStream = local;
+      _applyMuteToLocalTracks();
+      notifyListeners();
+    } catch (_) {
+      // Ringing may start before permission is granted; ignore here.
+    } finally {
+      _localAudioEnsureInFlight = false;
+    }
+  }
+
+  void _applyMuteToLocalTracks() {
+    final stream = _localStream;
+    if (stream == null) return;
+    for (final track in stream.getAudioTracks()) {
+      track.enabled = !_isMuted;
+    }
+  }
+
+  void _startConnectingTicker() {
+    _connectingTicker?.cancel();
+    _connectingStartedAt = DateTime.now();
+    _connectingDuration = Duration.zero;
+    _connectingTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final started = _connectingStartedAt;
+      if (started == null) return;
+      _connectingDuration = DateTime.now().difference(started);
+      notifyListeners();
+    });
+  }
+
+  void _stopConnectingTicker() {
+    _connectingTicker?.cancel();
+    _connectingTicker = null;
+    _connectingStartedAt = null;
+    _connectingDuration = Duration.zero;
   }
 
   // ---- Internals ------------------------------------------------------------
@@ -321,6 +395,7 @@ class CallController extends ChangeNotifier {
       _callId = _incomingCall?.callId;
       _roomId = _incomingCall?.roomId;
       _setPhase(CallPhase.incoming);
+      unawaited(ensureLocalAudioForControls());
     });
 
     _signaling.on('CallRinging', (args) {
@@ -328,7 +403,15 @@ class CallController extends ChangeNotifier {
       if (payload == null) return;
       _callId = payload['callId']?.toString();
       _roomId = payload['roomId']?.toString();
+      _peer ??= CallParticipant(
+        connectionId: '',
+        userId: payload['dispatcherUserId']?.toString() ??
+            payload['toUserId']?.toString(),
+        displayName: payload['dispatcherDisplayName']?.toString() ??
+            payload['toDisplayName']?.toString(),
+      );
       _setPhase(CallPhase.ringing);
+      unawaited(ensureLocalAudioForControls());
     });
 
     _signaling.on('CallAccepted', (args) {
@@ -358,26 +441,65 @@ class CallController extends ChangeNotifier {
         }
       }
       if (peerConnectionId != null) {
-        _peer = CallParticipant(connectionId: peerConnectionId);
+        final existing = _peer;
+        CallParticipant? acceptedPeer;
+        final parts = payload['participants'];
+        if (parts is List) {
+          for (final p in parts) {
+            if (p is Map) {
+              final participant = CallParticipant.fromMap(p);
+              if (participant.connectionId == peerConnectionId) {
+                acceptedPeer = participant;
+                break;
+              }
+            }
+          }
+        }
+        _peer = CallParticipant(
+          connectionId: peerConnectionId,
+          userId: acceptedPeer?.userId ?? existing?.userId,
+          displayName: acceptedPeer?.displayName ?? existing?.displayName,
+        );
       }
+      CallHistoryController.instance.refreshAfterRealtimeEvent();
       _setPhase(CallPhase.accepted);
     });
 
     _signaling.on('CallRejected', (args) {
       final payload = _firstMap(args);
-      _errorMessage =
-          payload?['reason']?.toString() ?? 'Call rejected by dispatcher.';
-      _clearCallIdentity();
+      final reason = payload?['reason']?.toString().trim();
+      _errorMessage = reason != null && reason.isNotEmpty
+          ? reason
+          : 'Call rejected by dispatcher.';
       _setPhase(CallPhase.rejected);
+      unawaited(() async {
+        await _cleanupPeer();
+        _clearCallIdentity();
+        CallHistoryController.instance.refreshAfterRealtimeEvent();
+      }());
     });
 
-    _signaling.on('CallCancelled', (_) {
+    _signaling.on('CallCancelled', (args) async {
+      final payload = _firstMap(args);
+      final reason = payload?['reason']?.toString().trim();
+      _errorMessage = reason != null && reason.isNotEmpty
+          ? reason
+          : 'The call was cancelled.';
+      await _cleanupPeer();
       _clearCallIdentity();
+      CallHistoryController.instance.refreshAfterRealtimeEvent();
       _setPhase(CallPhase.cancelled);
     });
 
-    _signaling.on('CallTimedOut', (_) {
+    _signaling.on('CallTimedOut', (args) async {
+      final payload = _firstMap(args);
+      final reason = payload?['reason']?.toString().trim();
+      _errorMessage = reason != null && reason.isNotEmpty
+          ? reason
+          : 'No dispatcher response before timeout.';
+      await _cleanupPeer();
       _clearCallIdentity();
+      CallHistoryController.instance.refreshAfterRealtimeEvent();
       _setPhase(CallPhase.timeout);
     });
 
@@ -391,7 +513,14 @@ class CallController extends ChangeNotifier {
         final first = others.first;
         if (first is Map) peer = CallParticipant.fromMap(first);
       }
-      if (peer != null) _peer = peer;
+      if (peer != null) {
+        final existing = _peer;
+        _peer = CallParticipant(
+          connectionId: peer.connectionId,
+          userId: peer.userId ?? existing?.userId,
+          displayName: peer.displayName ?? existing?.displayName,
+        );
+      }
       _setPhase(CallPhase.inCall);
       _startDurationTicker();
 
@@ -403,9 +532,15 @@ class CallController extends ChangeNotifier {
       }
     });
 
-    _signaling.on('ParticipantLeft', (_) async {
+    _signaling.on('ParticipantLeft', (args) async {
+      final payload = _firstMap(args);
+      final name = payload?['displayName']?.toString().trim();
+      _errorMessage = name != null && name.isNotEmpty
+          ? '$name left or disconnected.'
+          : 'The other participant left or disconnected.';
       await _cleanupPeer();
       _clearCallIdentity();
+      CallHistoryController.instance.refreshAfterRealtimeEvent();
       _setPhase(CallPhase.ended);
     });
 
@@ -416,8 +551,10 @@ class CallController extends ChangeNotifier {
     });
 
     _signaling.on('CallEnded', (_) async {
+      _errorMessage = 'Call ended.';
       await _cleanupPeer();
       _clearCallIdentity();
+      CallHistoryController.instance.refreshAfterRealtimeEvent();
       _setPhase(CallPhase.ended);
     });
 
@@ -507,13 +644,7 @@ class CallController extends ChangeNotifier {
       return fetched.toRtcList();
     }
 
-    // Fall back to a public STUN so we can at least attempt a connection
-    // on the same network.
-    return [
-      {
-        'urls': ['stun:stun.l.google.com:19302'],
-      },
-    ];
+    throw StateError('The call service did not return ICE servers.');
   }
 
   Future<RTCPeerConnection> _ensurePeerConnection() async {
@@ -529,26 +660,22 @@ class CallController extends ChangeNotifier {
     pc.onIceCandidate = (RTCIceCandidate candidate) {
       final peer = _peer;
       if (peer == null) return;
-      _signaling
-          .invoke(
-            'SendIceCandidate',
-            args: [
-              peer.connectionId,
-              candidate.candidate,
-              candidate.sdpMid,
-              candidate.sdpMLineIndex,
-            ],
-          )
-          .catchError((_) => null);
+      _signaling.invoke(
+        'SendIceCandidate',
+        args: [
+          peer.connectionId,
+          candidate.candidate,
+          candidate.sdpMid,
+          candidate.sdpMLineIndex,
+        ],
+      ).catchError((_) => null);
     };
 
     pc.onTrack = (RTCTrackEvent event) {
       if (event.streams.isNotEmpty) {
         _remoteStream = event.streams.first;
       } else {
-        _remoteStream ??= event.track.kind == 'audio'
-            ? null
-            : _remoteStream;
+        _remoteStream ??= event.track.kind == 'audio' ? null : _remoteStream;
       }
       notifyListeners();
     };
@@ -559,18 +686,24 @@ class CallController extends ChangeNotifier {
       }
     };
 
-    // Attach local microphone track.
-    final local = await navigator.mediaDevices.getUserMedia({
-      'audio': true,
-      'video': false,
-    });
-    _localStream = local;
+    // Attach local microphone (reuse preview stream from ringing if present).
+    MediaStream local;
+    final previewMic = _localStream;
+    if (previewMic != null && previewMic.getAudioTracks().isNotEmpty) {
+      local = previewMic;
+    } else {
+      local = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': false,
+      });
+      _localStream = local;
+    }
     for (final track in local.getAudioTracks()) {
       track.enabled = !_isMuted;
       await pc.addTrack(track, local);
     }
 
-    // Default to loudspeaker so the user immediately hears the peer.
+    // Apply the user's current speaker routing choice.
     try {
       await Helper.setSpeakerphoneOn(_isSpeakerOn);
     } catch (_) {}
@@ -593,12 +726,13 @@ class CallController extends ChangeNotifier {
   }
 
   Future<void> _cleanupPeer() async {
+    _stopConnectingTicker();
     _durationTicker?.cancel();
     _durationTicker = null;
     _callStartedAt = null;
     _callDuration = Duration.zero;
     _isMuted = false;
-    _isSpeakerOn = true;
+    _isSpeakerOn = false;
     await _stopRingingTone();
 
     final pc = _peerConnection;
@@ -643,10 +777,10 @@ class CallController extends ChangeNotifier {
     });
   }
 
-  void _clearCallIdentity() {
+  void _clearCallIdentity({bool clearPeer = true}) {
     _callId = null;
     _roomId = null;
-    _peer = null;
+    if (clearPeer) _peer = null;
     _incomingCall = null;
   }
 
@@ -657,6 +791,11 @@ class CallController extends ChangeNotifier {
       unawaited(_startRingingTone());
     } else {
       unawaited(_stopRingingTone());
+    }
+    if (next == CallPhase.accepted) {
+      _startConnectingTicker();
+    } else {
+      _stopConnectingTicker();
     }
     notifyListeners();
   }
@@ -711,7 +850,8 @@ class CallController extends ChangeNotifier {
 
   /// Returns the JWT `sub` of the currently authenticated user. Used by the
   /// UI to label the active call screen.
-  String? get selfLabel => _selfDisplayName ?? _selfUserId ?? AuthService.instance.studentId;
+  String? get selfLabel =>
+      _selfDisplayName ?? _selfUserId ?? AuthService.instance.studentId;
 
   Future<AudioPlayer?> _ensureRingPlayer() async {
     if (_ringPlayer != null) return _ringPlayer;

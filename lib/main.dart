@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'app_navigator_key.dart';
 import 'screens/login_page.dart';
 import 'widgets/call_overlay_host.dart';
 
@@ -26,6 +28,7 @@ class AdaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'ADA University',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

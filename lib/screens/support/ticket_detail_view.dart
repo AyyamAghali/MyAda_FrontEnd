@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+
 import '../../models/support_ticket.dart';
 import '../../services/auth_service.dart';
 import '../../services/support_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/responsive_container.dart';
+import '../../widgets/start_support_call_sheet.dart';
 
 class TicketDetailView extends StatefulWidget {
   final SupportTicket ticket;
@@ -582,10 +583,31 @@ class _TicketDetailViewState extends State<TicketDetailView> {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => _showContactDialog(context),
+                onPressed: () => _showInAppCallSheet(context),
                 icon: const Icon(Icons.call_outlined, size: 17),
                 label: const Text(
-                  'Call Staff',
+                  'Call staff',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(
+                    color: AppColors.primary.withValues(alpha: 0.45),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _showCancelDialog(context),
+                icon: const Icon(Icons.close_rounded, size: 17),
+                label: const Text(
+                  'Cancel ticket',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -593,26 +615,8 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                   side: const BorderSide(color: AppColors.gray300),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () => _showCancelDialog(context),
-                icon: const Icon(Icons.cancel_outlined, size: 17),
-                label: const Text(
-                  'Cancel Ticket',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEF4444),
-                  foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -624,47 +628,21 @@ class _TicketDetailViewState extends State<TicketDetailView> {
 
   // ── Dialogs ────────────────────────────────────────────────────────────
 
-  void _showContactDialog(BuildContext context) {
-    showDialog(
+  void _showInAppCallSheet(BuildContext context) {
+    showModalBottomSheet<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Call Support Staff'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_ticket.assignedTo != null) ...[
-              Text('Assigned to: ${_ticket.assignedTo}'),
-              const SizedBox(height: 16),
-            ],
-            const Text('Start an in-app voice call with support:'),
-            const SizedBox(height: 8),
-            const Text('• Staff line: +994 12 437 32 35'),
-            const Text('• Available now'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final uri = Uri.parse('tel:+994124373235');
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Starting in-app call (mock)...')),
-                );
-              }
-              Navigator.pop(context);
-            },
-            child: const Text('Call now'),
-          ),
-        ],
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: const StartSupportCallSheet(),
+        );
+      },
     );
   }
 
