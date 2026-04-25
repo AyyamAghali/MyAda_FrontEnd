@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../services/call/call_controller.dart';
-import '../../utils/constants.dart';
 
 /// Full-screen, modal overlay shown when an incoming call arrives.
 ///
@@ -10,6 +9,8 @@ import '../../utils/constants.dart';
 class IncomingCallDialog extends StatelessWidget {
   const IncomingCallDialog({super.key, required this.info});
 
+  static const _avatarAsset = 'assets/images/support_dispatcher_avatar.png';
+
   final IncomingCallInfo info;
 
   @override
@@ -17,12 +18,9 @@ class IncomingCallDialog extends StatelessWidget {
     final displayName = info.fromDisplayName?.trim().isNotEmpty == true
         ? info.fromDisplayName!
         : info.fromUserId;
-    final initial = displayName.isNotEmpty
-        ? displayName.characters.first.toUpperCase()
-        : '?';
 
     return Material(
-      color: Colors.black.withOpacity(0.85),
+      color: Colors.black.withValues(alpha: 0.85),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -43,29 +41,23 @@ class IncomingCallDialog extends StatelessWidget {
               Container(
                 width: 120,
                 height: 120,
+                padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.primary, AppColors.primaryDark],
-                  ),
+                  color: Colors.white.withValues(alpha: 0.18),
+                  border: Border.all(color: Colors.white24),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 12),
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Text(
-                    initial,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 48,
-                      fontWeight: FontWeight.w700,
-                    ),
+                child: ClipOval(
+                  child: Image.asset(
+                    _avatarAsset,
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),

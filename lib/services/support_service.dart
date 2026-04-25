@@ -21,7 +21,8 @@ class SupportCategoryOption {
   });
 
   factory SupportCategoryOption.fromJson(Map<String, dynamic> json) {
-    final id = int.tryParse((json['id'] ?? json['categoryId'] ?? 0).toString()) ?? 0;
+    final id =
+        int.tryParse((json['id'] ?? json['categoryId'] ?? 0).toString()) ?? 0;
     final module = (json['module'] ?? '').toString();
     final name = (json['name'] ?? json['categoryName'] ?? '').toString();
     return SupportCategoryOption(id: id, module: module, name: name);
@@ -46,9 +47,12 @@ class SupportTimelineEvent {
     }
 
     return SupportTimelineEvent(
-      title: (json['title'] ?? json['status'] ?? json['event'] ?? 'Update').toString(),
-      description: (json['description'] ?? json['note'] ?? json['message'])?.toString(),
-      createdAt: parse(json['createdAt'] ?? json['timestamp'] ?? json['createdAtUtc']),
+      title: (json['title'] ?? json['status'] ?? json['event'] ?? 'Update')
+          .toString(),
+      description:
+          (json['description'] ?? json['note'] ?? json['message'])?.toString(),
+      createdAt:
+          parse(json['createdAt'] ?? json['timestamp'] ?? json['createdAtUtc']),
     );
   }
 }
@@ -77,9 +81,11 @@ class SupportService {
         .toList(growable: false);
   }
 
-  Future<List<SupportTicket>> fetchMyRequests({required String memberId}) async {
+  Future<List<SupportTicket>> fetchMyRequests(
+      {required String memberId}) async {
     final response = await _authorizedGet(
-      Uri.parse('$kSupportBaseUrl/SupportRequests/member/${Uri.encodeComponent(memberId)}'),
+      Uri.parse(
+          '$kSupportBaseUrl/SupportRequests/member/${Uri.encodeComponent(memberId)}'),
     );
     final list = _unwrapList(response.body);
     return list
@@ -179,7 +185,8 @@ class SupportService {
 
     final map = _unwrapMap(response.body);
     final id = int.tryParse(
-      (map['id'] ?? map['requestId'] ?? map['supportRequestId'] ?? 0).toString(),
+      (map['id'] ?? map['requestId'] ?? map['supportRequestId'] ?? 0)
+          .toString(),
     );
     return id ?? 0;
   }
@@ -192,7 +199,8 @@ class SupportService {
     required TicketPriority urgency,
     required List<String> attachmentUrls,
   }) {
-    final locationType = location.type == SupportLocationType.building ? 'building' : 'campus';
+    final locationType =
+        location.type == SupportLocationType.building ? 'building' : 'campus';
     final placeType = location.type == SupportLocationType.building
         ? (location.isRoom == true ? 'room' : 'area')
         : null;
@@ -327,7 +335,8 @@ class SupportService {
     if (decoded is Map<String, dynamic>) {
       final unwrapped = _unwrapRoot(decoded);
       if (unwrapped is Map<String, dynamic>) {
-        final direct = unwrapped['message'] ?? unwrapped['title'] ?? unwrapped['detail'];
+        final direct =
+            unwrapped['message'] ?? unwrapped['title'] ?? unwrapped['detail'];
         if (direct is String && direct.isNotEmpty) {
           message = direct;
         }
@@ -337,7 +346,7 @@ class SupportService {
         message = rootDirect;
       }
     }
-    return SupportServiceException(statusCode: response.statusCode, message: message);
+    return SupportServiceException(
+        statusCode: response.statusCode, message: message);
   }
 }
-

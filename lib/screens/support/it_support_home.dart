@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../services/auth_service.dart';
-import '../../services/call/call_controller.dart';
+
+import '../call/call_history_screen.dart';
 import '../../utils/constants.dart';
-import '../../widgets/modern_select_sheet.dart';
+import '../../widgets/start_support_call_sheet.dart';
+import '../../widgets/support_call_link_ui.dart';
 import 'my_requests.dart';
 import 'new_issue_form.dart';
 
@@ -27,6 +28,8 @@ class ITSupportHome extends StatelessWidget {
                     _buildMyRequestsCard(context),
                     const SizedBox(height: 12),
                     _buildImmediateHelpCard(context),
+                    const SizedBox(height: 12),
+                    _buildCallHistoryCard(context),
                     const SizedBox(height: 12),
                     _buildITSupportCard(context),
                     const SizedBox(height: 12),
@@ -92,23 +95,9 @@ class ITSupportHome extends StatelessWidget {
   }
 
   Widget _buildImmediateHelpCard(BuildContext context) {
-    const phone = '+994 (50) 123-45-67';
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF9A3D50), Color(0xFFAE485E)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFAE485E).withOpacity(0.30),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+    return SupportCallLinkedSurface(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
@@ -119,47 +108,43 @@ class ITSupportHome extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.white,
+                    color: AppColors.gray900,
                     letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'For emergencies or campus-wide outages, please contact the Student Services desk directly.',
+                  'For emergencies or campus-wide outages, contact Student Services — or start a secure in-app voice call.',
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.35,
-                    color: AppColors.white.withOpacity(0.78),
+                    color: AppColors.gray600,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 10),
-                InkWell(
-                  onTap: () => _showInAppCallSheet(context, phone),
-                  borderRadius: BorderRadius.circular(999),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(999),
+                OutlinedButton.icon(
+                  onPressed: () => _showInAppCallSheet(context),
+                  icon: const Icon(Icons.call, size: 16),
+                  label: const Text(
+                    'Start in-app call',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.1,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.call,
-                            size: 16, color: AppColors.secondary),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Start in-app call',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.secondary,
-                            letterSpacing: -0.1,
-                          ),
-                        ),
-                      ],
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: BorderSide(
+                      color: AppColors.primary.withValues(alpha: 0.45),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                 ),
@@ -167,22 +152,13 @@ class ITSupportHome extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.white.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.support_agent,
-                color: AppColors.white, size: 22),
-          ),
+          const SupportCallLeadingIcon(icon: Icons.support_agent_outlined),
         ],
       ),
     );
   }
 
-  void _showInAppCallSheet(BuildContext context, String phone) {
+  void _showInAppCallSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -194,9 +170,64 @@ class ITSupportHome extends StatelessWidget {
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
           ),
-          child: const _StartCallSheet(),
+          child: const StartSupportCallSheet(),
         );
       },
+    );
+  }
+
+  Widget _buildCallHistoryCard(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CallHistoryScreen()),
+          );
+        },
+        child: SupportCallLinkedSurface(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              const SupportCallLeadingIcon(icon: Icons.history_rounded),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Call history',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.gray900,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Review support call outcomes',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.gray600,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right,
+                  color: AppColors.gray400, size: 20),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -594,289 +625,6 @@ class ITSupportHome extends StatelessWidget {
           fontSize: 12,
           color: AppColors.gray700,
           fontWeight: FontWeight.w400,
-        ),
-      ),
-    );
-  }
-}
-
-/// Bottom sheet that lets the user start a real-time in-app call to a
-/// dispatcher. The dispatcher is identified by their JWT `sub` claim, which
-/// the dispatcher shares with the student through a separate channel (for
-/// example the IT support ticket response email).
-class _StartCallSheet extends StatefulWidget {
-  const _StartCallSheet();
-
-  @override
-  State<_StartCallSheet> createState() => _StartCallSheetState();
-}
-
-class _StartCallSheetState extends State<_StartCallSheet> {
-  final TextEditingController _dispatcherIdController = TextEditingController();
-  final AuthService _authService = AuthService.instance;
-  List<AuthRoleUser> _dispatchers = const [];
-  String? _selectedDispatcherId;
-  bool _isLoadingDispatchers = false;
-  String? _dispatcherLoadError;
-  bool _isStarting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDispatchers();
-  }
-
-  @override
-  void dispose() {
-    _dispatcherIdController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadDispatchers() async {
-    setState(() {
-      _isLoadingDispatchers = true;
-      _dispatcherLoadError = null;
-    });
-    try {
-      final users = await _authService.fetchUsersByRole('Dispatcher');
-      if (!mounted) return;
-      setState(() {
-        _dispatchers = users;
-        _selectedDispatcherId = users.isNotEmpty ? users.first.id : null;
-        _dispatcherIdController.text = _selectedDispatcherId ?? '';
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _dispatcherLoadError = e.toString().replaceFirst('Exception: ', '');
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingDispatchers = false);
-      }
-    }
-  }
-
-  Future<void> _startCall() async {
-    final id = (_selectedDispatcherId ?? _dispatcherIdController.text).trim();
-    if (id.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a dispatcher.')),
-      );
-      return;
-    }
-
-    setState(() => _isStarting = true);
-    try {
-      await CallController.instance.requestCall(id);
-      if (!mounted) return;
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            e.toString().replaceFirst('Exception: ', ''),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isStarting = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.gray300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'Start in-app support call',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: AppColors.gray900,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Connect to a support dispatcher over a secure voice channel.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: AppColors.gray600,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_isLoadingDispatchers)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Loading dispatchers...',
-                      style: TextStyle(fontSize: 13, color: AppColors.gray600),
-                    ),
-                  ],
-                ),
-              )
-            else if (_dispatchers.isNotEmpty)
-              GestureDetector(
-                onTap: _isStarting
-                    ? null
-                    : () async {
-                        final result = await showModernSelectSheet<String>(
-                          context: context,
-                          title: 'Select Dispatcher',
-                          selectedValue: _selectedDispatcherId,
-                          options: _dispatchers
-                              .map((u) => SelectOption(
-                                    value: u.id,
-                                    label: u.userName.isNotEmpty
-                                        ? u.userName
-                                        : u.id,
-                                    icon: Icons.support_agent_outlined,
-                                  ))
-                              .toList(growable: false),
-                        );
-                        if (result != null) {
-                          setState(() {
-                            _selectedDispatcherId = result;
-                            _dispatcherIdController.text = result;
-                          });
-                        }
-                      },
-                child: AbsorbPointer(
-                  child: TextFormField(
-                    controller: TextEditingController(
-                      text: _selectedDispatcherId != null
-                          ? _dispatchers
-                              .where((u) => u.id == _selectedDispatcherId)
-                              .map((u) =>
-                                  u.userName.isNotEmpty ? u.userName : u.id)
-                              .firstOrNull ?? _selectedDispatcherId!
-                          : '',
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Dispatcher',
-                      hintText: 'Select dispatcher',
-                      prefixIcon:
-                          const Icon(Icons.support_agent_outlined, size: 20),
-                      suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded,
-                          color: AppColors.gray400, size: 22),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: AppColors.gray200),
-                      ),
-                      filled: true,
-                      fillColor: AppColors.gray50,
-                    ),
-                  ),
-                ),
-              )
-            else
-              TextField(
-                controller: _dispatcherIdController,
-                autofocus: true,
-                keyboardType: TextInputType.text,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _startCall(),
-                decoration: InputDecoration(
-                  labelText: 'Dispatcher user id',
-                  hintText: 'Paste dispatcher id',
-                  prefixIcon: const Icon(Icons.badge_outlined, size: 20),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-            if (_dispatcherLoadError != null) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.info_outline,
-                      size: 16, color: AppColors.gray500),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Could not auto-load dispatchers. You can still paste an id.',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.gray500),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _isLoadingDispatchers ? null : _loadDispatchers,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 8),
-            const Text(
-              'Your microphone will be used for this call.',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.gray500,
-              ),
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isStarting ? null : _startCall,
-                icon: _isStarting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.white,
-                          ),
-                        ),
-                      )
-                    : const Icon(Icons.call, size: 18),
-                label: Text(_isStarting ? 'Connecting...' : 'Call now'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

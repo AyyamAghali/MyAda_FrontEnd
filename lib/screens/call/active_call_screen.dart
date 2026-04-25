@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../services/call/call_controller.dart';
@@ -12,6 +14,8 @@ import '../../utils/constants.dart';
 class ActiveCallScreen extends StatelessWidget {
   const ActiveCallScreen({super.key});
 
+  static const _avatarAsset = 'assets/images/support_dispatcher_avatar.png';
+
   String _formatDuration(Duration d) {
     String two(int n) => n.toString().padLeft(2, '0');
     final minutes = d.inMinutes;
@@ -23,16 +27,16 @@ class ActiveCallScreen extends StatelessWidget {
     return '${two(minutes)}:${two(seconds)}';
   }
 
-  String _statusText(CallPhase phase) {
+  String _statusText(CallPhase phase, CallController controller) {
     switch (phase) {
       case CallPhase.ringing:
-        return 'Ringing...';
+        return 'Ringing';
       case CallPhase.accepted:
-        return 'Connecting...';
+        return 'Connecting ${_formatDuration(controller.connectingDuration)}';
       case CallPhase.inCall:
-        return 'In call';
+        return _formatDuration(controller.callDuration);
       default:
-        return 'Connecting...';
+        return 'Connecting ${_formatDuration(controller.connectingDuration)}';
     }
   }
 
@@ -44,103 +48,244 @@ class ActiveCallScreen extends StatelessWidget {
 
     final displayName = peer?.displayName?.trim().isNotEmpty == true
         ? peer!.displayName!
-        : (peer?.userId ?? 'Support dispatcher');
-    final initial = displayName.isNotEmpty
-        ? displayName.characters.first.toUpperCase()
-        : '?';
+        : (peer?.userId ?? 'Support person');
+    final timerText = _statusText(phase, controller);
 
-    return Material(
-      color: const Color(0xFF101114),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _statusText(phase),
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                  if (phase == CallPhase.inCall)
-                    Text(
-                      _formatDuration(controller.callDuration),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        fontFeatures: [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 48),
-              Center(
-                child: Container(
-                  width: 140,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppColors.primary, AppColors.primaryDark],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.4),
-                        blurRadius: 30,
-                        offset: const Offset(0, 16),
-                      ),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(0, (1 - value) * 24),
+          child: Opacity(opacity: value, child: child),
+        );
+      },
+      child: Material(
+        color: const Color(0xFF071923),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF071923),
+                      AppColors.primaryDark,
+                      AppColors.secondaryDark.withValues(alpha: 0.92),
                     ],
                   ),
-                  child: Center(
-                    child: Text(
-                      initial,
+                ),
+              ),
+            ),
+            Positioned(
+              top: -80,
+              right: -80,
+              child:
+                  _SoftGlow(color: AppColors.primary.withValues(alpha: 0.45)),
+            ),
+            Positioned(
+              bottom: -110,
+              left: -90,
+              child:
+                  _SoftGlow(color: AppColors.secondary.withValues(alpha: 0.36)),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.center,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
+                        ),
+                        child: Text(
+                          phase == CallPhase.inCall
+                              ? 'Support call'
+                              : 'Calling support',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Spacer(flex: 2),
+                    Center(
+                      child: _PulsingAvatar(
+                        assetPath: _avatarAsset,
+                        isRinging: phase == CallPhase.ringing,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    Text(
+                      displayName,
+                      textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 56,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      timerText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontSize: phase == CallPhase.inCall ? 20 : 16,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const Spacer(flex: 3),
+                    _ActionsRow(controller: controller),
+                    const SizedBox(height: 30),
+                    _HangUpButton(controller: controller),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftGlow extends StatelessWidget {
+  const _SoftGlow({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 220,
+      height: 220,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        boxShadow: [
+          BoxShadow(
+            color: color,
+            blurRadius: 90,
+            spreadRadius: 50,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PulsingAvatar extends StatefulWidget {
+  const _PulsingAvatar({required this.assetPath, required this.isRinging});
+
+  final String assetPath;
+  final bool isRinging;
+
+  @override
+  State<_PulsingAvatar> createState() => _PulsingAvatarState();
+}
+
+class _PulsingAvatarState extends State<_PulsingAvatar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    if (widget.isRinging) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PulsingAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isRinging && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.isRinging && _controller.isAnimating) {
+      _controller.stop();
+      _controller.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final pulse = widget.isRinging ? _controller.value : 0.0;
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            for (final offset in const [0.0, 0.28])
+              Transform.scale(
+                scale: 1 + (((pulse + offset) % 1) * 0.38),
+                child: Opacity(
+                  opacity: widget.isRinging
+                      ? (1 - ((pulse + offset) % 1)) * 0.22
+                      : 0,
+                  child: Container(
+                    width: 176,
+                    height: 176,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                displayName,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (controller.roomId != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  controller.roomId!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 11,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
-              const Spacer(),
-              _ActionsRow(controller: controller),
-              const SizedBox(height: 28),
-              _HangUpButton(controller: controller),
-              const SizedBox(height: 8),
-            ],
+            child!,
+          ],
+        );
+      },
+      child: Container(
+        width: 168,
+        height: 168,
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.18),
+          border:
+              Border.all(color: Colors.white.withValues(alpha: 0.32), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 34,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: Image.asset(
+            widget.assetPath,
+            fit: BoxFit.cover,
           ),
         ),
       ),
@@ -155,84 +300,113 @@ class _ActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _CircularToggle(
-          icon: controller.isMuted ? Icons.mic_off : Icons.mic,
-          label: controller.isMuted ? 'Muted' : 'Mute',
-          active: controller.isMuted,
-          enabled: true,
-          onTap: controller.toggleMute,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.11),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _CallControl(
+                  icon: controller.isMuted ? Icons.mic_off : Icons.mic,
+                  label: controller.isMuted ? 'Muted' : 'Mute',
+                  active: controller.isMuted,
+                  activeColor: const Color(0xFFE53935),
+                  onTap: controller.toggleMute,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _CallControl(
+                  icon: controller.isSpeakerOn
+                      ? Icons.volume_up_rounded
+                      : Icons.volume_up_outlined,
+                  label: controller.isSpeakerOn ? 'Speaker on' : 'Speaker',
+                  active: controller.isSpeakerOn,
+                  activeColor: AppColors.primary,
+                  onTap: () => controller.toggleSpeaker(),
+                ),
+              ),
+            ],
+          ),
         ),
-        _CircularToggle(
-          icon: controller.isSpeakerOn ? Icons.volume_up : Icons.hearing,
-          label: controller.isSpeakerOn ? 'Loud' : 'Normal',
-          active: controller.isSpeakerOn,
-          enabled: true,
-          onTap: () => controller.toggleSpeaker(),
-        ),
-        _CircularToggle(
-          icon: Icons.dialpad,
-          label: 'Keypad',
-          active: false,
-          enabled: false,
-          onTap: () {},
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _CircularToggle extends StatelessWidget {
-  const _CircularToggle({
+class _CallControl extends StatelessWidget {
+  const _CallControl({
     required this.icon,
     required this.label,
     required this.active,
-    required this.enabled,
+    required this.activeColor,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool active;
-  final bool enabled;
+  final Color activeColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final background = active ? Colors.white : Colors.white.withOpacity(0.12);
-    final iconColor = active
-        ? const Color(0xFF101114)
-        : (enabled ? Colors.white : Colors.white38);
-    final textColor = enabled ? Colors.white : Colors.white38;
+    final bg = active ? Colors.white : Colors.white.withValues(alpha: 0.12);
+    final fg = active ? activeColor : Colors.white;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Material(
-          color: background,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: enabled ? onTap : null,
-            child: SizedBox(
-              width: 64,
-              height: 64,
-              child: Icon(icon, color: iconColor, size: 28),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color:
+                  active ? Colors.white : Colors.white.withValues(alpha: 0.14),
+              width: active ? 2 : 1,
             ),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.28),
+                      blurRadius: 18,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: fg, size: 26),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            color: textColor,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

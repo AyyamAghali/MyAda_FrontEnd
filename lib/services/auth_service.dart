@@ -211,7 +211,8 @@ class AuthService {
       ),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to load $normalized users (${response.statusCode}).');
+      throw Exception(
+          'Failed to load $normalized users (${response.statusCode}).');
     }
     final body = _decodeJsonMap(response.body);
     final rawUsers = body['users'];
@@ -245,7 +246,8 @@ class AuthService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load user ($normalized) (${response.statusCode}).');
+      throw Exception(
+          'Failed to load user ($normalized) (${response.statusCode}).');
     }
 
     final body = _decodeJsonMap(response.body);
