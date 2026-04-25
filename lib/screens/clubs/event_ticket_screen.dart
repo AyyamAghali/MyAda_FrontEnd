@@ -191,28 +191,12 @@ class _EventTicketScreenState extends State<EventTicketScreen> {
               border: Border.all(color: AppColors.gray200),
             ),
             child: QrImageView(
-              // IMPORTANT RULE: QR encodes ONLY the ticket token/JWT string.
+              // QR encodes the ticket JWT; the raw token is not shown in the UI.
               data: jwt.isNotEmpty ? jwt : ' ',
               version: QrVersions.auto,
               size: 220,
               backgroundColor: Colors.transparent,
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Ticket JWT',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.gray500,
-            ),
-          ),
-          const SizedBox(height: 6),
-          SelectableText(
-            jwt,
-            style: const TextStyle(fontSize: 11, color: AppColors.gray700),
-            textAlign: TextAlign.center,
-            maxLines: 2,
           ),
         ],
       ),

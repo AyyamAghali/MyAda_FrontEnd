@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/user_role.dart';
+import '../rbac/app_home_access.dart';
+import '../rbac/club_entrance_scan_access.dart';
 import '../services/auth_service.dart';
 import '../services/call/call_controller.dart';
 import '../utils/constants.dart';
@@ -7,10 +8,12 @@ import '../utils/responsive.dart';
 import '../widgets/id_card.dart';
 import 'lost_found/home_screen.dart';
 import 'clubs/club_management_hub.dart';
+import 'clubs/entrance_scan_flow.dart';
 import 'support/support_module.dart';
 import 'attendance/attendance_home.dart';
 import 'account_page.dart';
 import 'admin/module_admin_screen.dart';
+import 'admin/support_staff_dashboard.dart';
 import 'login_page.dart';
 
 class MasterHomePage extends StatefulWidget {
@@ -90,7 +93,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
   Widget _buildAccountContent(BuildContext context) {
     return KeyedSubtree(
       key: const ValueKey('account-content'),
-      child: const AccountPage().buildContent(context),
+      child: const AccountPage(embedded: true),
     );
   }
 
@@ -286,49 +289,105 @@ class _MasterHomePageState extends State<MasterHomePage> {
   Widget _buildMoreSection(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     final roles = AuthService.instance.roles;
-    final services = [
-      _HomeAction(
-        label: 'attendance check',
-        icon: Icons.assignment_turned_in,
-        onTap: (context) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AttendanceHome()),
-          );
-        },
-      ),
-      _HomeAction(
-        label: 'Lost &\nFound',
-        icon: Icons.inventory_2_outlined,
-        onTap: (context) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        },
-      ),
-      _HomeAction(
-        label: 'Club\nManagement',
-        icon: Icons.groups,
-        onTap: (context) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ClubManagementHub()),
-          );
-        },
-      ),
-      _HomeAction(
-        label: 'IT & FM\nSupport',
-        icon: Icons.build,
-        onTap: (context) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const SupportModule()),
-          );
-        },
-      ),
+    final access = AppHomeAccess.fromRoles(roles);
+    final auth = AuthService.instance;
+
+    final services = <_HomeAction>[
+      if (access.showAttendanceCheck)
+        _HomeAction(
+          label: 'Attendance\ncheck',
+          icon: Icons.assignment_turned_in,
+          onTap: (context) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AttendanceHome()),
+            );
+          },
+        ),
+      if (access.showLostFound)
+        _HomeAction(
+          label: 'Lost &\nFound',
+          icon: Icons.inventory_2_outlined,
+          onTap: (context) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            );
+          },
+        ),
+      if (access.showAdaClubs)
+        _HomeAction(
+          label: 'Ada\nClubs',
+          icon: Icons.groups,
+          onTap: (context) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const ClubManagementHub()),
+            );
+          },
+        ),
+      if (access.showSupportCenter)
+        _HomeAction(
+          label: 'IT & FM\nSupport',
+          icon: Icons.build,
+          onTap: (context) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SupportModule()),
+            );
+          },
+        ),
+      if (access.showEventScanner)
+        _HomeAction(
+          label: 'Event\nScanner',
+          icon: Icons.qr_code_scanner,
+          onTap: (context) async {
+            final allowed =
+                await ClubEntranceScanAccess.allowedClubIdsForCurrentUser();
+            if (!context.mounted) return;
+            await Navigator.push<void>(
+              context,
+              MaterialPageRoute<void>(
+                builder: (context) => SelectClubForScanScreen(
+                  allowedClubIds: allowed,
+                ),
+              ),
+            );
+          },
+        ),
+      if (access.showSupportDispatcherConsole)
+        _HomeAction(
+          label: 'Support\nDispatcher',
+          icon: Icons.headset_mic_outlined,
+          onTap: (context) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const SupportAdminMobileScreen()),
+            );
+          },
+        ),
+      if (access.showStaffPortal)
+        _HomeAction(
+          label: 'Staff\nPortal',
+          icon: Icons.badge_outlined,
+          onTap: (context) {
+            final name = auth.username?.trim();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SupportStaffDashboard(
+                  staffName:
+                      (name != null && name.isNotEmpty) ? name : 'Staff',
+                  roleType: AppHomeAccess.staffRoleTypeFor(roles),
+                ),
+              ),
+            );
+          },
+        ),
     ];
-    final roleTools = _roleToolsFor(roles);
+    final roleTools = _adminToolsFor(access);
 
     return Container(
       width: double.infinity,
@@ -349,29 +408,42 @@ class _MasterHomePageState extends State<MasterHomePage> {
             ),
           ),
           const SizedBox(height: 12),
-          _buildActionGrid(context, services),
-          if (roleTools.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            const Text(
-              'Role tools',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.gray900,
+          if (services.isEmpty && roleTools.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'No services are assigned to your roles yet.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.gray600,
+                  height: 1.35,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _buildActionGrid(context, roleTools),
+            )
+          else ...[
+            _buildActionGrid(context, services),
+            if (roleTools.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const Text(
+                'Role tools',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.gray900,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildActionGrid(context, roleTools),
+            ],
           ],
         ],
       ),
     );
   }
 
-  List<_HomeAction> _roleToolsFor(Set<UserRole> roles) {
+  List<_HomeAction> _adminToolsFor(AppHomeAccess access) {
     final tools = <_HomeAction>[];
-
-    if (roles.canManageClubs) {
+    if (access.showClubAdminModule) {
       tools.add(
         _adminAction(
           label: 'Club\nAdmin',
@@ -380,7 +452,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
         ),
       );
     }
-    if (roles.canManageSupport) {
+    if (access.showSupportAdminModule) {
       tools.add(
         _adminAction(
           label: 'Support\nAdmin',
@@ -389,7 +461,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
         ),
       );
     }
-    if (roles.canManageLostFound) {
+    if (access.showLostFoundAdmin) {
       tools.add(
         _adminAction(
           label: 'Lost & Found\nAdmin',
@@ -398,7 +470,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
         ),
       );
     }
-    if (roles.canManageRooms) {
+    if (access.showRoomAdmin) {
       tools.add(
         _adminAction(
           label: 'Room\nAdmin',
@@ -407,7 +479,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
         ),
       );
     }
-    if (roles.canManageAttendance) {
+    if (access.showAttendanceAdmin) {
       tools.add(
         _adminAction(
           label: 'Attendance\nAdmin',
@@ -416,7 +488,6 @@ class _MasterHomePageState extends State<MasterHomePage> {
         ),
       );
     }
-
     return tools;
   }
 

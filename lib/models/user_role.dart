@@ -1,5 +1,7 @@
 enum UserRole {
   admin('admin', 'Admin'),
+  /// Club officer / employee (Ada Clubs + event scanner scope).
+  clubAdmin('club_admin', 'Club admin'),
   clubRep('club_rep', 'Club representative'),
   courseRegStaff('course_reg_staff', 'Course registration staff'),
   dispatcher('dispatcher', 'Dispatcher'),
@@ -37,42 +39,7 @@ enum UserRole {
   }
 }
 
-extension UserRoleSetPermissions on Iterable<UserRole> {
-  bool get isGlobalAdmin => contains(UserRole.admin);
-
-  bool get canManageClubs =>
-      isGlobalAdmin ||
-      contains(UserRole.clubRep) ||
-      contains(UserRole.studentServices);
-
-  bool get canManageSupport =>
-      isGlobalAdmin ||
-      contains(UserRole.itAdmin) ||
-      contains(UserRole.itStaff) ||
-      contains(UserRole.techAdmin) ||
-      contains(UserRole.techStaff) ||
-      contains(UserRole.dispatcher);
-
-  bool get canManageLostFound =>
-      isGlobalAdmin ||
-      contains(UserRole.lostFoundLeader) ||
-      contains(UserRole.studentServices);
-
-  bool get canManageAttendance =>
-      isGlobalAdmin ||
-      contains(UserRole.instructor) ||
-      contains(UserRole.courseRegStaff);
-
-  bool get canManageRooms =>
-      isGlobalAdmin || contains(UserRole.studentServices);
-
-  bool get hasAnyAdminTool =>
-      canManageClubs ||
-      canManageSupport ||
-      canManageLostFound ||
-      canManageAttendance ||
-      canManageRooms;
-
+extension UserRoleSetDisplay on Iterable<UserRole> {
   String get displayLabel {
     if (isEmpty) return UserRole.student.label;
     if (length == 1) return first.label;

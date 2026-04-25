@@ -1,20 +1,77 @@
 import 'package:flutter/material.dart';
+
+import '../models/user_role.dart';
+import '../services/auth_service.dart';
+import '../services/call/call_controller.dart';
 import '../utils/constants.dart';
 import 'login_page.dart';
 
-class AccountPage extends StatelessWidget {
-  const AccountPage({super.key});
+class AccountPage extends StatefulWidget {
+  const AccountPage({super.key, this.embedded = false});
 
-  // Mock user data - in real app, this would come from a user service
-  final String name = 'Rəşad';
-  final String surname = 'Mirzəyev';
-  final String studentId = 'P000011230';
-  final String email = 'rashad.mirzayev@ada.edu.az';
-  final String status = 'Student';
-  final String? photoUrl = 'https://i.pravatar.cc/150?img=12';
+  /// When true (e.g. home tab), only the scrollable body is built — no [Scaffold] / app bar.
+  final bool embedded;
+
+  @override
+  State<AccountPage> createState() => _AccountPageState();
+}
+
+class _AccountPageState extends State<AccountPage> {
+  late Future<AuthUserProfile> _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileFuture = _loadProfile();
+  }
+
+  Future<AuthUserProfile> _loadProfile() async {
+    final auth = AuthService.instance;
+    await auth.loadSession();
+    final id = auth.studentId?.trim();
+    if (id == null || id.isEmpty) {
+      throw Exception('Missing user id. Please sign in again.');
+    }
+    return auth.fetchUserById(id);
+  }
+
+  void _reload() {
+    setState(() {
+      _profileFuture = _loadProfile();
+    });
+  }
+
+  /// Personal Information "Status": student → Student, instructor → Instructor, else Staff.
+  String _statusLine(AuthUserProfile profile) {
+    final roles = profile.roles;
+    if (roles.contains(UserRole.student)) return 'Student';
+    if (roles.contains(UserRole.instructor)) return 'Instructor';
+    if (roles.isNotEmpty) return 'Staff';
+
+    final t = profile.userType?.toLowerCase() ?? '';
+    if (t.contains('student')) return 'Student';
+    if (t.contains('instructor')) return 'Instructor';
+    return 'Staff';
+  }
+
+  String _badgeLabel(AuthUserProfile profile) {
+    if (profile.roles.isNotEmpty) return profile.displayRoleLabel;
+    final t = profile.userType?.trim();
+    if (t != null && t.isNotEmpty) return t;
+    return UserRole.student.label;
+  }
+
+  String _organizationalIdDisplay(AuthUserProfile profile) {
+    final v = profile.organizationalId?.trim();
+    if (v != null && v.isNotEmpty) return v;
+    return 'Not assigned';
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return _buildBody(context);
+    }
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
@@ -22,7 +79,7 @@ class AccountPage extends StatelessWidget {
           children: [
             _buildHeader(context),
             Expanded(
-              child: buildContent(context),
+              child: _buildBody(context),
             ),
           ],
         ),
@@ -30,22 +87,78 @@ class AccountPage extends StatelessWidget {
     );
   }
 
-  Widget buildContent(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Column(
-        children: [
-          _buildProfileSection(),
-          const SizedBox(height: 20),
-          _buildPersonalInfoSection(),
-          const SizedBox(height: 16),
-          _buildSettingsSection(context),
-          const SizedBox(height: 16),
-          _buildSupportSection(context),
-          const SizedBox(height: 16),
-          _buildLogoutButton(context),
-          const SizedBox(height: 20),
-        ],
+  Widget _buildBody(BuildContext context) {
+    return FutureBuilder<AuthUserProfile>(
+      future: _profileFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return _buildErrorState(context, snapshot.error);
+        }
+        final profile = snapshot.data!;
+        return RefreshIndicator(
+          onRefresh: () async {
+            _reload();
+            await _profileFuture;
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              children: [
+                _buildProfileSection(profile),
+                const SizedBox(height: 20),
+                _buildPersonalInfoSection(profile),
+                const SizedBox(height: 16),
+                _buildSettingsSection(context),
+                const SizedBox(height: 16),
+                _buildSupportSection(context),
+                const SizedBox(height: 16),
+                _buildLogoutButton(context),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context, Object? error) {
+    final message = error is Exception
+        ? error.toString().replaceFirst('Exception: ', '')
+        : error?.toString() ?? 'Something went wrong.';
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: AppColors.gray400),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.gray700,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: _reload,
+              child: const Text('Try again'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -84,7 +197,12 @@ class AccountPage extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileSection() {
+  Widget _buildProfileSection(AuthUserProfile profile) {
+    final fullName =
+        '${profile.displayFirstName} ${profile.displayLastName}'.trim();
+    final email = profile.email?.trim() ?? '';
+    final photo = profile.profileImage?.trim();
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -109,9 +227,9 @@ class AccountPage extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: photoUrl != null
+              child: photo != null && photo.isNotEmpty
                   ? Image.network(
-                      photoUrl!,
+                      photo,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) =>
                           _buildPlaceholderAvatar(),
@@ -125,7 +243,7 @@ class AccountPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$name $surname',
+                  fullName.isEmpty ? 'ADA User' : fullName,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -133,15 +251,17 @@ class AccountPage extends StatelessWidget {
                     letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  email,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.gray600,
-                    fontWeight: FontWeight.w400,
+                if (email.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    email,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.gray600,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 4),
                 Container(
                   padding:
@@ -151,7 +271,7 @@ class AccountPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    status,
+                    _badgeLabel(profile),
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -180,26 +300,27 @@ class AccountPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPersonalInfoSection() {
+  Widget _buildPersonalInfoSection(AuthUserProfile profile) {
+    final email = profile.email?.trim() ?? '';
     return _buildSection(
       title: 'Personal Information',
       children: [
         _buildInfoRow(
           icon: Icons.badge_outlined,
-          label: 'Student ID',
-          value: studentId,
+          label: 'ID',
+          value: _organizationalIdDisplay(profile),
         ),
         const Divider(height: 1, thickness: 1),
         _buildInfoRow(
           icon: Icons.email_outlined,
           label: 'Email',
-          value: email,
+          value: email.isNotEmpty ? email : '—',
         ),
         const Divider(height: 1, thickness: 1),
         _buildInfoRow(
           icon: Icons.school_outlined,
           label: 'Status',
-          value: status,
+          value: _statusLine(profile),
         ),
       ],
     );
@@ -226,24 +347,6 @@ class AccountPage extends StatelessWidget {
             _showSnackBar(context, 'Privacy settings are mocked.');
           },
         ),
-        const Divider(height: 1, thickness: 1),
-        _buildSettingTile(
-          icon: Icons.language_outlined,
-          title: 'Language',
-          subtitle: 'English',
-          onTap: () {
-            _showSnackBar(context, 'Language picker is mocked.');
-          },
-        ),
-        const Divider(height: 1, thickness: 1),
-        _buildSettingTile(
-          icon: Icons.dark_mode_outlined,
-          title: 'Appearance',
-          subtitle: 'Light mode',
-          onTap: () {
-            _showSnackBar(context, 'Theme picker is mocked.');
-          },
-        ),
       ],
     );
   }
@@ -252,24 +355,6 @@ class AccountPage extends StatelessWidget {
     return _buildSection(
       title: 'Help & Support',
       children: [
-        _buildSettingTile(
-          icon: Icons.help_outline,
-          title: 'Help Center',
-          subtitle: 'FAQs and guides',
-          onTap: () {
-            _showSnackBar(context, 'Help Center is mocked.');
-          },
-        ),
-        const Divider(height: 1, thickness: 1),
-        _buildSettingTile(
-          icon: Icons.contact_support_outlined,
-          title: 'Contact Support',
-          subtitle: 'Get help from our team',
-          onTap: () {
-            _showSnackBar(context, 'Contact Support is mocked.');
-          },
-        ),
-        const Divider(height: 1, thickness: 1),
         _buildSettingTile(
           icon: Icons.info_outline,
           title: 'About',
@@ -470,7 +555,7 @@ class AccountPage extends StatelessWidget {
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -491,7 +576,7 @@ class AccountPage extends StatelessWidget {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text(
                 'Cancel',
                 style: TextStyle(
@@ -501,8 +586,11 @@ class AccountPage extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await CallController.instance.disconnect();
+                await AuthService.instance.clearSession();
+                if (!context.mounted) return;
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => const LoginPage()),

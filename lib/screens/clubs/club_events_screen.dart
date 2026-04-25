@@ -5,6 +5,7 @@ import '../../models/event_tickets_models.dart';
 import '../../services/club_api_service.dart';
 import '../../services/remote_event_tickets_repository.dart';
 import '../../services/event_tickets_repository.dart';
+import '../../rbac/club_entrance_scan_access.dart';
 import '../../utils/constants.dart';
 import 'club_event_detail_screen.dart';
 import 'entrance_scan_flow.dart';
@@ -512,11 +513,15 @@ class _TicketsPane extends StatefulWidget {
 class _TicketsPaneState extends State<_TicketsPane> {
   late Future<List<MyRegistrationItem>> _future;
   final EventTicketsRepository _repo = RemoteEventTicketsRepository();
+  bool? _canScanEntrance;
 
   @override
   void initState() {
     super.initState();
     _future = _repo.listMyRegistrations();
+    ClubEntranceScanAccess.canOpenEntranceScanner().then((allowed) {
+      if (mounted) setState(() => _canScanEntrance = allowed);
+    });
   }
 
   Future<void> _reload() async {
@@ -532,35 +537,41 @@ class _TicketsPaneState extends State<_TicketsPane> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 90),
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => const SelectClubForScanScreen(),
+          if (_canScanEntrance == true)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () async {
+                    final allowed =
+                        await ClubEntranceScanAccess.allowedClubIdsForCurrentUser();
+                    if (!context.mounted) return;
+                    await Navigator.push<void>(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => SelectClubForScanScreen(
+                          allowedClubIds: allowed,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.qr_code_scanner, size: 18),
+                  label: const Text(
+                    'Scan at entrance',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.secondary,
+                    foregroundColor: AppColors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                },
-                icon: const Icon(Icons.qr_code_scanner, size: 18),
-                label: const Text(
-                  'Scan at entrance',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.secondary,
-                  foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
             ),
-          ),
           FutureBuilder<List<MyRegistrationItem>>(
             future: _future,
             builder: (context, snap) {

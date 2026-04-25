@@ -7,6 +7,7 @@ import '../login_page.dart';
 import 'support_staff_dashboard.dart';
 import 'club_application_detail.dart';
 import 'support_ticket_detail.dart';
+import '../../rbac/club_entrance_scan_access.dart';
 import '../clubs/club_events_screen.dart';
 import '../clubs/entrance_scan_flow.dart';
 
@@ -912,6 +913,8 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
     },
   ];
 
+  bool? _canScanEntrance;
+
   final List<Map<String, String>> _applications = [
     {
       'name': 'Jane Cooper',
@@ -946,6 +949,14 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
       'type': 'vacancy',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    ClubEntranceScanAccess.canOpenEntranceScanner().then((allowed) {
+      if (mounted) setState(() => _canScanEntrance = allowed);
+    });
+  }
 
   @override
   void dispose() {
@@ -993,32 +1004,38 @@ class _ClubAdminMobileScreenState extends State<ClubAdminMobileScreen> {
           children: [
             _buildSectionTitle('Event Manager Tools'),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => const SelectClubForScanScreen(),
+            if (_canScanEntrance == true)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () async {
+                    final allowed = await ClubEntranceScanAccess
+                        .allowedClubIdsForCurrentUser();
+                    if (!context.mounted) return;
+                    await Navigator.push<void>(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => SelectClubForScanScreen(
+                          allowedClubIds: allowed,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.qr_code_scanner, size: 18),
+                  label: const Text(
+                    'Scan at entrance',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.secondary,
+                    foregroundColor: AppColors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                },
-                icon: const Icon(Icons.qr_code_scanner, size: 18),
-                label: const Text(
-                  'Scan at entrance',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.secondary,
-                  foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
-            ),
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,

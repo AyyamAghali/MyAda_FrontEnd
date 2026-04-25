@@ -11,7 +11,10 @@ import '../../services/event_tickets_repository.dart';
 import '../../utils/constants.dart';
 
 class SelectClubForScanScreen extends StatefulWidget {
-  const SelectClubForScanScreen({super.key});
+  /// When `null`, every club with events is listed (global admin). Otherwise only these ids.
+  final Set<int>? allowedClubIds;
+
+  const SelectClubForScanScreen({super.key, this.allowedClubIds});
 
   @override
   State<SelectClubForScanScreen> createState() =>
@@ -36,7 +39,11 @@ class _SelectClubForScanScreenState extends State<SelectClubForScanScreen> {
       for (final e in events) {
         map[e.clubId] ??= e.clubName;
       }
-      final out = map.entries.map((e) => (e.key, e.value)).toList();
+      var out = map.entries.map((e) => (e.key, e.value)).toList();
+      final allowed = widget.allowedClubIds;
+      if (allowed != null) {
+        out = out.where((c) => allowed.contains(c.$1)).toList();
+      }
       out.sort((a, b) => a.$2.compareTo(b.$2));
       if (mounted) {
         setState(() {
@@ -62,7 +69,23 @@ class _SelectClubForScanScreenState extends State<SelectClubForScanScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _clubs.isEmpty
-              ? const Center(child: Text('No clubs found.'))
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      widget.allowedClubIds != null &&
+                              widget.allowedClubIds!.isEmpty
+                          ? 'You are not assigned to scan for any club.'
+                          : 'No clubs with events are available for scanning.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: AppColors.gray600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                )
               : ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: _clubs.length,
@@ -908,7 +931,7 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
     final profileName = [
       _attendeeProfile?.firstName,
       _attendeeProfile?.lastName,
-    ].where((v) => (v ?? '').trim().isNotEmpty).join(' ').trim();
+    ].where((v) => (v ?? '').toString().trim().isNotEmpty).join(' ').trim();
     if (profileName.isNotEmpty) return profileName;
 
     final attendee = res.attendee;
@@ -918,10 +941,20 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
         attendee.surname,
       ].where((v) => (v ?? '').trim().isNotEmpty).join(' ').trim();
       if (name.isNotEmpty) return name;
-      if (attendee.studentId.isNotEmpty) return attendee.studentId;
     }
 
+    final org = _organizationalIdForDisplay(res);
+    if (org.isNotEmpty) return org;
+
     return res.success ? 'Registered attendee' : 'Unknown attendee';
+  }
+
+  /// Auth profile first, then scan payload [AttendeeIdentity.studentId] if the API maps it to org id.
+  String _organizationalIdForDisplay(CheckInResponse res) {
+    final p = _attendeeProfile?.organizationalId?.trim();
+    if (p != null && p.isNotEmpty) return p;
+    final sid = res.attendee?.studentId.trim() ?? '';
+    return sid;
   }
 
   String _attendeeSubtitle(CheckInResponse res) {
@@ -931,12 +964,9 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
       if (profile.userName.isNotEmpty) parts.add('@${profile.userName}');
       if ((profile.email ?? '').isNotEmpty) parts.add(profile.email!);
     }
-    final attendee = res.attendee;
-    if (attendee != null) {
-      if (attendee.studentId.isNotEmpty) {
-        parts.add('Student ID: ${attendee.studentId}');
-      }
-      if (attendee.userId.isNotEmpty) parts.add('User ID: ${attendee.userId}');
+    final org = _organizationalIdForDisplay(res);
+    if (org.isNotEmpty) {
+      parts.add('Organizational ID: $org');
     }
     if (_isResolvingAttendee && parts.isEmpty) {
       return 'Loading attendee details...';
