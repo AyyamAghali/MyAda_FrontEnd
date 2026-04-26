@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/club_vacancy.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../utils/vacancy_category_style.dart';
 import 'apply_vacancy_screen.dart';
 
@@ -31,9 +32,12 @@ class VacancyDetailScreen extends StatelessWidget {
             pinned: true,
             backgroundColor: AppColors.primary,
             foregroundColor: AppColors.white,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-              onPressed: () => Navigator.pop(context),
+            automaticallyImplyLeading: false,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Center(
+                child: AppBackButton(onPressed: () => Navigator.pop(context)),
+              ),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(

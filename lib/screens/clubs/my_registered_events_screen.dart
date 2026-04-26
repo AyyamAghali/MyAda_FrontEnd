@@ -126,7 +126,10 @@ class _MyRegisteredEventsScreenState extends State<MyRegisteredEventsScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                  builder: (_) => ClubEventDetailScreen(eventId: e.id),
+                                  builder: (_) => ClubEventDetailScreen(
+                                        eventId: e.id,
+                                        initialEvent: e,
+                                      ),
                                 ),
                               );
                             },

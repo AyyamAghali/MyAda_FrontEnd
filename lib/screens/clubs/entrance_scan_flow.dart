@@ -9,6 +9,7 @@ import '../../services/club_api_service.dart';
 import '../../services/remote_event_tickets_repository.dart';
 import '../../services/event_tickets_repository.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 
 class SelectClubForScanScreen extends StatefulWidget {
   /// When `null`, every club with events is listed (global admin). Otherwise only these ids.
@@ -480,22 +481,7 @@ class _EntranceScannerScreenState extends State<EntranceScannerScreen> {
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColors.gray100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new,
-                size: 16,
-                color: AppColors.gray700,
-              ),
-            ),
-          ),
+          AppBackButton(onPressed: () => Navigator.pop(context)),
           const SizedBox(width: 14),
           const Expanded(
             child: Column(

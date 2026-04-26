@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'app_navigator_key.dart';
 import 'screens/login_page.dart';
+import 'utils/constants.dart';
 import 'widgets/call_overlay_host.dart';
 
 void main() {
@@ -41,6 +42,16 @@ class AdaApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         useMaterial3: true,
         fontFamily: 'Roboto',
+        appBarTheme: const AppBarTheme(
+          centerTitle: true,
+          elevation: 0,
+          scrolledUnderElevation: 0.5,
+          backgroundColor: AppColors.white,
+          foregroundColor: AppColors.gray900,
+          surfaceTintColor: Colors.transparent,
+          titleTextStyle: AppTextStyles.moduleAppBarTitle,
+          iconTheme: IconThemeData(color: AppColors.gray900),
+        ),
       ),
       home: const LoginPage(),
       builder: (context, child) {

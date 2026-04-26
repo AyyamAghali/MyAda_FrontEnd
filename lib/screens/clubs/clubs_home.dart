@@ -1,7 +1,10 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import '../../models/club.dart';
 import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../widgets/responsive_container.dart';
 import '../../widgets/club_card.dart';
 import 'club_details.dart';
@@ -24,6 +27,11 @@ class ClubsHome extends StatefulWidget {
   /// When set (hub mode), opening a club uses this instead of pushing [ClubDetails] directly.
   final Future<void> Function(Club club)? onClubOpen;
 
+  /// [ClubManagementHub]'s main tab controller. When set with [embeddedInHub], directory
+  /// requests run only while the Clubs tab is selected so Vacancies/Events do not compete
+  /// on the same gateway (avoids timeouts / flaky first load on mobile).
+  final TabController? hubMainTabController;
+
   const ClubsHome({
     super.key,
     this.embeddedInHub = false,
@@ -32,6 +40,7 @@ class ClubsHome extends StatefulWidget {
     this.myClubsInnerTabIndex = 0,
     this.applicationsClubNameFilter,
     this.onClubOpen,
+    this.hubMainTabController,
   });
 
   @override
@@ -54,15 +63,58 @@ class _ClubsHomeState extends State<ClubsHome> {
   bool _isLoadingMore = false;
   static const _limit = 24;
 
+  bool _embeddedHubFetchStarted = false;
+
+  bool get _deferHubEmbeddedFetch =>
+      widget.embeddedInHub && widget.hubMainTabController != null;
+
   @override
   void initState() {
     super.initState();
-    _loadCategories();
-    _loadClubs();
+    if (_deferHubEmbeddedFetch) {
+      widget.hubMainTabController!.addListener(_onHubMainTabChanged);
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _kickHubEmbeddedFetch());
+    } else {
+      unawaited(_bootstrapClubsDirectory());
+    }
+  }
+
+  void _kickHubEmbeddedFetch() {
+    if (!mounted || !_deferHubEmbeddedFetch) return;
+    final c = widget.hubMainTabController!;
+    if (c.indexIsChanging) return;
+    if (c.index != ClubHubTabs.clubs) return;
+    _startEmbeddedHubFetchIfNeeded();
+  }
+
+  void _onHubMainTabChanged() {
+    if (!mounted || !_deferHubEmbeddedFetch) return;
+    final c = widget.hubMainTabController!;
+    if (c.indexIsChanging) return;
+    if (c.index == ClubHubTabs.clubs) {
+      _startEmbeddedHubFetchIfNeeded();
+    }
+    setState(() {});
+  }
+
+  void _startEmbeddedHubFetchIfNeeded() {
+    if (_embeddedHubFetchStarted) return;
+    _embeddedHubFetchStarted = true;
+    unawaited(_bootstrapClubsDirectory());
+  }
+
+  /// Load club list first, then categories, so two gateway calls are not in flight together.
+  Future<void> _bootstrapClubsDirectory() async {
+    await _loadClubs();
+    if (mounted) await _loadCategories();
   }
 
   @override
   void dispose() {
+    if (_deferHubEmbeddedFetch) {
+      widget.hubMainTabController?.removeListener(_onHubMainTabChanged);
+    }
     _searchFocus.dispose();
     super.dispose();
   }
@@ -78,13 +130,19 @@ class _ClubsHomeState extends State<ClubsHome> {
     if (loadMore) {
       setState(() => _isLoadingMore = true);
     } else {
-      setState(() { _isLoading = true; _error = null; _page = 1; _hasMore = true; });
+      setState(() {
+        _isLoading = true;
+        _error = null;
+        _page = 1;
+        _hasMore = true;
+      });
     }
     try {
       final page = loadMore ? _page + 1 : 1;
       final category = selectedCategory == 'All' ? null : selectedCategory;
       final search = searchQuery.trim().isEmpty ? null : searchQuery.trim();
-      final clubs = await _api.fetchClubs(search: search, category: category, page: page, limit: _limit);
+      final clubs = await _api.fetchClubs(
+          search: search, category: category, page: page, limit: _limit);
       if (mounted) {
         setState(() {
           if (loadMore) {
@@ -128,10 +186,11 @@ class _ClubsHomeState extends State<ClubsHome> {
 
   List<Club> get filteredClubs {
     return _clubs.where((club) {
-      final matchesSearch =
-          club.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
-              club.tags.any((tag) =>
-                  tag.toLowerCase().contains(searchQuery.toLowerCase()));
+      final matchesSearch = club.name
+              .toLowerCase()
+              .contains(searchQuery.toLowerCase()) ||
+          club.tags.any(
+              (tag) => tag.toLowerCase().contains(searchQuery.toLowerCase()));
       final matchesCategory =
           selectedCategory == 'All' || club.category == selectedCategory;
       return matchesSearch && matchesCategory;
@@ -161,8 +220,10 @@ class _ClubsHomeState extends State<ClubsHome> {
                                 ),
                                 embeddedInHub: true,
                                 embeddedInClubsTab: true,
-                                initialPrimaryTabIndex: widget.myClubsInnerTabIndex,
-                                applicationsClubNameFilter: widget.applicationsClubNameFilter,
+                                initialPrimaryTabIndex:
+                                    widget.myClubsInnerTabIndex,
+                                applicationsClubNameFilter:
+                                    widget.applicationsClubNameFilter,
                               ),
                       ),
                     ],
@@ -197,24 +258,26 @@ class _ClubsHomeState extends State<ClubsHome> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
       child: Row(
-          children: [
-            Expanded(
-              child: _paneToggle(
-                label: 'Discover',
-                icon: Icons.travel_explore_outlined,
-                selected: widget.clubsPane == ClubsHomePane.browse,
-                onTap: () => widget.onClubsPaneChanged?.call(ClubsHomePane.browse),
-              ),
+        children: [
+          Expanded(
+            child: _paneToggle(
+              label: 'Discover',
+              icon: Icons.travel_explore_outlined,
+              selected: widget.clubsPane == ClubsHomePane.browse,
+              onTap: () =>
+                  widget.onClubsPaneChanged?.call(ClubsHomePane.browse),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _paneToggle(
-                label: 'My clubs',
-                icon: Icons.folder_special_outlined,
-                selected: widget.clubsPane == ClubsHomePane.myClubs,
-                onTap: () => widget.onClubsPaneChanged?.call(ClubsHomePane.myClubs),
-              ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _paneToggle(
+              label: 'My clubs',
+              icon: Icons.folder_special_outlined,
+              selected: widget.clubsPane == ClubsHomePane.myClubs,
+              onTap: () =>
+                  widget.onClubsPaneChanged?.call(ClubsHomePane.myClubs),
             ),
+          ),
         ],
       ),
     );
@@ -237,10 +300,14 @@ class _ClubsHomeState extends State<ClubsHome> {
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primary.withOpacity(0.08) : AppColors.gray50,
+            color: selected
+                ? AppColors.primary.withOpacity(0.08)
+                : AppColors.gray50,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: selected ? AppColors.primary.withOpacity(0.35) : AppColors.gray200,
+              color: selected
+                  ? AppColors.primary.withOpacity(0.35)
+                  : AppColors.gray200,
             ),
           ),
           child: Row(
@@ -289,26 +356,20 @@ class _ClubsHomeState extends State<ClubsHome> {
       color: AppColors.white,
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
-            onPressed: () => Navigator.pop(context),
-          ),
+          AppBackButton(onPressed: () => Navigator.pop(context)),
           const SizedBox(width: 4),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Club Management',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
+                  'ADA Clubs',
+                  style: AppTextStyles.moduleAppBarTitle,
                 ),
                 Text(
                   '${filteredClubs.length} clubs',
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray500),
+                  style:
+                      const TextStyle(fontSize: 12, color: AppColors.gray500),
                 ),
               ],
             ),
@@ -334,9 +395,10 @@ class _ClubsHomeState extends State<ClubsHome> {
               style: const TextStyle(fontSize: 14, color: AppColors.gray900),
               decoration: InputDecoration(
                 hintText: 'Search by name or tag…',
-                hintStyle: const TextStyle(fontSize: 13, color: AppColors.gray400),
-                prefixIcon:
-                    const Icon(Icons.search, size: 20, color: AppColors.gray400),
+                hintStyle:
+                    const TextStyle(fontSize: 13, color: AppColors.gray400),
+                prefixIcon: const Icon(Icons.search,
+                    size: 20, color: AppColors.gray400),
                 prefixIconConstraints:
                     const BoxConstraints(minWidth: 40, minHeight: 0),
                 suffixIcon: GestureDetector(
@@ -349,7 +411,8 @@ class _ClubsHomeState extends State<ClubsHome> {
                       color: AppColors.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.tune, size: 17, color: AppColors.primary),
+                    child: const Icon(Icons.tune,
+                        size: 17, color: AppColors.primary),
                   ),
                 ),
                 suffixIconConstraints:
@@ -367,7 +430,8 @@ class _ClubsHomeState extends State<ClubsHome> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                  borderSide:
+                      const BorderSide(color: AppColors.primary, width: 1.5),
                 ),
               ),
             ),
@@ -377,7 +441,10 @@ class _ClubsHomeState extends State<ClubsHome> {
             children: [
               Text(
                 '${filteredClubs.length} club${filteredClubs.length == 1 ? '' : 's'}',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.gray500),
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.gray500),
               ),
               if (hasFilter) ...[
                 const SizedBox(width: 10),
@@ -385,7 +452,10 @@ class _ClubsHomeState extends State<ClubsHome> {
                   onTap: () => setState(() => selectedCategory = 'All'),
                   child: const Text(
                     'Clear filters',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.secondary),
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondary),
                   ),
                 ),
               ],
@@ -442,7 +512,8 @@ class _ClubsHomeState extends State<ClubsHome> {
                       ),
                       GestureDetector(
                         onTap: () => Navigator.pop(ctx),
-                        child: const Icon(Icons.close, size: 22, color: AppColors.gray500),
+                        child: const Icon(Icons.close,
+                            size: 22, color: AppColors.gray500),
                       ),
                     ],
                   ),
@@ -464,7 +535,8 @@ class _ClubsHomeState extends State<ClubsHome> {
                       return GestureDetector(
                         onTap: () => setModal(() => tmp = c),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 7),
                           decoration: BoxDecoration(
                             color: sel ? AppColors.primary : AppColors.gray100,
                             borderRadius: BorderRadius.circular(8),
@@ -500,7 +572,8 @@ class _ClubsHomeState extends State<ClubsHome> {
                       ),
                       child: const Text(
                         'Apply',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -514,6 +587,13 @@ class _ClubsHomeState extends State<ClubsHome> {
   }
 
   Widget _buildClubsList(BuildContext context) {
+    if (_deferHubEmbeddedFetch && !_embeddedHubFetchStarted) {
+      final c = widget.hubMainTabController;
+      if (c != null && c.index == ClubHubTabs.clubs) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      return const SizedBox.shrink();
+    }
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -526,15 +606,23 @@ class _ClubsHomeState extends State<ClubsHome> {
             children: [
               const Icon(Icons.cloud_off, size: 48, color: AppColors.gray300),
               const SizedBox(height: 12),
-              Text('Failed to load clubs', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
+              Text('Failed to load clubs',
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.gray700)),
               const SizedBox(height: 6),
-              Text(_error!, style: const TextStyle(fontSize: 12, color: AppColors.gray500), textAlign: TextAlign.center),
+              Text(_error!,
+                  style:
+                      const TextStyle(fontSize: 12, color: AppColors.gray500),
+                  textAlign: TextAlign.center),
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: _loadClubs,
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('Retry'),
-                style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                style:
+                    FilledButton.styleFrom(backgroundColor: AppColors.primary),
               ),
             ],
           ),
@@ -549,8 +637,7 @@ class _ClubsHomeState extends State<ClubsHome> {
             const Icon(Icons.groups, size: 64, color: AppColors.gray300),
             const SizedBox(height: 16),
             const Text('No clubs found',
-                style:
-                    TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text(
               'Try adjusting your search or filter criteria',

@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/club_vacancy.dart';
 import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 
 class ApplyVacancyScreen extends StatefulWidget {
   final ClubVacancy vacancy;
@@ -96,9 +97,12 @@ class _ApplyVacancyScreenState extends State<ApplyVacancyScreen> {
         backgroundColor: AppColors.white,
         foregroundColor: AppColors.gray900,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Center(
+            child: AppBackButton(onPressed: () => Navigator.pop(context)),
+          ),
         ),
         title: const Text(
           'Apply for Position',

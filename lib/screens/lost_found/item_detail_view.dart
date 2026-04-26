@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../models/lost_item.dart';
 import '../../services/lost_found_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../widgets/responsive_container.dart';
 
 class ItemDetailView extends StatefulWidget {
@@ -190,10 +191,7 @@ class _ItemDetailViewState extends State<ItemDetailView> {
         Positioned(
           top: topPadding + 8,
           left: 16,
-          child: _CircleButton(
-            icon: Icons.arrow_back_ios_new,
-            onTap: () => Navigator.pop(context),
-          ),
+          child: AppBackButton(onPressed: () => Navigator.pop(context)),
         ),
         // Zoom hint
         Positioned(

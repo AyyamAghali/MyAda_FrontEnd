@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/call/call_controller.dart';
 import '../utils/constants.dart';
 import '../utils/responsive.dart';
+import '../widgets/app_back_button.dart';
 import '../widgets/id_card.dart';
 import 'lost_found/home_screen.dart';
 import 'clubs/club_management_hub.dart';
@@ -48,24 +49,34 @@ class _MasterHomePageState extends State<MasterHomePage> {
           ? AppColors.background
           : AppColors.backgroundLight,
       body: SafeArea(
+        top: false,
         bottom: false,
-        child: Column(
+        child: Stack(
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: _selectedIndex == 0
-                  ? _buildHeader(context)
-                  : _buildAccountHeader(context),
+            Column(
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: _selectedIndex == 0
+                      ? _buildHeader(context)
+                      : _buildAccountHeader(context),
+                ),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _selectedIndex == 0
+                        ? _buildHomeContent(context)
+                        : _buildAccountContent(context),
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: _selectedIndex == 0
-                    ? _buildHomeContent(context)
-                    : _buildAccountContent(context),
-              ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _buildBottomNavigation(context),
             ),
-            _buildBottomNavigation(context),
           ],
         ),
       ),
@@ -73,17 +84,20 @@ class _MasterHomePageState extends State<MasterHomePage> {
   }
 
   Widget _buildHomeContent(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
     return SingleChildScrollView(
       key: const ValueKey('home-content'),
-      padding: EdgeInsets.symmetric(
-        horizontal: Responsive.isMobile(context) ? 8 : 24,
-        vertical: Responsive.isMobile(context) ? 8 : 16,
+      padding: EdgeInsets.only(
+        left: isMobile ? 8 : 24,
+        right: isMobile ? 8 : 24,
+        top: isMobile ? 8 : 16,
+        bottom: 80,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildIdCard(context),
-          SizedBox(height: Responsive.isMobile(context) ? 16 : 24),
+          SizedBox(height: isMobile ? 16 : 24),
           _buildMoreSection(context),
         ],
       ),
@@ -97,81 +111,135 @@ class _MasterHomePageState extends State<MasterHomePage> {
     );
   }
 
+  String _homeGreetingName(AuthUserProfile? profile) {
+    if (profile != null) {
+      final fn = profile.firstName?.trim();
+      final ln = profile.lastName?.trim();
+      if (fn != null &&
+          fn.isNotEmpty &&
+          ln != null &&
+          ln.isNotEmpty) {
+        return '$fn $ln';
+      }
+      if (fn != null && fn.isNotEmpty) return fn;
+      if (ln != null && ln.isNotEmpty) return ln;
+      final un = profile.userName.trim();
+      if (un.isNotEmpty) {
+        return un
+            .split(RegExp(r'\s+'))
+            .where((p) => p.isNotEmpty)
+            .map(_titleCaseToken)
+            .join(' ');
+      }
+    }
+    final u = AuthService.instance.username?.trim();
+    if (u != null && u.isNotEmpty) {
+      return u
+          .split(RegExp(r'\s+'))
+          .where((p) => p.isNotEmpty)
+          .map(_titleCaseToken)
+          .join(' ');
+    }
+    return 'Student';
+  }
+
+  String _titleCaseToken(String raw) {
+    if (raw.isEmpty) return raw;
+    final lower = raw.toLowerCase();
+    return lower[0].toUpperCase() + (lower.length > 1 ? lower.substring(1) : '');
+  }
+
   Widget _buildHeader(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
-    final logoSize = isMobile ? 36.0 : 48.0;
-    final iconSize = isMobile ? 20.0 : 24.0;
+    final iconSize = isMobile ? 20.0 : 22.0;
+    final topInset = MediaQuery.of(context).padding.top;
 
-    return Container(
-      key: const ValueKey('home-header'),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.background,
-            AppColors.white,
-          ],
-          stops: [0.0, 1.0],
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 16 : 24,
-          vertical: isMobile ? 10 : 14,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Image.asset(
-              'assets/images/ada_logo.png',
-              height: logoSize,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Icon(Icons.school,
-                    size: logoSize, color: AppColors.primary);
-              },
+    return FutureBuilder<AuthUserProfile?>(
+      future: _profileFuture,
+      builder: (context, snapshot) {
+        final displayLine = _homeGreetingName(snapshot.data);
+
+        return Container(
+          key: const ValueKey('home-header'),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(24),
+              bottomRight: Radius.circular(24),
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: isMobile ? 20 : 28,
+              right: isMobile ? 20 : 28,
+              top: topInset + (isMobile ? 12 : 14),
+              bottom: isMobile ? 14 : 18,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                IconButton(
-                  icon: Icon(Icons.settings,
-                      color: AppColors.primary, size: iconSize),
-                  onPressed: () {
-                    _showSnackBar(
-                        context, 'Settings are mocked in this prototype.');
-                  },
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Welcome back',
+                        style: TextStyle(
+                          fontSize: isMobile ? 12 : 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.gray500,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        displayLine,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: isMobile ? 22 : 26,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.gray900,
+                          letterSpacing: -0.6,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                SizedBox(width: isMobile ? 8 : 16),
-                Stack(
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      icon: Icon(Icons.notifications,
-                          color: AppColors.secondary, size: iconSize),
-                      onPressed: () {
-                        _showSnackBar(context,
-                            'Notifications are mocked in this prototype.');
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Material(
+                      color: AppColors.gray100,
+                      shape: const CircleBorder(),
+                      clipBehavior: Clip.antiAlias,
+                      child: IconButton(
+                        icon: Icon(Icons.notifications_none_rounded,
+                            color: AppColors.gray700, size: iconSize - 2),
+                        onPressed: () {
+                          _showSnackBar(context,
+                              'Notifications are mocked in this prototype.');
+                        },
+                        padding: const EdgeInsets.all(10),
+                        constraints: const BoxConstraints(),
+                      ),
                     ),
                     Positioned(
-                      right: 4,
-                      top: 4,
+                      right: 6,
+                      top: 6,
                       child: Container(
                         width: 8,
                         height: 8,
@@ -183,36 +251,44 @@ class _MasterHomePageState extends State<MasterHomePage> {
                     ),
                   ],
                 ),
-                SizedBox(width: isMobile ? 8 : 16),
-                IconButton(
-                  icon: Icon(Icons.logout,
-                      color: AppColors.primary, size: iconSize),
-                  onPressed: () async {
-                    await CallController.instance.disconnect();
-                    await AuthService.instance.clearSession();
-                    if (!context.mounted) return;
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const LoginPage()),
-                      (route) => false,
-                    );
-                  },
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                SizedBox(width: isMobile ? 8 : 10),
+                Material(
+                  color: AppColors.gray100,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: IconButton(
+                    icon: Icon(Icons.logout_rounded,
+                        color: AppColors.primary, size: iconSize - 2),
+                    onPressed: () async {
+                      await CallController.instance.disconnect();
+                      await AuthService.instance.clearSession();
+                      if (!context.mounted) return;
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const LoginPage()),
+                        (route) => false,
+                      );
+                    },
+                    padding: const EdgeInsets.all(10),
+                    constraints: const BoxConstraints(),
+                  ),
+                ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildAccountHeader(BuildContext context) {
+    final topInset = MediaQuery.of(context).padding.top;
     return Container(
       key: const ValueKey('account-header'),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: EdgeInsets.fromLTRB(20, topInset + 14, 20, 14),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [AppColors.primary, AppColors.primaryDark],
@@ -220,26 +296,12 @@ class _MasterHomePageState extends State<MasterHomePage> {
       ),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.arrow_back_ios_new,
-              color: AppColors.white,
-              size: 20,
-            ),
-            onPressed: () => _selectTab(0),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
+          AppBackButton(onPressed: () => _selectTab(0)),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
               'Account',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppColors.white,
-                letterSpacing: -0.3,
-              ),
+              style: AppTextStyles.moduleAppBarTitleOnDark,
             ),
           ),
         ],
@@ -286,6 +348,59 @@ class _MasterHomePageState extends State<MasterHomePage> {
     );
   }
 
+  Widget _buildSectionHeading(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+  }) {
+    final isMobile = Responsive.isMobile(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 3,
+          height: isMobile ? 32 : 36,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(3),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppColors.primary, AppColors.secondary],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                subtitle.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: isMobile ? 1.35 : 1.55,
+                  color: AppColors.gray400,
+                  height: 1.0,
+                ),
+              ),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: isMobile ? 20 : 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.gray900,
+                  letterSpacing: -0.5,
+                  height: 1.05,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMoreSection(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     final roles = AuthService.instance.roles;
@@ -295,7 +410,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
     final services = <_HomeAction>[
       if (access.showAttendanceCheck)
         _HomeAction(
-          label: 'Attendance\ncheck',
+          label: 'Attendance\nCheck',
           icon: Icons.assignment_turned_in,
           onTap: (context) {
             Navigator.push(
@@ -317,7 +432,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
         ),
       if (access.showAdaClubs)
         _HomeAction(
-          label: 'Ada\nClubs',
+          label: 'ADA\nClubs',
           icon: Icons.groups,
           onTap: (context) {
             Navigator.push(
@@ -392,22 +507,19 @@ class _MasterHomePageState extends State<MasterHomePage> {
     return Container(
       width: double.infinity,
       margin: EdgeInsets.only(
-        top: isMobile ? 30 : 30,
-        left: isMobile ? 16 : 0,
-        right: isMobile ? 16 : 0,
+        top: isMobile ? 20 : 24,
+        left: isMobile ? 4 : 0,
+        right: isMobile ? 4 : 0,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Services',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppColors.gray900,
-            ),
+          _buildSectionHeading(
+            context,
+            title: 'Services',
+            subtitle: 'Campus tools',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           if (services.isEmpty && roleTools.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
@@ -423,16 +535,13 @@ class _MasterHomePageState extends State<MasterHomePage> {
           else ...[
             _buildActionGrid(context, services),
             if (roleTools.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              const Text(
-                'Role tools',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.gray900,
-                ),
+              const SizedBox(height: 22),
+              _buildSectionHeading(
+                context,
+                title: 'Role tools',
+                subtitle: 'Administration',
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _buildActionGrid(context, roleTools),
             ],
           ],
@@ -512,15 +621,16 @@ class _MasterHomePageState extends State<MasterHomePage> {
   Widget _buildActionGrid(BuildContext context, List<_HomeAction> actions) {
     final isMobile = Responsive.isMobile(context);
     final crossAxisCount = isMobile ? 2 : 4;
-    final spacing = isMobile ? 14.0 : 16.0;
+    final spacing = isMobile ? 12.0 : 16.0;
 
     return GridView.count(
       crossAxisCount: crossAxisCount,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
       crossAxisSpacing: spacing,
       mainAxisSpacing: spacing,
-      childAspectRatio: isMobile ? 1.35 : 1.45,
+      childAspectRatio: isMobile ? 1.05 : 1.12,
       children: [
         for (final action in actions)
           _buildMoreButton(
@@ -542,186 +652,216 @@ class _MasterHomePageState extends State<MasterHomePage> {
     VoidCallback? onTap,
   }) {
     final isMobile = Responsive.isMobile(context);
-    const pinkColor = Color(0xFFA54D66);
-    const darkBlueColor = Color(0xFF3A6381);
+    final iconBg = AppColors.primary.withValues(alpha: 0.09);
+    final iconColor = AppColors.primary;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: SizedBox(
-        width: width == 0 ? null : width,
-        height: 100,
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 8 : 12,
-            vertical: isMobile ? 8 : 12,
-          ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          width: width == 0 ? null : width,
           decoration: BoxDecoration(
             color: AppColors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: pinkColor,
-              width: 0.5,
+              color: AppColors.gray200,
+              width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 6),
+                color: AppColors.primary.withValues(alpha: 0.06),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: isMobile ? 40 : 44,
-                color: pinkColor,
-              ),
-              SizedBox(height: isMobile ? 6 : 8),
-              Flexible(
-                child: Text(
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 10 : 14,
+              vertical: isMobile ? 16 : 18,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(isMobile ? 12 : 14),
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    size: isMobile ? 26 : 28,
+                    color: iconColor,
+                  ),
+                ),
+                SizedBox(height: isMobile ? 12 : 14),
+                Text(
                   label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: isMobile ? 11 : 12,
-                    color: darkBlueColor,
+                    fontSize: isMobile ? 14 : 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.gray900,
+                    height: 1.2,
+                    letterSpacing: -0.2,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
+  static const Color _navPillTeal1 = Color(0xFF356F88);
+  static const Color _navPillTeal2 = Color(0xFF1E3D4D);
+  static const Color _navHighlight1 = Color(0xFFFF6B83);
+  static const Color _navHighlight2 = Color(0xFFC73E5C);
+  static const Color _navOnHighlight = Color(0xFFFFFFFF);
+  static const Color _navOnTrack = Color(0xFFB8C9D4);
+
   Widget _buildBottomNavigation(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final isMobile = Responsive.isMobile(context);
-    final navHeight = isMobile ? 44.0 : 50.0;
-    const itemGap = 10.0;
+    final barHeight = isMobile ? 48.0 : 52.0;
+    final bottomGap = bottomPadding > 0 ? bottomPadding - 4 : 4.0;
 
-    return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 10,
-        bottom: (bottomPadding > 0 ? bottomPadding : 10) + 6,
-      ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomGap.clamp(4.0, 24.0)),
       child: Container(
+        width: double.infinity,
+        height: barHeight,
         decoration: BoxDecoration(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(28),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [_navPillTeal1, _navPillTeal2],
+          ),
+          borderRadius: BorderRadius.circular(barHeight / 2),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
+              color: _navPillTeal2.withValues(alpha: 0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = (constraints.maxWidth - itemGap) / 2;
-
-              return SizedBox(
-                height: navHeight,
-                child: Stack(
-                  children: [
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                      left: _selectedIndex == 0 ? 0 : itemWidth + itemGap,
-                      top: 0,
-                      bottom: 0,
-                      width: itemWidth,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary,
-                          borderRadius: BorderRadius.circular(22),
-                        ),
+        padding: const EdgeInsets.all(4),
+        child: SizedBox(
+          height: barHeight - 8,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const gap = 8.0;
+            final segmentW = (constraints.maxWidth - gap) / 2;
+            final innerRadius = (barHeight - 8) / 2;
+            return Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  left: _selectedIndex == 0 ? 0 : segmentW + gap,
+                  top: 0,
+                  bottom: 0,
+                  width: segmentW,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(innerRadius),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [_navHighlight1, _navHighlight2],
                       ),
-                    ),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: itemWidth,
-                          child: _buildNavItem(
-                            context,
-                            Icons.home,
-                            'Home',
-                            0,
-                          ),
-                        ),
-                        const SizedBox(width: itemGap),
-                        SizedBox(
-                          width: itemWidth,
-                          child: _buildNavItem(
-                            context,
-                            Icons.person,
-                            'Account',
-                            1,
-                          ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _navHighlight2.withValues(alpha: 0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: segmentW,
+                      child: _buildNavItem(
+                        context,
+                        Icons.home_rounded,
+                        'Home',
+                        0,
+                        isMobile,
+                      ),
+                    ),
+                    const SizedBox(width: gap),
+                    SizedBox(
+                      width: segmentW,
+                      child: _buildNavItem(
+                        context,
+                        Icons.person_rounded,
+                        'Account',
+                        1,
+                        isMobile,
+                      ),
+                    ),
                   ],
                 ),
-              );
-            },
-          ),
+              ],
+            );
+          },
         ),
+      ),
       ),
     );
   }
 
   Widget _buildNavItem(
-      BuildContext context, IconData icon, String label, int index) {
-    final isMobile = Responsive.isMobile(context);
-    final iconSize = isMobile ? 20.0 : 24.0;
-    final fontSize = Responsive.getFontSize(context, 12);
+    BuildContext context,
+    IconData icon,
+    String label,
+    int index,
+    bool isMobile,
+  ) {
     final isActive = _selectedIndex == index;
+    final iconSize = isMobile ? 18.0 : 20.0;
+    final fontSize = isMobile ? 12.0 : 13.0;
+    final color = isActive ? _navOnHighlight : _navOnTrack;
 
-    return InkWell(
-      onTap: () => _selectTab(index),
-      borderRadius: BorderRadius.circular(22),
-      child: AnimatedDefaultTextStyle(
-        duration: const Duration(milliseconds: 180),
-        style: TextStyle(
-          fontSize: fontSize,
-          fontWeight: FontWeight.w700,
-          color: isActive
-              ? AppColors.white
-              : AppColors.white.withValues(alpha: 0.75),
-        ),
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 10 : 14,
-            vertical: isMobile ? 10 : 12,
-          ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _selectTab(index),
+        splashColor: Colors.white.withValues(alpha: 0.12),
+        highlightColor: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(999),
+        child: Center(
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: Icon(
-                  icon,
-                  key: ValueKey('$label-$isActive'),
-                  color: isActive
-                      ? AppColors.white
-                      : AppColors.white.withValues(alpha: 0.75),
-                  size: iconSize,
+              Icon(icon, size: iconSize, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+                  letterSpacing: -0.15,
+                  color: color,
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(label),
             ],
           ),
         ),

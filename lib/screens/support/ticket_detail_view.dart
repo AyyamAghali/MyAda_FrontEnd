@@ -5,6 +5,7 @@ import '../../models/support_ticket.dart';
 import '../../services/auth_service.dart';
 import '../../services/support_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../widgets/responsive_container.dart';
 import '../../widgets/start_support_call_sheet.dart';
 
@@ -139,10 +140,7 @@ class _TicketDetailViewState extends State<TicketDetailView> {
         Positioned(
           top: topPadding + 8,
           left: 16,
-          child: _CircleButton(
-            icon: Icons.arrow_back_ios_new,
-            onTap: () => Navigator.pop(context),
-          ),
+          child: AppBackButton(onPressed: () => Navigator.pop(context)),
         ),
         // Type badge + ticket ID at bottom of hero
         Positioned(
@@ -859,29 +857,6 @@ class _TicketDetailViewState extends State<TicketDetailView> {
 // ══════════════════════════════════════════════════════════════════════
 // Private helper widgets
 // ══════════════════════════════════════════════════════════════════════
-
-class _CircleButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _CircleButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.22),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: Colors.white, size: 18),
-      ),
-    );
-  }
-}
 
 class _HeroChip extends StatelessWidget {
   final String label;

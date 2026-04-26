@@ -28,18 +28,65 @@ class ClubOfficer {
   final String name;
   final String role;
   final String photo;
+  final String userId;
 
   ClubOfficer({
     required this.name,
     required this.role,
     required this.photo,
+    this.userId = '',
   });
+}
+
+/// A resource link surfaced on the public club profile (API `resources` array).
+class ClubResource {
+  final String title;
+  final String url;
+
+  const ClubResource({required this.title, required this.url});
+
+  factory ClubResource.fromApi(dynamic raw) {
+    if (raw is String) return ClubResource(title: raw.trim(), url: '');
+    if (raw is Map) {
+      final m = Map<String, dynamic>.from(raw);
+      return ClubResource(
+        title: (m['title'] ?? m['name'] ?? '').toString().trim(),
+        url: (m['url'] ?? m['link'] ?? '').toString().trim(),
+      );
+    }
+    return const ClubResource(title: '', url: '');
+  }
+
+  bool get isEmpty => title.isEmpty && url.isEmpty;
+}
+
+/// A document (e.g. constitution PDF) from the club detail API `documents` array.
+class ClubDocument {
+  final String title;
+  final String url;
+
+  const ClubDocument({required this.title, required this.url});
+
+  factory ClubDocument.fromApi(dynamic raw) {
+    if (raw is String) return ClubDocument(title: 'Document', url: raw.trim());
+    if (raw is Map) {
+      final m = Map<String, dynamic>.from(raw);
+      return ClubDocument(
+        title: (m['title'] ?? m['name'] ?? 'Document').toString().trim(),
+        url: (m['url'] ?? m['link'] ?? m['fileUrl'] ?? '').toString().trim(),
+      );
+    }
+    return const ClubDocument(title: '', url: '');
+  }
+
+  bool get isEmpty => title.isEmpty && url.isEmpty;
 }
 
 /// Normalized focus area for public club profile (API `focusAreas` array).
 class ClubFocusArea {
   final String title;
   final String description;
+
   /// Icon key from API (e.g. `target`); used for UI mapping.
   final String icon;
 
@@ -83,6 +130,7 @@ class Club {
   final String about;
   final List<ClubOfficer> officers;
   final List<ClubEvent> events;
+
   /// Optional metadata (see web `clubsData.js`).
   final int? establishedYear;
   final String? location;
@@ -101,6 +149,12 @@ class Club {
 
   /// Merged social URLs: keys typically `website`, `instagram`, `x`, `tiktok`.
   final Map<String, String> socialLinks;
+
+  /// Free-form resources list from API `resources` array (titles + optional urls).
+  final List<ClubResource> resources;
+
+  /// Document list from API `documents` array (e.g. club constitution).
+  final List<ClubDocument> documents;
 
   Club({
     required this.id,
@@ -121,6 +175,8 @@ class Club {
     this.contactEmail,
     this.focusAreas = const [],
     this.socialLinks = const {},
+    this.resources = const [],
+    this.documents = const [],
   });
 
   factory Club.fromJson(Map<String, dynamic> json) {
@@ -132,7 +188,10 @@ class Club {
             json['profileImageUrl'] ??
             '')
         .toString();
-    final banner = (json['banner'] ?? json['bannerUrl'] ?? json['backgroundImageUrl'] ?? '') as String;
+    final banner = (json['banner'] ??
+        json['bannerUrl'] ??
+        json['backgroundImageUrl'] ??
+        '') as String;
     final category = (json['category'] ?? json['categoryName'] ?? '') as String;
 
     final tags = <String>[];
@@ -164,10 +223,54 @@ class Club {
     if (rawOfficers is List) {
       for (final o in rawOfficers) {
         if (o is Map<String, dynamic>) {
+          final first = (o['firstName'] ?? '').toString().trim();
+          final last = (o['lastName'] ?? '').toString().trim();
+          final composedName = ('$first $last').trim();
+          final nameRaw = (o['name'] ?? o['fullName'] ?? '').toString().trim();
+          final name = composedName.isNotEmpty ? composedName : nameRaw;
+
+          String roleFromPosition(dynamic p) {
+            if (p is Map<String, dynamic>) {
+              final t = (p['title'] ??
+                      p['name'] ??
+                      p['positionTitle'] ??
+                      p['label'] ??
+                      '')
+                  .toString()
+                  .trim();
+              if (t.isNotEmpty) return t;
+            }
+            return '';
+          }
+
+          final pos = o['position'];
+          final roleRaw = [
+            o['role'],
+            o['positionTitle'],
+            o['title'],
+            o['positionName'],
+            o['roleName'],
+            o['memberRole'],
+            o['clubRole'],
+            roleFromPosition(pos),
+            (pos is String) ? pos : null,
+          ]
+              .map((v) => v?.toString().trim() ?? '')
+              .firstWhere((s) => s.isNotEmpty && s.toLowerCase() != 'null',
+                  orElse: () => '');
+
           officers.add(ClubOfficer(
-            name: (o['name'] ?? o['fullName'] ?? '') as String,
-            role: (o['role'] ?? o['position'] ?? '') as String,
-            photo: (o['photo'] ?? o['photoUrl'] ?? o['avatarUrl'] ?? '') as String,
+            name: name,
+            role: roleRaw,
+            photo:
+                (o['photo'] ?? o['photoUrl'] ?? o['avatarUrl'] ?? '') as String,
+            userId: (o['userId'] ??
+                    o['studentId'] ??
+                    o['memberUserId'] ??
+                    o['id'] ??
+                    '')
+                .toString()
+                .trim(),
           ));
         }
       }
@@ -190,6 +293,24 @@ class Club {
       }
     }
 
+    final resourcesList = <ClubResource>[];
+    final rawResources = json['resources'];
+    if (rawResources is List) {
+      for (final r in rawResources) {
+        final res = ClubResource.fromApi(r);
+        if (!res.isEmpty) resourcesList.add(res);
+      }
+    }
+
+    final documentsList = <ClubDocument>[];
+    final rawDocs = json['documents'];
+    if (rawDocs is List) {
+      for (final d in rawDocs) {
+        final doc = ClubDocument.fromApi(d);
+        if (!doc.isEmpty) documentsList.add(doc);
+      }
+    }
+
     return Club(
       id: id,
       name: name,
@@ -204,11 +325,14 @@ class Club {
       events: events,
       establishedYear: _toInt(json['establishedYear']),
       location: json['location'] as String?,
-      shortDescription: (json['shortDescription'] ?? json['summary']) as String?,
+      shortDescription:
+          (json['shortDescription'] ?? json['summary']) as String?,
       mainGoals: json['mainGoals'] as String?,
       contactEmail: (json['contactEmail'] ?? json['email']) as String?,
       focusAreas: focusAreas,
       socialLinks: _parseSocialLinks(json),
+      resources: resourcesList,
+      documents: documentsList,
     );
   }
 
@@ -283,4 +407,3 @@ class Club {
     }
   }
 }
-

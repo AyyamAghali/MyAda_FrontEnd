@@ -11,18 +11,21 @@ import '../models/club_vacancy.dart';
 import 'auth_service.dart';
 
 /// Gateway origin (shared for media URL resolution when no club request succeeded yet).
-/// See Club Management API: gateway host uses port `500`, path prefix `/club`.
-const String kGatewayOrigin = 'http://13.60.31.141:500';
+/// Prefer the same API gateway host used by the rest of the Flutter app.
+const String kGatewayOrigin = 'http://13.60.31.141:5000';
 
-/// Ordered club gateway roots to try (new gateway first, then legacy).
-/// Fixes timeouts when only one port is reachable in a given environment.
+/// Ordered club gateway roots to try.
+///
+/// The Flutter app already authenticates through `:5000`. Trying that first
+/// avoids the long first-load stall seen when `:500` accepts but does not
+/// reliably answer from mobile/simulator networks.
 const List<String> kClubApiBaseCandidates = [
-  'http://13.60.31.141:500/club',
   'http://13.60.31.141:5000/club',
+  'http://13.60.31.141:500/club',
 ];
 
 /// Preferred club API root (first candidate), for callers that need a single string.
-const String kClubApiBase = 'http://13.60.31.141:500/club';
+const String kClubApiBase = 'http://13.60.31.141:5000/club';
 
 /// Resolve a potentially relative media path to an absolute URL.
 /// If [path] is already absolute (starts with http), returns as-is.
@@ -171,7 +174,7 @@ class ClubApiService {
         try {
           final response = await http.get(uri, headers: {
             'Accept': 'application/json'
-          }).timeout(const Duration(seconds: 30));
+          }).timeout(const Duration(seconds: 8));
           if (response.statusCode == 200 && response.body.isNotEmpty) {
             decoded = jsonDecode(response.body);
             _rememberClubGateway(base);
@@ -562,12 +565,52 @@ class ClubApiService {
   }
 
   /// `GET /api/v1/clubs/{clubId}/members`
+  ///
+  /// API returns AutoWrapper `result` with `{ items: [{ userId }] }` (see CLUB_API_DOC).
   Future<List<Map<String, dynamic>>> fetchClubMembers(String clubId) async {
     try {
       final json = await _clubAuthorizedGet(
         (base) => Uri.parse('$base/api/v1/clubs/$clubId/members'),
       );
-      return _unwrapList(json);
+      final list = _unwrapList(json);
+      return list.map(_normalizeClubMemberRow).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Ensures a stable `userId` key for roster rows (PascalCase / aliases).
+  Map<String, dynamic> _normalizeClubMemberRow(Map<String, dynamic> raw) {
+    final out = Map<String, dynamic>.from(raw);
+    final id = (out['userId'] ??
+            out['UserId'] ??
+            out['studentId'] ??
+            out['StudentId'] ??
+            out['memberUserId'] ??
+            out['memberId'] ??
+            out['id'])
+        ?.toString()
+        .trim();
+    if (id != null && id.isNotEmpty && id.toLowerCase() != 'null') {
+      out['userId'] = id;
+    }
+    return out;
+  }
+
+  /// `GET /api/v1/club-admin/{clubId}/members`
+  ///
+  /// This endpoint returns richer member rows (names/roles) used for the Club profile UI.
+  Future<List<Map<String, dynamic>>> fetchClubAdminMembers(
+    String clubId, {
+    int page = 1,
+    int limit = 200,
+  }) async {
+    try {
+      final json = await _clubAuthorizedGet(
+        (base) => Uri.parse('$base/api/v1/club-admin/$clubId/members')
+            .replace(queryParameters: {'page': '$page', 'limit': '$limit'}),
+      );
+      return _unwrapList(json).map(_normalizeClubMemberRow).toList();
     } catch (_) {
       return [];
     }
@@ -576,26 +619,36 @@ class ClubApiService {
   // ── Private HTTP helpers ───────────────────────────────────────────────
 
   Future<Object?> _authorizedGet(Uri uri) async {
-    try {
-      final response = await AuthService.instance
-          .sendAuthorized(
-            (token) => http.get(uri, headers: {
-              'Authorization': 'Bearer $token',
-              'Accept': 'application/json',
-            }).timeout(const Duration(seconds: 40)),
-          )
-          .timeout(const Duration(seconds: 55));
-      if (response.statusCode == 200) {
-        return response.body.isNotEmpty ? jsonDecode(response.body) : null;
+    Object? transientErr;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await AuthService.instance
+            .sendAuthorized(
+              (token) => http.get(uri, headers: {
+                'Authorization': 'Bearer $token',
+                'Accept': 'application/json',
+              }).timeout(const Duration(seconds: 10)),
+            )
+            .timeout(const Duration(seconds: 14));
+        if (response.statusCode == 200) {
+          return response.body.isNotEmpty ? jsonDecode(response.body) : null;
+        }
+        _throwForStatus(response);
+      } on ClubApiException {
+        rethrow;
+      } on SocketException catch (e) {
+        transientErr = e;
+      } on TimeoutException catch (e) {
+        transientErr = e;
       }
-      _throwForStatus(response);
-    } on ClubApiException {
-      rethrow;
-    } on SocketException {
-      throw const ClubApiException(message: 'No internet connection.');
-    } on TimeoutException {
+      if (attempt == 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
+    }
+    if (transientErr is TimeoutException) {
       throw const ClubApiException(message: 'Request timed out.');
     }
+    throw const ClubApiException(message: 'No internet connection.');
   }
 
   Future<Object?> _authorizedPost(Uri uri, {Map<String, dynamic>? body}) async {

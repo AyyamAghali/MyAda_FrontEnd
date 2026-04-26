@@ -4,6 +4,7 @@ import '../../models/support_ticket.dart';
 import '../../services/auth_service.dart';
 import '../../services/support_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../widgets/modern_select_sheet.dart';
 import '../../widgets/support_location_picker.dart';
 import '../../widgets/unified_media_picker.dart';
@@ -433,14 +434,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
       ),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new,
-                color: AppColors.white, size: 18),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            visualDensity: VisualDensity.compact,
-          ),
+          AppBackButton(onPressed: () => Navigator.pop(context)),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -449,12 +443,7 @@ class _NewIssueFormState extends State<NewIssueForm> {
               children: [
                 Text(
                   isIT ? 'Create New IT Request' : 'Create New FM Request',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.white,
-                    letterSpacing: -0.3,
-                  ),
+                  style: AppTextStyles.moduleAppBarTitleOnDark,
                 ),
                 const SizedBox(height: 2),
                 Text(

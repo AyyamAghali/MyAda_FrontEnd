@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../models/club_vacancy.dart';
 import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../utils/vacancy_category_style.dart';
+import 'club_hub_deep_link.dart';
 import 'club_module_nav.dart';
 import 'vacancy_detail_screen.dart';
 
@@ -11,11 +13,15 @@ class ClubVacanciesScreen extends StatefulWidget {
   final String? filterClubName;
   final bool embedInHub;
 
+  /// When [embedInHub], defer the first fetch until this tab is selected (see [ClubManagementHub]).
+  final TabController? hubMainTabController;
+
   const ClubVacanciesScreen({
     super.key,
     this.filterClubId,
     this.filterClubName,
     this.embedInHub = false,
+    this.hubMainTabController,
   });
 
   @override
@@ -33,21 +39,62 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
 
   late List<String> _allCategories;
 
+  bool _embeddedHubFetchStarted = false;
+
+  bool get _deferHubEmbeddedFetch =>
+      widget.embedInHub && widget.hubMainTabController != null;
+
   @override
   void initState() {
     super.initState();
     _allCategories = [];
+    if (_deferHubEmbeddedFetch) {
+      widget.hubMainTabController!.addListener(_onHubMainTabChanged);
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _kickHubEmbeddedFetch());
+    } else {
+      _loadVacancies();
+    }
+  }
+
+  void _kickHubEmbeddedFetch() {
+    if (!mounted || !_deferHubEmbeddedFetch) return;
+    final c = widget.hubMainTabController!;
+    if (c.indexIsChanging) return;
+    if (c.index != ClubHubTabs.openings) return;
+    _startEmbeddedHubFetchIfNeeded();
+  }
+
+  void _onHubMainTabChanged() {
+    if (!mounted || !_deferHubEmbeddedFetch) return;
+    final c = widget.hubMainTabController!;
+    if (c.indexIsChanging) return;
+    if (c.index == ClubHubTabs.openings) {
+      _startEmbeddedHubFetchIfNeeded();
+    }
+    setState(() {});
+  }
+
+  void _startEmbeddedHubFetchIfNeeded() {
+    if (_embeddedHubFetchStarted) return;
+    _embeddedHubFetchStarted = true;
     _loadVacancies();
   }
 
   @override
   void dispose() {
+    if (_deferHubEmbeddedFetch) {
+      widget.hubMainTabController?.removeListener(_onHubMainTabChanged);
+    }
     _searchFocus.dispose();
     super.dispose();
   }
 
   Future<void> _loadVacancies() async {
-    setState(() { _isLoading = true; _error = null; });
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
       final vacancies = await _api.fetchVacancies(clubId: widget.filterClubId);
       final cats = <String>{};
@@ -62,7 +109,11 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
     }
   }
 
@@ -105,7 +156,8 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
               return GestureDetector(
                 onTap: () => setModal(() => tmp = value),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                   decoration: BoxDecoration(
                     color: sel ? AppColors.primary : AppColors.gray100,
                     borderRadius: BorderRadius.circular(8),
@@ -123,7 +175,8 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
             }
 
             return Padding(
-              padding: EdgeInsets.fromLTRB(20, 14, 20, MediaQuery.of(ctx).padding.bottom + 20),
+              padding: EdgeInsets.fromLTRB(
+                  20, 14, 20, MediaQuery.of(ctx).padding.bottom + 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,29 +185,41 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                     child: Container(
                       width: 36,
                       height: 4,
-                      decoration: BoxDecoration(color: AppColors.gray300, borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(
+                          color: AppColors.gray300,
+                          borderRadius: BorderRadius.circular(2)),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Filters', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.gray900)),
+                      const Text('Filters',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.gray900)),
                       GestureDetector(
                         onTap: () => Navigator.pop(ctx),
-                        child: const Icon(Icons.close, size: 22, color: AppColors.gray500),
+                        child: const Icon(Icons.close,
+                            size: 22, color: AppColors.gray500),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  const Text('Category', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gray600)),
+                  const Text('Category',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.gray600)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
                       chip(null, 'All'),
-                      ..._allCategories.map((c) => chip(c, c[0] + c.substring(1).toLowerCase())),
+                      ..._allCategories.map(
+                          (c) => chip(c, c[0] + c.substring(1).toLowerCase())),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -169,10 +234,13 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                         elevation: 0,
                       ),
-                      child: const Text('Apply', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      child: const Text('Apply',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -198,7 +266,10 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
             children: [
               Text(
                 '${list.length} position${list.length == 1 ? '' : 's'}',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.gray500),
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.gray500),
               ),
               if (_hasFilter) ...[
                 const SizedBox(width: 10),
@@ -206,7 +277,10 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                   onTap: () => setState(() => _categoryFilter = null),
                   child: const Text(
                     'Clear filters',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.secondary),
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondary),
                   ),
                 ),
               ],
@@ -214,62 +288,85 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
           ),
         ),
         Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.cloud_off, size: 48, color: AppColors.gray300),
-                          const SizedBox(height: 12),
-                          const Text('Failed to load vacancies', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
-                          const SizedBox(height: 4),
-                          Text(_error!, style: const TextStyle(fontSize: 12, color: AppColors.gray500), textAlign: TextAlign.center),
-                          const SizedBox(height: 12),
-                          FilledButton.icon(
-                            onPressed: _loadVacancies,
-                            icon: const Icon(Icons.refresh, size: 18),
-                            label: const Text('Retry'),
-                            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
-                          ),
-                        ],
-                      ),
-                    )
-                  : list.isEmpty
-                      ? const Center(
+          child: (_deferHubEmbeddedFetch && !_embeddedHubFetchStarted)
+              ? (widget.hubMainTabController?.index == ClubHubTabs.openings
+                  ? const Center(child: CircularProgressIndicator())
+                  : const SizedBox.shrink())
+              : _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.work_off_outlined, size: 48, color: AppColors.gray300),
-                              SizedBox(height: 12),
-                              Text('No vacancies found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.gray700)),
-                              SizedBox(height: 4),
-                              Text('Try adjusting your search or filters', style: TextStyle(fontSize: 13, color: AppColors.gray500)),
+                              const Icon(Icons.cloud_off,
+                                  size: 48, color: AppColors.gray300),
+                              const SizedBox(height: 12),
+                              const Text('Failed to load vacancies',
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.gray700)),
+                              const SizedBox(height: 4),
+                              Text(_error!,
+                                  style: const TextStyle(
+                                      fontSize: 12, color: AppColors.gray500),
+                                  textAlign: TextAlign.center),
+                              const SizedBox(height: 12),
+                              FilledButton.icon(
+                                onPressed: _loadVacancies,
+                                icon: const Icon(Icons.refresh, size: 18),
+                                label: const Text('Retry'),
+                                style: FilledButton.styleFrom(
+                                    backgroundColor: AppColors.primary),
+                              ),
                             ],
                           ),
                         )
-                      : RefreshIndicator(
-                          onRefresh: _loadVacancies,
-                          child: ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                            itemCount: list.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
-                            itemBuilder: (_, i) => _VacancyListItem(
-                              vacancy: list[i],
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => VacancyDetailScreen(
-                                    vacancy: list[i],
-                                    isSaved: false,
-                                    onSaveToggle: () {},
+                      : list.isEmpty
+                          ? const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.work_off_outlined,
+                                      size: 48, color: AppColors.gray300),
+                                  SizedBox(height: 12),
+                                  Text('No vacancies found',
+                                      style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.gray700)),
+                                  SizedBox(height: 4),
+                                  Text('Try adjusting your search or filters',
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.gray500)),
+                                ],
+                              ),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _loadVacancies,
+                              child: ListView.separated(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                                itemCount: list.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (_, i) => _VacancyListItem(
+                                  vacancy: list[i],
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => VacancyDetailScreen(
+                                        vacancy: list[i],
+                                        isSaved: false,
+                                        onSaveToggle: () {},
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
         ),
       ],
     );
@@ -282,9 +379,13 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
         backgroundColor: AppColors.white,
         foregroundColor: AppColors.gray900,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
+        centerTitle: false,
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Center(
+            child: AppBackButton(onPressed: () => Navigator.pop(context)),
+          ),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,16 +393,23 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
           children: [
             Text(
               scopedClub != null ? 'Open roles' : 'Club Vacancies',
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.gray900),
+              style: AppTextStyles.moduleAppBarTitle,
             ),
             if (scopedClub != null)
-              Text(scopedClub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: AppColors.gray500)),
+              Text(scopedClub,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.gray500)),
           ],
         ),
         actions: [
           IconButton(
             tooltip: 'My applications',
-            onPressed: () => ClubModuleNav.openMyVacancyApplications(context, clubName: scopedClub),
+            onPressed: () => ClubModuleNav.openMyVacancyApplications(context,
+                clubName: scopedClub),
             icon: const Icon(Icons.assignment_outlined),
             color: AppColors.gray700,
           ),
@@ -328,8 +436,10 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
           decoration: InputDecoration(
             hintText: 'Search roles or clubs…',
             hintStyle: const TextStyle(fontSize: 13, color: AppColors.gray400),
-            prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.gray400),
-            prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 0),
+            prefixIcon:
+                const Icon(Icons.search, size: 20, color: AppColors.gray400),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 40, minHeight: 0),
             suffixIcon: GestureDetector(
               onTap: _openFilterSheet,
               child: Container(
@@ -340,16 +450,25 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                   color: AppColors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.tune, size: 17, color: AppColors.primary),
+                child:
+                    const Icon(Icons.tune, size: 17, color: AppColors.primary),
               ),
             ),
-            suffixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 0),
+            suffixIconConstraints:
+                const BoxConstraints(minWidth: 40, minHeight: 0),
             filled: true,
             fillColor: AppColors.gray50,
             contentPadding: EdgeInsets.zero,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gray200)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gray200)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.gray200)),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.gray200)),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide:
+                    const BorderSide(color: AppColors.primary, width: 1.5)),
           ),
         ),
       ),
@@ -388,7 +507,8 @@ class _VacancyListItem extends StatelessWidget {
                     color: catColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(vacancyCategoryIcon(vacancy.category), color: catColor, size: 22),
+                  child: Icon(vacancyCategoryIcon(vacancy.category),
+                      color: catColor, size: 22),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -397,14 +517,18 @@ class _VacancyListItem extends StatelessWidget {
                     children: [
                       Text(
                         vacancy.position,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.gray900),
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.gray900),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 3),
                       Text(
                         vacancy.clubName,
-                        style: const TextStyle(fontSize: 13, color: AppColors.gray500),
+                        style: const TextStyle(
+                            fontSize: 13, color: AppColors.gray500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -412,26 +536,37 @@ class _VacancyListItem extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: catColor.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
-                              vacancy.categoryTag[0] + vacancy.categoryTag.substring(1).toLowerCase(),
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: catColor),
+                              vacancy.categoryTag[0] +
+                                  vacancy.categoryTag
+                                      .substring(1)
+                                      .toLowerCase(),
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: catColor),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Icon(Icons.schedule, size: 13, color: AppColors.gray400),
+                          Icon(Icons.schedule,
+                              size: 13, color: AppColors.gray400),
                           const SizedBox(width: 3),
-                          Text(vacancy.postedAt, style: const TextStyle(fontSize: 11, color: AppColors.gray400)),
+                          Text(vacancy.postedAt,
+                              style: const TextStyle(
+                                  fontSize: 11, color: AppColors.gray400)),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: AppColors.gray400, size: 20),
+                const Icon(Icons.chevron_right,
+                    color: AppColors.gray400, size: 20),
               ],
             ),
           ),

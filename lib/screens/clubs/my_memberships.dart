@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/club.dart';
 import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../widgets/responsive_container.dart';
 import 'club_details.dart';
 import 'club_hub_deep_link.dart';
@@ -180,7 +181,7 @@ class _MyMembershipsState extends State<MyMemberships> with SingleTickerProvider
       child: Row(
         children: [
           if (!widget.embeddedInHub)
-            IconButton(icon: const Icon(Icons.arrow_back, color: AppColors.gray700), onPressed: () => Navigator.pop(context)),
+            AppBackButton(onPressed: () => Navigator.pop(context)),
           Expanded(
             child: Text(
               widget.embeddedInHub ? 'My clubs' : 'My Memberships',

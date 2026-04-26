@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import 'club_module_nav.dart';
 import 'vacancy_applications_body.dart';
 
@@ -18,9 +19,13 @@ class MyVacancyApplicationsScreen extends StatelessWidget {
         backgroundColor: AppColors.white,
         foregroundColor: AppColors.gray900,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
+        centerTitle: false,
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Center(
+            child: AppBackButton(onPressed: () => Navigator.pop(context)),
+          ),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,11 +33,7 @@ class MyVacancyApplicationsScreen extends StatelessWidget {
           children: [
             const Text(
               'My applications',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: AppColors.gray900,
-              ),
+              style: AppTextStyles.moduleAppBarTitle,
             ),
             if (scoped != null)
               Text(

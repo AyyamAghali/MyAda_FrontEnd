@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../services/attendance_service.dart';
 import '../../services/auth_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 
 enum _ScanState { idle, processing, success, error }
 
@@ -36,9 +37,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   String? _lastDetectedPayload;
   DateTime? _lastDetectedAt;
 
-  bool _manualExpanded = false;
-
-  final _manualTokenCtrl = TextEditingController();
   final _service = AttendanceService();
 
   bool get _canUseCamera {
@@ -54,14 +52,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         detectionSpeed: DetectionSpeed.noDuplicates,
       );
     }
-    _manualExpanded = !_canUseCamera;
     AuthService.instance.loadSession();
   }
 
   @override
   void dispose() {
     _cameraController?.dispose();
-    _manualTokenCtrl.dispose();
     super.dispose();
   }
 
@@ -175,22 +171,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
   }
 
-  Future<void> _submitManual() async {
-    final token = _manualTokenCtrl.text.trim();
-    if (token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please enter an attendance token.'),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-      return;
-    }
-    await _submit(token);
-  }
-
   void _retryScan() {
     setState(() {
       _state = _ScanState.idle;
@@ -220,35 +200,26 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         bottom: false,
         child: Column(
           children: [
+            _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildHeader(context),
-                    const SizedBox(height: 20),
-                    if (_canUseCamera) _buildScannerArea(context),
-                    if (!_canUseCamera) _buildNoCameraBanner(),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_state != _ScanState.idle) ...[
-                            const SizedBox(height: 20),
-                            _buildStatusCard(),
-                          ],
-                          const SizedBox(height: 20),
-                          _buildManualEntrySection(),
-                          const SizedBox(height: 24),
-                        ],
-                      ),
-                    ),
+                    if (_canUseCamera)
+                      Expanded(child: _buildScannerArea(context))
+                    else
+                      Expanded(child: _buildNoCameraBanner()),
+                    if (_state != _ScanState.idle) ...[
+                      const SizedBox(height: 16),
+                      _buildStatusCard(),
+                    ],
                   ],
                 ),
               ),
             ),
-            _buildBottomActions(),
+            if (_canUseCamera) _buildBottomActions(),
           ],
         ),
       ),
@@ -273,21 +244,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () async {
+          AppBackButton(
+            onPressed: () async {
               await _stopCamera();
               if (mounted) Navigator.pop(context);
             },
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColors.gray100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.arrow_back_ios_new,
-                  size: 16, color: AppColors.gray700),
-            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -295,21 +256,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Attendance Check-in',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.gray900,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _canUseCamera
-                      ? 'Scan QR code or enter token manually'
-                      : 'Enter the attendance token',
-                  style:
-                      const TextStyle(fontSize: 13, color: AppColors.gray500),
+                  'Attendance Check-In',
+                  style: AppTextStyles.moduleAppBarTitle,
                 ),
               ],
             ),
@@ -322,11 +270,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   // ── Scanner Area ────────────────────────────────────────────────────────────
 
   Widget _buildScannerArea(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
+    return Container(
         width: double.infinity,
-        height: 280,
         decoration: BoxDecoration(
           color: const Color(0xFF111827),
           borderRadius: BorderRadius.circular(20),
@@ -459,16 +404,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
           ],
         ),
-      ),
     );
   }
 
   Widget _buildNoCameraBanner() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
+    return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 36),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [AppColors.primary, Color(0xFF3D7A96)],
@@ -476,32 +418,45 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.qr_code_2_rounded,
-                size: 56, color: Colors.white.withOpacity(0.2)),
-            const SizedBox(height: 10),
+                size: 56, color: Colors.white.withOpacity(0.25)),
+            const SizedBox(height: 14),
             Text(
-              'Enter token below',
+              'Lesson attendance check-in',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withOpacity(0.8),
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withOpacity(0.95),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'QR scanning is available in the mobile app.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withOpacity(0.75),
+                height: 1.4,
               ),
             ),
           ],
         ),
-      ),
     );
   }
 
   Widget _buildCameraError(MobileScannerException error) {
     final String hint;
     if (error.errorCode == MobileScannerErrorCode.permissionDenied) {
-      hint = 'Camera access denied.\nEnable in Settings or use manual entry.';
+      hint =
+          'Camera access denied.\nEnable camera in Settings to scan your lesson QR code.';
     } else if (error.errorCode == MobileScannerErrorCode.unsupported) {
       hint = 'Camera not supported on this device.';
     } else {
-      hint = 'Camera unavailable. Use manual entry below.';
+      hint = 'Camera unavailable. Try closing other apps that use the camera.';
     }
 
     return Container(
@@ -523,11 +478,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           ),
           const SizedBox(height: 14),
           TextButton(
-            onPressed: () => setState(() {
-              _cameraActive = false;
-              _manualExpanded = true;
-            }),
-            child: const Text('Use Manual Entry',
+            onPressed: () => setState(() => _cameraActive = false),
+            child: const Text('Back',
                 style: TextStyle(
                     color: Colors.white70, fontWeight: FontWeight.w600)),
           ),
@@ -663,100 +615,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     );
   }
 
-  // ── Manual Entry ────────────────────────────────────────────────────────────
-
-  Widget _buildManualEntrySection() {
-    final canCollapse = _canUseCamera;
-    final isExpanded = _manualExpanded || !canCollapse;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: canCollapse
-              ? () => setState(() => _manualExpanded = !_manualExpanded)
-              : null,
-          behavior: HitTestBehavior.opaque,
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.keyboard_rounded,
-                    size: 18, color: AppColors.primary),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Manual Token Entry',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.gray900,
-                ),
-              ),
-              const Spacer(),
-              if (canCollapse)
-                AnimatedRotation(
-                  turns: isExpanded ? 0.5 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: const Icon(Icons.keyboard_arrow_down_rounded,
-                      color: AppColors.gray400, size: 22),
-                ),
-            ],
-          ),
-        ),
-        AnimatedCrossFade(
-          duration: const Duration(milliseconds: 220),
-          crossFadeState:
-              isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-          firstChild: const SizedBox(width: double.infinity),
-          secondChild: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: TextField(
-              controller: _manualTokenCtrl,
-              enabled: _state != _ScanState.processing,
-              maxLines: 1,
-              style: const TextStyle(fontSize: 14, color: AppColors.gray900),
-              decoration: InputDecoration(
-                hintText: 'Paste or type attendance token',
-                hintStyle:
-                    const TextStyle(fontSize: 14, color: AppColors.gray400),
-                prefixIcon: const Padding(
-                  padding: EdgeInsets.only(left: 14, right: 10),
-                  child:
-                      Icon(Icons.token_outlined, size: 18, color: AppColors.gray400),
-                ),
-                prefixIconConstraints:
-                    const BoxConstraints(minWidth: 0, minHeight: 0),
-                filled: true,
-                fillColor: AppColors.gray50,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.gray200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.gray200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: AppColors.primary, width: 1.5),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   // ── Bottom Actions ──────────────────────────────────────────────────────────
 
   Widget _buildBottomActions() {
@@ -768,7 +626,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         border:
             Border(top: BorderSide(color: AppColors.gray200.withOpacity(0.7))),
       ),
-      child: _canUseCamera ? _buildCameraActions() : _buildManualActions(),
+      child: _buildCameraActions(),
     );
   }
 
@@ -826,60 +684,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     return Row(
       children: [
         Expanded(child: cameraBtn),
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: _manualTokenCtrl,
-          builder: (_, value, __) {
-            if (value.text.trim().isEmpty) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: ElevatedButton(
-                onPressed: isProcessing ? null : _submitManual,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Submit',
-                    style:
-                        TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              ),
-            );
-          },
-        ),
       ],
-    );
-  }
-
-  Widget _buildManualActions() {
-    final isProcessing = _state == _ScanState.processing;
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: isProcessing ? null : _submitManual,
-        icon: isProcessing
-            ? const SizedBox(
-                width: 17,
-                height: 17,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
-              )
-            : const Icon(Icons.check_circle_outline_rounded, size: 17),
-        label: const Text('Submit Attendance',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
     );
   }
 }

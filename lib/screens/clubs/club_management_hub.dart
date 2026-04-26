@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../models/club.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import 'club_details.dart';
 import 'club_events_screen.dart';
 import 'club_hub_deep_link.dart';
 import 'club_hub_scope.dart';
 import 'club_vacancies_screen.dart';
 import 'clubs_home.dart';
-import 'create_club_form.dart';
 
 /// Three-tab shell: Clubs (Discover + My clubs) · Openings · Events.
 class ClubManagementHub extends StatefulWidget {
@@ -132,7 +132,6 @@ class ClubManagementHubState extends State<ClubManagementHub>
 
   @override
   Widget build(BuildContext context) {
-    final showFab = _tabController.index == ClubHubTabs.clubs && _clubsPane == ClubsHomePane.browse;
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
@@ -140,14 +139,14 @@ class ClubManagementHubState extends State<ClubManagementHub>
         foregroundColor: AppColors.gray900,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
-          'Club Management',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primary,
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Center(
+            child: AppBackButton(onPressed: () => Navigator.pop(context)),
           ),
         ),
+        title: const Text('ADA Clubs'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(46),
           child: TabBar(
@@ -159,8 +158,10 @@ class ClubManagementHubState extends State<ClubManagementHub>
             unselectedLabelColor: AppColors.gray500,
             indicatorColor: AppColors.primary,
             indicatorWeight: 2.5,
-            labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+            labelStyle:
+                const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            unselectedLabelStyle:
+                const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
             tabs: const [
               Tab(text: 'Clubs'),
               Tab(text: 'Vacancies'),
@@ -183,6 +184,7 @@ class ClubManagementHubState extends State<ClubManagementHub>
                 myClubsInnerTabIndex: _myClubsInnerTab,
                 applicationsClubNameFilter: _myClubsApplicationsClubName,
                 onClubOpen: _openClub,
+                hubMainTabController: _tabController,
               ),
             ),
             ColoredBox(
@@ -192,6 +194,7 @@ class ClubManagementHubState extends State<ClubManagementHub>
                 embedInHub: true,
                 filterClubId: _openingsClubId,
                 filterClubName: _openingsClubName,
+                hubMainTabController: _tabController,
               ),
             ),
             ColoredBox(
@@ -200,25 +203,12 @@ class ClubManagementHubState extends State<ClubManagementHub>
                 key: ValueKey('events-$_eventsClubId'),
                 embedInHub: true,
                 filterClubId: _eventsClubId,
+                hubMainTabController: _tabController,
               ),
             ),
           ],
         ),
       ),
-      floatingActionButton: showFab
-          ? FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => const CreateClubForm(),
-                  ),
-                );
-              },
-              backgroundColor: AppColors.primary,
-              child: const Icon(Icons.add, color: AppColors.white),
-            )
-          : null,
     );
   }
 }

@@ -7,7 +7,9 @@ import '../../services/remote_event_tickets_repository.dart';
 import '../../services/event_tickets_repository.dart';
 import '../../rbac/club_entrance_scan_access.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import 'club_event_detail_screen.dart';
+import 'club_hub_deep_link.dart';
 import 'entrance_scan_flow.dart';
 import 'event_ticket_screen.dart';
 
@@ -47,10 +49,14 @@ class ClubEventsScreen extends StatefulWidget {
   final bool embedInHub;
   final int? filterClubId;
 
+  /// When [embedInHub], defer the first fetch until this tab is selected (see [ClubManagementHub]).
+  final TabController? hubMainTabController;
+
   const ClubEventsScreen({
     super.key,
     this.embedInHub = false,
     this.filterClubId,
+    this.hubMainTabController,
   });
 
   @override
@@ -69,14 +75,52 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
   bool _isLoading = false;
   String? _error;
 
+  bool _embeddedHubFetchStarted = false;
+
+  bool get _deferHubEmbeddedFetch =>
+      widget.embedInHub && widget.hubMainTabController != null;
+
   @override
   void initState() {
     super.initState();
+    if (_deferHubEmbeddedFetch) {
+      widget.hubMainTabController!.addListener(_onHubMainTabChanged);
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _kickHubEmbeddedFetch());
+    } else {
+      _loadEvents();
+    }
+  }
+
+  void _kickHubEmbeddedFetch() {
+    if (!mounted || !_deferHubEmbeddedFetch) return;
+    final c = widget.hubMainTabController!;
+    if (c.indexIsChanging) return;
+    if (c.index != ClubHubTabs.events) return;
+    _startEmbeddedHubFetchIfNeeded();
+  }
+
+  void _onHubMainTabChanged() {
+    if (!mounted || !_deferHubEmbeddedFetch) return;
+    final c = widget.hubMainTabController!;
+    if (c.indexIsChanging) return;
+    if (c.index == ClubHubTabs.events) {
+      _startEmbeddedHubFetchIfNeeded();
+    }
+    setState(() {});
+  }
+
+  void _startEmbeddedHubFetchIfNeeded() {
+    if (_embeddedHubFetchStarted) return;
+    _embeddedHubFetchStarted = true;
     _loadEvents();
   }
 
   @override
   void dispose() {
+    if (_deferHubEmbeddedFetch) {
+      widget.hubMainTabController?.removeListener(_onHubMainTabChanged);
+    }
     _searchFocus.dispose();
     super.dispose();
   }
@@ -278,81 +322,88 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
             ),
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.cloud_off,
-                                size: 48, color: AppColors.gray300),
-                            const SizedBox(height: 12),
-                            const Text('Failed to load events',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.gray700)),
-                            const SizedBox(height: 4),
-                            Text(_error!,
-                                style: const TextStyle(
-                                    fontSize: 12, color: AppColors.gray500),
-                                textAlign: TextAlign.center),
-                            const SizedBox(height: 12),
-                            FilledButton.icon(
-                              onPressed: _loadEvents,
-                              icon: const Icon(Icons.refresh, size: 18),
-                              label: const Text('Retry'),
-                              style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.primary),
-                            ),
-                          ],
-                        ),
-                      )
-                    : list.isEmpty
-                        ? const Center(
+            child: (_deferHubEmbeddedFetch && !_embeddedHubFetchStarted)
+                ? (widget.hubMainTabController?.index == ClubHubTabs.events
+                    ? const Center(child: CircularProgressIndicator())
+                    : const SizedBox.shrink())
+                : _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.event_busy,
+                                const Icon(Icons.cloud_off,
                                     size: 48, color: AppColors.gray300),
-                                SizedBox(height: 12),
-                                Text('No events found',
+                                const SizedBox(height: 12),
+                                const Text('Failed to load events',
                                     style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
                                         color: AppColors.gray700)),
-                                SizedBox(height: 4),
-                                Text('Try adjusting your search or filters',
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        color: AppColors.gray500)),
+                                const SizedBox(height: 4),
+                                Text(_error!,
+                                    style: const TextStyle(
+                                        fontSize: 12, color: AppColors.gray500),
+                                    textAlign: TextAlign.center),
+                                const SizedBox(height: 12),
+                                FilledButton.icon(
+                                  onPressed: _loadEvents,
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text('Retry'),
+                                  style: FilledButton.styleFrom(
+                                      backgroundColor: AppColors.primary),
+                                ),
                               ],
                             ),
                           )
-                        : RefreshIndicator(
-                            onRefresh: _loadEvents,
-                            child: ListView.separated(
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                              itemCount: list.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 8),
-                              itemBuilder: (_, i) => _EventListItem(
-                                event: list[i],
-                                formatDate: _fmtDate,
-                                formatTime: _fmtTime,
-                                onTap: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => ClubEventDetailScreen(
-                                          eventId: list[i].id),
-                                    ),
-                                  );
-                                },
+                        : list.isEmpty
+                            ? const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.event_busy,
+                                        size: 48, color: AppColors.gray300),
+                                    SizedBox(height: 12),
+                                    Text('No events found',
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.gray700)),
+                                    SizedBox(height: 4),
+                                    Text('Try adjusting your search or filters',
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: AppColors.gray500)),
+                                  ],
+                                ),
+                              )
+                            : RefreshIndicator(
+                                onRefresh: _loadEvents,
+                                child: ListView.separated(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                                  itemCount: list.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 8),
+                                  itemBuilder: (_, i) => _EventListItem(
+                                    event: list[i],
+                                    formatDate: _fmtDate,
+                                    formatTime: _fmtTime,
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => ClubEventDetailScreen(
+                                                eventId: list[i].id,
+                                                initialEvent: list[i],
+                                              ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
           ),
         ] else ...[
           Expanded(child: _TicketsPane(filterClubId: widget.filterClubId)),
@@ -368,9 +419,12 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
         backgroundColor: AppColors.white,
         foregroundColor: AppColors.gray900,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Center(
+            child: AppBackButton(onPressed: () => Navigator.pop(context)),
+          ),
         ),
         title: const Text('Club Events'),
       ),
@@ -544,8 +598,8 @@ class _TicketsPaneState extends State<_TicketsPane> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: () async {
-                    final allowed =
-                        await ClubEntranceScanAccess.allowedClubIdsForCurrentUser();
+                    final allowed = await ClubEntranceScanAccess
+                        .allowedClubIdsForCurrentUser();
                     if (!context.mounted) return;
                     await Navigator.push<void>(
                       context,

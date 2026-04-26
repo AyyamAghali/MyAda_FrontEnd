@@ -4,6 +4,7 @@ import '../models/user_role.dart';
 import '../services/auth_service.dart';
 import '../services/call/call_controller.dart';
 import '../utils/constants.dart';
+import '../widgets/app_back_button.dart';
 import 'login_page.dart';
 
 class AccountPage extends StatefulWidget {
@@ -110,7 +111,9 @@ class _AccountPageState extends State<AccountPage> {
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.only(
+              left: 20, right: 20, top: 16, bottom: 80,
+            ),
             child: Column(
               children: [
                 _buildProfileSection(profile),
@@ -173,23 +176,12 @@ class _AccountPageState extends State<AccountPage> {
       ),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new,
-                color: AppColors.white, size: 20),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
+          AppBackButton(onPressed: () => Navigator.pop(context)),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
               'Account',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppColors.white,
-                letterSpacing: -0.3,
-              ),
+              style: AppTextStyles.moduleAppBarTitleOnDark,
             ),
           ),
         ],

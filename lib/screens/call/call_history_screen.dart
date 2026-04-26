@@ -151,14 +151,7 @@ class _CallHistoryScreenState extends State<CallHistoryScreen> {
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: AppColors.gray900),
-        title: const Text(
-          'Call History',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primary,
-          ),
-        ),
+        title: const Text('Call History'),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

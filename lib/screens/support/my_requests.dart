@@ -4,6 +4,7 @@ import '../../models/support_ticket.dart';
 import '../../services/auth_service.dart';
 import '../../services/support_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import 'ticket_detail_view.dart';
 
 class MyRequests extends StatefulWidget {
@@ -180,13 +181,7 @@ class _MyRequestsState extends State<MyRequests>
       ),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new,
-                color: AppColors.white, size: 20),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
+          AppBackButton(onPressed: () => Navigator.pop(context)),
           const SizedBox(width: 12),
           const Expanded(
             child: Column(
@@ -194,12 +189,7 @@ class _MyRequestsState extends State<MyRequests>
               children: [
                 Text(
                   'My Requests',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.white,
-                    letterSpacing: -0.5,
-                  ),
+                  style: AppTextStyles.moduleAppBarTitleOnDark,
                 ),
                 SizedBox(height: 2),
                 Text(

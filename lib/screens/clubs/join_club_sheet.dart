@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/club.dart';
 import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 
 /// Lightweight membership application — fields aligned with club join UX (letter, links, optional files).
 class JoinClubSheet extends StatefulWidget {
@@ -112,13 +113,7 @@ class _JoinClubSheetState extends State<JoinClubSheet> {
       color: AppColors.white,
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.gray900, size: 18),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            visualDensity: VisualDensity.compact,
-          ),
+          AppBackButton(onPressed: () => Navigator.pop(context)),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

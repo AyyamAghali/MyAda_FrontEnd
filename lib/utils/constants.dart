@@ -83,5 +83,21 @@ class AppTextStyles {
     fontSize: 12,
     color: AppColors.gray600,
   );
+
+  /// Module / screen titles on light AppBars (matches ADA Clubs hub).
+  static const TextStyle moduleAppBarTitle = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: AppColors.primary,
+    fontFamily: 'Roboto',
+  );
+
+  /// Same metrics on primary-gradient headers (Account, Support, etc.).
+  static const TextStyle moduleAppBarTitleOnDark = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: AppColors.white,
+    fontFamily: 'Roboto',
+  );
 }
 

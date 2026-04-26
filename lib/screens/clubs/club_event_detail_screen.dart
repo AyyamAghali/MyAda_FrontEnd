@@ -6,6 +6,7 @@ import '../../services/club_api_service.dart';
 import '../../services/remote_event_tickets_repository.dart';
 import '../../services/event_tickets_repository.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import 'event_ticket_screen.dart';
 
 Color _eventCatColor(String category) {
@@ -30,7 +31,15 @@ Color _eventCatColor(String category) {
 class ClubEventDetailScreen extends StatefulWidget {
   final int eventId;
 
-  const ClubEventDetailScreen({super.key, required this.eventId});
+  /// When opening from a list, pass the row so the hero layout shows immediately
+  /// (no intermediate "Event" loading AppBar).
+  final ClubPublicEvent? initialEvent;
+
+  const ClubEventDetailScreen({
+    super.key,
+    required this.eventId,
+    this.initialEvent,
+  });
 
   @override
   State<ClubEventDetailScreen> createState() => _ClubEventDetailScreenState();
@@ -48,7 +57,28 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
   @override
   void initState() {
     super.initState();
+    final preview = widget.initialEvent;
+    if (preview != null && preview.id == widget.eventId) {
+      _event = preview;
+    }
     _load();
+  }
+
+  Widget _minimalChromeScaffold({required Widget body}) {
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      appBar: AppBar(
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Center(
+            child: AppBackButton(onPressed: () => Navigator.pop(context)),
+          ),
+        ),
+      ),
+      body: body,
+    );
   }
 
   Future<void> _load() async {
@@ -119,16 +149,14 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Event')),
+    final event = _event;
+    if (event == null && _loading) {
+      return _minimalChromeScaffold(
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-    final event = _event;
     if (event == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Event')),
+      return _minimalChromeScaffold(
         body: const Center(child: Text('Event not found.')),
       );
     }
@@ -142,15 +170,26 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
       backgroundColor: AppColors.backgroundLight,
       body: CustomScrollView(
         slivers: [
+          if (_loading)
+            SliverToBoxAdapter(
+              child: LinearProgressIndicator(
+                minHeight: 2,
+                backgroundColor: AppColors.gray200,
+                color: AppColors.primary,
+              ),
+            ),
           // Hero header
           SliverAppBar(
             expandedHeight: 220,
             pinned: true,
             backgroundColor: AppColors.primary,
             foregroundColor: AppColors.white,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-              onPressed: () => Navigator.pop(context),
+            automaticallyImplyLeading: false,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Center(
+                child: AppBackButton(onPressed: () => Navigator.pop(context)),
+              ),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(

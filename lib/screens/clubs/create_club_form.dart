@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 
 class CreateClubForm extends StatefulWidget {
   const CreateClubForm({super.key});
@@ -171,13 +172,7 @@ class _CreateClubFormState extends State<CreateClubForm> {
       color: AppColors.white,
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.gray900, size: 18),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            visualDensity: VisualDensity.compact,
-          ),
+          AppBackButton(onPressed: () => Navigator.pop(context)),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

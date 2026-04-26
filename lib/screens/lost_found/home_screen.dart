@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/lost_item.dart';
 import '../../services/lost_found_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../widgets/item_card.dart';
 import 'report_item_form.dart';
 import 'item_detail_view.dart';
@@ -127,42 +128,14 @@ class _HomeScreenState extends State<HomeScreen>
         foregroundColor: AppColors.gray900,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
-          'Lost & Found',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primary,
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Center(
+            child: AppBackButton(onPressed: () => Navigator.pop(context)),
           ),
         ),
-        actions: [
-          // Show live/mock badge so it's always clear which mode is active
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: kLostFoundUseMockData
-                      ? AppColors.gray200
-                      : Colors.green.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  kLostFoundUseMockData ? 'Mock' : 'Live',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: kLostFoundUseMockData
-                        ? AppColors.gray600
-                        : Colors.green.shade700,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        title: const Text('Lost & Found'),
       ),
       body: Column(
         children: [

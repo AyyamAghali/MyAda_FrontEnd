@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -172,6 +173,9 @@ class AuthService {
   String? _username;
   Set<UserRole> _roles = {UserRole.student};
 
+  /// In-flight disk read so parallel [sendAuthorized] callers share one load (mobile cold start).
+  Future<void>? _loadSessionFuture;
+
   String? get studentId => _studentId;
 
   /// Returns the raw access token for Authorization headers.
@@ -189,6 +193,26 @@ class AuthService {
   /// Loads a previously persisted session from SharedPreferences.
   /// Safe to call multiple times; skips reload if already loaded.
   Future<void> loadSession() async {
+    if (_accessToken != null) return;
+
+    final inflight = _loadSessionFuture;
+    if (inflight != null) {
+      await inflight;
+      return;
+    }
+
+    final work = _readSessionIntoMemory();
+    _loadSessionFuture = work;
+    try {
+      await work;
+    } finally {
+      if (_loadSessionFuture == work) {
+        _loadSessionFuture = null;
+      }
+    }
+  }
+
+  Future<void> _readSessionIntoMemory() async {
     if (_accessToken != null) return;
 
     if (kIsWeb) {
@@ -434,6 +458,16 @@ class AuthService {
     if (response.statusCode == 400) {
       token = await refreshAccessToken();
       response = await sendRequest(token);
+    }
+
+    // Many backends return 401 for expired JWT (web may mask via cookie refresh paths).
+    if (response.statusCode == 401) {
+      try {
+        token = await refreshAccessToken();
+        response = await sendRequest(token);
+      } catch (_) {
+        await clearSession();
+      }
     }
 
     if (response.statusCode == 401) {

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../models/club.dart';
 import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../widgets/responsive_container.dart';
 
 class EventRegistration extends StatefulWidget {
@@ -85,10 +86,7 @@ class _EventRegistrationState extends State<EventRegistration> {
       color: AppColors.white,
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.gray700),
-            onPressed: () => Navigator.pop(context),
-          ),
+          AppBackButton(onPressed: () => Navigator.pop(context)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

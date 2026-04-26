@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/lost_item.dart';
 import '../../services/lost_found_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../widgets/modern_select_sheet.dart';
 
 class ReportItemForm extends StatefulWidget {
@@ -280,10 +281,12 @@ class _ReportItemFormState extends State<ReportItemForm> {
         backgroundColor: AppColors.white,
         elevation: 0,
         scrolledUnderElevation: 0.5,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              size: 18, color: AppColors.gray900),
-          onPressed: () => Navigator.pop(context),
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Center(
+            child: AppBackButton(onPressed: () => Navigator.pop(context)),
+          ),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
