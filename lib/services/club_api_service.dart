@@ -16,14 +16,13 @@ const String kGatewayOrigin = 'http://13.60.31.141:5000';
 
 /// Ordered Club Management API roots to try.
 ///
-/// Per `CLUB_API_DOC.md`, versioned routes are hosted at `{host}/api/v1/...`
-/// (not `{host}/club/api/v1/...`).
+/// Club endpoints are served behind the gateway under `/club/api/v1/...`.
 const List<String> kClubApiBaseCandidates = [
-  'http://13.60.31.141:5000',
+  'http://13.60.31.141:5000/club',
 ];
 
 /// Preferred API root (first candidate), for callers that need a single string.
-const String kClubApiBase = 'http://13.60.31.141:5000';
+const String kClubApiBase = 'http://13.60.31.141:5000/club';
 
 /// Resolve a potentially relative media path to an absolute URL.
 /// If [path] is already absolute (starts with http), returns as-is.
