@@ -14,18 +14,16 @@ import 'auth_service.dart';
 /// Prefer the same API gateway host used by the rest of the Flutter app.
 const String kGatewayOrigin = 'http://13.60.31.141:5000';
 
-/// Ordered club gateway roots to try.
+/// Ordered Club Management API roots to try.
 ///
-/// The Flutter app already authenticates through `:5000`. Trying that first
-/// avoids the long first-load stall seen when `:500` accepts but does not
-/// reliably answer from mobile/simulator networks.
+/// Per `CLUB_API_DOC.md`, versioned routes are hosted at `{host}/api/v1/...`
+/// (not `{host}/club/api/v1/...`).
 const List<String> kClubApiBaseCandidates = [
-  'http://13.60.31.141:5000/club',
-  'http://13.60.31.141:500/club',
+  'http://13.60.31.141:5000',
 ];
 
-/// Preferred club API root (first candidate), for callers that need a single string.
-const String kClubApiBase = 'http://13.60.31.141:5000/club';
+/// Preferred API root (first candidate), for callers that need a single string.
+const String kClubApiBase = 'http://13.60.31.141:5000';
 
 /// Resolve a potentially relative media path to an absolute URL.
 /// If [path] is already absolute (starts with http), returns as-is.
@@ -474,17 +472,47 @@ class ClubApiService {
   // ── Vacancy by ID ──────────────────────────────────────────────────────
 
   /// `GET /api/v1/vacancies/{vacancyId}`
-  Future<ClubVacancy?> fetchVacancyById(int vacancyId) async {
-    try {
-      final json = await _clubAuthorizedGet(
-        (base) => Uri.parse('$base/api/v1/vacancies/$vacancyId'),
-      );
-      final inner = _unwrapSingle(json);
-      if (inner.isEmpty) return null;
-      return ClubVacancy.fromJson(inner);
-    } catch (_) {
-      return null;
+  ///
+  /// Response envelope: `{ statusCode, message, result: { ... } }` (handled by [_unwrapSingle]).
+  Future<ClubVacancy> fetchVacancyById(int vacancyId) async {
+    final json = await _clubAuthorizedGet(
+      (base) => Uri.parse('$base/api/v1/vacancies/$vacancyId'),
+    );
+    final inner = _unwrapSingle(json);
+    if (inner.isEmpty) {
+      throw const ClubApiException(
+          statusCode: 404, message: 'Vacancy not found.');
     }
+    return ClubVacancy.fromJson(inner);
+  }
+
+  /// `GET /api/v1/club-position-requirements?clubPositionId=`
+  ///
+  /// Requirement rows are ordered by [sortOrder] when present.
+  Future<List<String>> fetchClubPositionRequirementTexts(
+    int clubPositionId,
+  ) async {
+    if (clubPositionId <= 0) return [];
+    final json = await _clubAuthorizedGet(
+      (base) => Uri.parse('$base/api/v1/club-position-requirements').replace(
+            queryParameters: {'clubPositionId': '$clubPositionId'},
+          ),
+    );
+    final rows = _unwrapList(json);
+    rows.sort((a, b) {
+      final ia = _sortOrderKey(a['sortOrder']);
+      final ib = _sortOrderKey(b['sortOrder']);
+      return ia.compareTo(ib);
+    });
+    return rows
+        .map((e) => (e['text'] ?? '').toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  int _sortOrderKey(Object? raw) {
+    if (raw is int) return raw;
+    return int.tryParse('${raw ?? 0}') ?? 0;
   }
 
   // ── User-scoped endpoints ─────────────────────────────────────────────

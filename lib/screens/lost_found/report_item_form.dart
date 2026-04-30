@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../models/lost_item.dart';
 import '../../services/lost_found_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/app_back_button.dart';
@@ -28,10 +27,12 @@ class _ReportItemFormState extends State<ReportItemForm> {
   final _picker = ImagePicker();
 
   String _itemName = '';
-  ItemCategory _category = ItemCategory.electronics;
   String _description = '';
 
-  // Real XFile picks (works on iOS/Android/Web)
+  List<Map<String, dynamic>> _categories = [];
+  Map<String, dynamic>? _selectedCategory;
+  bool _isLoadingCategories = true;
+
   List<XFile> _pickedImages = [];
 
   String _locationType = 'building';
@@ -52,12 +53,52 @@ class _ReportItemFormState extends State<ReportItemForm> {
   ];
 
   static const Map<String, List<String>> _buildingRooms = {
-    'Main Building': ['101', '102', '103', '201', '202', '203', '301', '302', '303', 'A101', 'A102', 'A201', 'A301'],
-    'Library': ['L1', 'L2', 'L3', 'Reading Hall', 'Study Room 1', 'Study Room 2', 'Study Room 3'],
-    'Sports Complex': ['Gym', 'Pool Area', 'S101', 'S102', 'S201', 'Locker Room A', 'Locker Room B'],
-    'Building C': ['C101', 'C102', 'C103', 'C201', 'C202', 'C203', 'C301', 'C302'],
+    'Main Building': [
+      '101', '102', '103',
+      '201', '202', '203',
+      '301', '302', '303',
+      'A101', 'A102', 'A201', 'A301',
+    ],
+    'Library': [
+      'L1', 'L2', 'L3',
+      'Reading Hall', 'Study Room 1', 'Study Room 2', 'Study Room 3',
+    ],
+    'Sports Complex': [
+      'Gym', 'Pool Area', 'S101', 'S102', 'S201',
+      'Locker Room A', 'Locker Room B',
+    ],
+    'Building C': [
+      'C101', 'C102', 'C103',
+      'C201', 'C202', 'C203',
+      'C301', 'C302',
+    ],
     'Cafeteria': ['Main Hall', 'Kitchen', 'Storage'],
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final cats = await _service.fetchCategories();
+      if (mounted) {
+        setState(() {
+          _categories = cats;
+          _isLoadingCategories = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _categories = LostFoundService.fallbackCategories;
+          _isLoadingCategories = false;
+        });
+      }
+    }
+  }
 
   // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -94,8 +135,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       labelStyle: const TextStyle(color: AppColors.gray600, fontSize: 14),
-      hintStyle: TextStyle(
-          color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
+      hintStyle:
+          TextStyle(color: AppColors.gray400.withOpacity(0.7), fontSize: 14),
     );
   }
 
@@ -152,8 +193,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
                       color: AppColors.primary, size: 20),
                 ),
                 title: const Text('Take Photo',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w500)),
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickFromCamera();
@@ -166,8 +207,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
                       color: AppColors.primary, size: 20),
                 ),
                 title: const Text('Choose from Library',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w500)),
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickFromGallery();
@@ -190,7 +231,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
     if (photosRequired && _pickedImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Please add at least one photo of the found item'),
+          content:
+              const Text('Please add at least one photo of the found item'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -202,41 +244,52 @@ class _ReportItemFormState extends State<ReportItemForm> {
 
     setState(() => _isSubmitting = true);
     try {
+      final catId = _selectedCategory!['id'] as int;
+      final buildingVal =
+          _locationType == 'building' ? _selectedBuilding : null;
+      final isRoom = _locationType == 'building' && _isRoomSelection != null
+          ? _isRoomSelection == 'yes'
+          : null;
+      final roomAreaVal = _locationType == 'building'
+          ? (_isRoomSelection == 'yes'
+              ? _selectedRoom
+              : (_locationDetails.trim().isNotEmpty
+                  ? _locationDetails.trim()
+                  : null))
+          : null;
+      final campusVal =
+          _locationType == 'campus' ? _campusLocation.trim() : null;
+      final locationVal = _locationType == 'other'
+          ? _resolvedLocation
+          : null;
+
       if (widget.isLostItem) {
         await _service.reportLost(
           title: _itemName.trim(),
-          location: _resolvedLocation,
+          categoryId: catId,
           description: _description.trim(),
-          category: _catName(_category),
           locationType: _locationType,
-          building: _locationType == 'building' ? _selectedBuilding : null,
-          roomArea: _locationType == 'building'
-              ? (_isRoomSelection == 'yes'
-                  ? (_selectedRoom != null ? 'Room $_selectedRoom' : null)
-                  : _locationDetails.trim())
-              : null,
-          campusLocation:
-              _locationType == 'campus' ? _campusLocation.trim() : null,
+          building: buildingVal,
+          isRoom: isRoom,
+          roomArea: roomAreaVal,
+          campusLocation: campusVal,
+          location: locationVal,
           collectionPlace: 'Security Desk',
-          imageFile: _pickedImages.isNotEmpty ? _pickedImages.first : null,
+          imageFiles: _pickedImages,
         );
       } else {
         await _service.reportFound(
           title: _itemName.trim(),
-          location: _resolvedLocation,
+          categoryId: catId,
           description: _description.trim(),
-          category: _catName(_category),
           locationType: _locationType,
-          building: _locationType == 'building' ? _selectedBuilding : null,
-          roomArea: _locationType == 'building'
-              ? (_isRoomSelection == 'yes'
-                  ? (_selectedRoom != null ? 'Room $_selectedRoom' : null)
-                  : _locationDetails.trim())
-              : null,
-          campusLocation:
-              _locationType == 'campus' ? _campusLocation.trim() : null,
+          building: buildingVal,
+          isRoom: isRoom,
+          roomArea: roomAreaVal,
+          campusLocation: campusVal,
+          location: locationVal,
           collectionPlace: 'Security Desk',
-          imageFile: _pickedImages.isNotEmpty ? _pickedImages.first : null,
+          imageFiles: _pickedImages,
         );
       }
 
@@ -318,75 +371,86 @@ class _ReportItemFormState extends State<ReportItemForm> {
                 children: [
                   _infoBanner(),
                   const SizedBox(height: 24),
-
                   _sectionLabel('1', 'Basic Information'),
                   const SizedBox(height: 12),
                   TextFormField(
                     decoration: _field(
                         label: 'Item Name *',
                         hint: 'e.g., Black Leather Wallet'),
-                    style: const TextStyle(
-                        fontSize: 15, color: AppColors.gray900),
+                    style:
+                        const TextStyle(fontSize: 15, color: AppColors.gray900),
                     onChanged: (v) => setState(() => _itemName = v),
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 14),
                   GestureDetector(
-                    onTap: () async {
-                      final result = await showModernSelectSheet<ItemCategory>(
-                        context: context,
-                        title: 'Select Category',
-                        selectedValue: _category,
-                        options: ItemCategory.values
-                            .map((c) => SelectOption(
-                                value: c, label: _catName(c)))
-                            .toList(),
-                      );
-                      if (result != null) setState(() => _category = result);
-                    },
+                    onTap: _isLoadingCategories
+                        ? null
+                        : () async {
+                            final result = await showModernSelectSheet<int>(
+                              context: context,
+                              title: 'Select Category',
+                              selectedValue: _selectedCategory?['id'] as int?,
+                              options: _categories
+                                  .map((c) => SelectOption(
+                                        value: c['id'] as int,
+                                        label: c['name'] as String,
+                                      ))
+                                  .toList(),
+                            );
+                            if (result != null) {
+                              final cat = _categories.firstWhere(
+                                  (c) => c['id'] == result);
+                              setState(() => _selectedCategory = cat);
+                            }
+                          },
                     child: AbsorbPointer(
                       child: TextFormField(
                         decoration: _field(
                           label: 'Category *',
-                          suffix: const Icon(Icons.keyboard_arrow_down_rounded,
-                              color: AppColors.gray400, size: 22),
+                          suffix: _isLoadingCategories
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : const Icon(Icons.keyboard_arrow_down_rounded,
+                                  color: AppColors.gray400, size: 22),
                         ),
-                        controller: TextEditingController(text: _catName(_category)),
+                        controller: TextEditingController(
+                          text: _selectedCategory?['name'] as String? ?? '',
+                        ),
                         style: const TextStyle(
                             fontSize: 15, color: AppColors.gray900),
+                        validator: (_) => _selectedCategory == null
+                            ? 'Please select a category'
+                            : null,
                       ),
                     ),
                   ),
-
                   _divider(),
-
                   _sectionLabel('2', 'Location'),
                   const SizedBox(height: 8),
                   _locationBody(),
-
                   _divider(),
-
                   _sectionLabel('3', 'Description'),
                   const SizedBox(height: 4),
                   const Text('Describe the item to help identify it.',
-                      style: TextStyle(
-                          fontSize: 12, color: AppColors.gray500)),
+                      style: TextStyle(fontSize: 12, color: AppColors.gray500)),
                   const SizedBox(height: 10),
                   TextFormField(
                     decoration: _field(hint: 'Describe the item...'),
-                    style: const TextStyle(
-                        fontSize: 15, color: AppColors.gray900),
+                    style:
+                        const TextStyle(fontSize: 15, color: AppColors.gray900),
                     minLines: 1,
                     maxLines: 5,
                     maxLength: 500,
                     onChanged: (v) => setState(() => _description = v),
                   ),
-
                   _divider(),
-
-                  _sectionLabel(
-                      '4', photosRequired ? 'Photos *' : 'Photos'),
+                  _sectionLabel('4', photosRequired ? 'Photos *' : 'Photos'),
                   const SizedBox(height: 10),
                   _photosBody(),
                 ],
@@ -407,8 +471,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
       decoration: BoxDecoration(
         color: Colors.blue.shade50.withOpacity(0.5),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: Colors.blue.shade200.withOpacity(0.4), width: 1),
+        border:
+            Border.all(color: Colors.blue.shade200.withOpacity(0.4), width: 1),
       ),
       child: Row(
         children: [
@@ -515,16 +579,15 @@ class _ReportItemFormState extends State<ReportItemForm> {
             },
             child: AbsorbPointer(
               child: TextFormField(
-                controller: TextEditingController(
-                    text: _selectedBuilding ?? ''),
+                controller:
+                    TextEditingController(text: _selectedBuilding ?? ''),
                 decoration: _field(
                   label: 'Building',
                   hint: 'Select building',
                   suffix: const Icon(Icons.keyboard_arrow_down_rounded,
                       color: AppColors.gray400, size: 22),
                 ),
-                style: const TextStyle(
-                    fontSize: 15, color: AppColors.gray900),
+                style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               ),
             ),
           ),
@@ -564,8 +627,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
                     suffix: const Icon(Icons.keyboard_arrow_down_rounded,
                         color: AppColors.gray400, size: 22),
                   ),
-                  style: const TextStyle(
-                      fontSize: 15, color: AppColors.gray900),
+                  style:
+                      const TextStyle(fontSize: 15, color: AppColors.gray900),
                 ),
               ),
             ),
@@ -589,16 +652,15 @@ class _ReportItemFormState extends State<ReportItemForm> {
               },
               child: AbsorbPointer(
                 child: TextFormField(
-                  controller:
-                      TextEditingController(text: _selectedRoom ?? ''),
+                  controller: TextEditingController(text: _selectedRoom ?? ''),
                   decoration: _field(
                     label: 'Room',
                     hint: 'Select room',
                     suffix: const Icon(Icons.keyboard_arrow_down_rounded,
                         color: AppColors.gray400, size: 22),
                   ),
-                  style: const TextStyle(
-                      fontSize: 15, color: AppColors.gray900),
+                  style:
+                      const TextStyle(fontSize: 15, color: AppColors.gray900),
                 ),
               ),
             ),
@@ -607,10 +669,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
             const SizedBox(height: 14),
             TextFormField(
               decoration: _field(
-                  label: 'Location details',
-                  hint: 'e.g. Lobby near reception'),
-              style: const TextStyle(
-                  fontSize: 15, color: AppColors.gray900),
+                  label: 'Location details', hint: 'e.g. Lobby near reception'),
+              style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               onChanged: (v) => setState(() => _locationDetails = v),
             ),
           ],
@@ -621,8 +681,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
                 label: 'Campus location',
                 hint:
                     'Describe where on campus (e.g. main yard, parking area)'),
-            style: const TextStyle(
-                fontSize: 15, color: AppColors.gray900),
+            style: const TextStyle(fontSize: 15, color: AppColors.gray900),
             minLines: 1,
             maxLines: 3,
             onChanged: (v) => setState(() => _campusLocation = v),
@@ -707,8 +766,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
                 color: AppColors.gray900.withOpacity(0.75),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.close,
-                  size: 13, color: AppColors.white),
+              child: const Icon(Icons.close, size: 13, color: AppColors.white),
             ),
           ),
         ),
@@ -726,15 +784,12 @@ class _ReportItemFormState extends State<ReportItemForm> {
           color: AppColors.gray50,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: AppColors.gray300,
-              width: 1.5,
-              style: BorderStyle.solid),
+              color: AppColors.gray300, width: 1.5, style: BorderStyle.solid),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_circle_outline,
-                color: AppColors.primary, size: 22),
+            Icon(Icons.add_circle_outline, color: AppColors.primary, size: 22),
             const SizedBox(height: 2),
             Text('Add',
                 style: TextStyle(
@@ -780,8 +835,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
                 : const Text('Submit for Review',
@@ -795,20 +849,6 @@ class _ReportItemFormState extends State<ReportItemForm> {
     );
   }
 
-  String _catName(ItemCategory c) {
-    switch (c) {
-      case ItemCategory.electronics:
-        return 'Electronics';
-      case ItemCategory.documents:
-        return 'Documents';
-      case ItemCategory.clothing:
-        return 'Clothing';
-      case ItemCategory.accessories:
-        return 'Accessories';
-      case ItemCategory.other:
-        return 'Other';
-    }
-  }
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -837,9 +877,7 @@ class _LocationRadio extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                  color: selected
-                      ? AppColors.primary
-                      : AppColors.gray400,
+                  color: selected ? AppColors.primary : AppColors.gray400,
                   width: 2),
             ),
             child: selected
@@ -848,8 +886,7 @@ class _LocationRadio extends StatelessWidget {
                       width: 9,
                       height: 9,
                       decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.primary),
+                          shape: BoxShape.circle, color: AppColors.primary),
                     ),
                   )
                 : null,
@@ -858,11 +895,8 @@ class _LocationRadio extends StatelessWidget {
           Text(label,
               style: TextStyle(
                 fontSize: 14,
-                fontWeight:
-                    selected ? FontWeight.w600 : FontWeight.w400,
-                color: selected
-                    ? AppColors.gray900
-                    : AppColors.gray600,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: selected ? AppColors.gray900 : AppColors.gray600,
               )),
         ],
       ),

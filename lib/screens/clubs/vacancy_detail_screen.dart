@@ -1,11 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../models/club_vacancy.dart';
+import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
-import '../../widgets/app_back_button.dart';
-import '../../utils/vacancy_category_style.dart';
 import 'apply_vacancy_screen.dart';
 
-class VacancyDetailScreen extends StatelessWidget {
+/// Accent colors (purple hero, blue icons, green checks).
+const Color _kHeroPurpleTop = Color(0xFF7C3AED);
+const Color _kHeroPurpleBottom = Color(0xFF5B21B6);
+const Color _kIconBlue = Color(0xFF2563EB);
+const Color _kIconBlueBg = Color(0xFFDBEAFE);
+const Color _kCheckCircleBg = Color(0xFFD1FAE5);
+const Color _kCheckIcon = Color(0xFF047857);
+
+class _StaticGain {
+  final IconData icon;
+  final String text;
+  const _StaticGain(this.icon, this.text);
+}
+
+/// Shown on every vacancy detail (not from API).
+const List<_StaticGain> _kWhatYoullGainItems = [
+  _StaticGain(Icons.bar_chart_rounded, 'Hands-on experience'),
+  _StaticGain(Icons.link_rounded, 'Certificate of contribution'),
+  _StaticGain(Icons.people_outline_rounded, 'Networking opportunities'),
+  _StaticGain(Icons.auto_awesome_rounded, 'Creative freedom'),
+];
+
+class VacancyDetailScreen extends StatefulWidget {
   final ClubVacancy vacancy;
   final bool isSaved;
   final VoidCallback onSaveToggle;
@@ -18,176 +40,213 @@ class VacancyDetailScreen extends StatelessWidget {
   });
 
   @override
+  State<VacancyDetailScreen> createState() => _VacancyDetailScreenState();
+}
+
+class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
+  late ClubVacancy _vacancy;
+  final ClubApiService _api = ClubApiService();
+  bool _loading = true;
+  String? _error;
+  late List<String> _requirementLines;
+
+  @override
+  void initState() {
+    super.initState();
+    _vacancy = widget.vacancy;
+    _requirementLines = List<String>.from(widget.vacancy.requirements);
+    _loadDetail();
+  }
+
+  Future<void> _loadDetail() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final v = await _api.fetchVacancyById(widget.vacancy.id);
+      var reqs = List<String>.from(v.requirements);
+      if (reqs.isEmpty && v.clubPositionId != null && v.clubPositionId! > 0) {
+        try {
+          reqs = await _api.fetchClubPositionRequirementTexts(v.clubPositionId!);
+        } catch (_) {
+          // Position requirements are optional; keep empty.
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _vacancy = v;
+        _requirementLines = reqs;
+        _loading = false;
+        _error = null;
+      });
+    } on ClubApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Could not load vacancy details.';
+      });
+    }
+  }
+
+  bool get _canApply => _vacancy.isActive && !_vacancy.isDraft;
+
+  String? get _statusChipLabel {
+    if (_vacancy.isDraft) return 'Draft';
+    if (!_vacancy.isActive) return 'Closed';
+    return null;
+  }
+
+  String _deadlineShort(ClubVacancy v) {
+    final iso = v.applicationDeadlineIso;
+    if (iso != null && iso.isNotEmpty) {
+      final dt = DateTime.tryParse(iso);
+      if (dt != null) return DateFormat.yMd().format(dt.toLocal());
+    }
+    final parsed = DateTime.tryParse(v.deadline);
+    if (parsed != null) return DateFormat.yMd().format(parsed.toLocal());
+    return v.deadline;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final v = vacancy;
-    final catColor = vacancyCategoryColor(v.category);
+    final v = _vacancy;
+    final topInset = MediaQuery.paddingOf(context).top;
+    final w = MediaQuery.sizeOf(context).width;
+    final twoCol = w >= 720;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      body: CustomScrollView(
-        slivers: [
-          // Gradient hero header
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.white,
-            automaticallyImplyLeading: false,
-            leading: Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Center(
-                child: AppBackButton(onPressed: () => Navigator.pop(context)),
+      backgroundColor: AppColors.white,
+      body: RefreshIndicator(
+        onRefresh: _loadDetail,
+        color: _kIconBlue,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            if (_loading)
+              const SliverToBoxAdapter(
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: _kHeroPurpleTop,
+                ),
+              ),
+            if (_error != null)
+              SliverToBoxAdapter(child: _errorBanner()),
+            SliverToBoxAdapter(
+              child: _heroWithCard(
+                context: context,
+                v: v,
+                topInset: topInset,
               ),
             ),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.primary, AppColors.primaryDark],
-                  ),
+            if (!twoCol) SliverToBoxAdapter(child: _postedDeadlineStrip(v)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  twoCol ? 8 : 10,
+                  16,
+                  16 + MediaQuery.paddingOf(context).bottom,
                 ),
-                child: Stack(
-                  children: [
-                    // Decorative circles
-                    Positioned(
-                      right: -30, top: -30,
-                      child: Container(
-                        width: 140, height: 140,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.white.withValues(alpha: 0.06),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: -20, bottom: 10,
-                      child: Container(
-                        width: 80, height: 80,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.white.withValues(alpha: 0.04),
-                        ),
-                      ),
-                    ),
-                    SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 56, 20, 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: catColor.withValues(alpha: 0.25),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                v.categoryTag[0] + v.categoryTag.substring(1).toLowerCase(),
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.white),
-                              ),
+                child: twoCol
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 65,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _compactMetaInline(v),
+                                const SizedBox(height: 12),
+                                _aboutSection(v),
+                                const SizedBox(height: 16),
+                                _whatYoullGainSection(),
+                              ],
                             ),
-                            const SizedBox(height: 10),
-                            Text(v.position, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.white)),
-                            const SizedBox(height: 4),
-                            Text(v.clubName, style: TextStyle(fontSize: 14, color: AppColors.white.withValues(alpha: 0.85))),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 18),
+                          Expanded(
+                            flex: 35,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _requirementsSection(),
+                                const SizedBox(height: 12),
+                                _deadlineBox(v),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _aboutSection(v),
+                          const SizedBox(height: 14),
+                          _whatYoullGainSection(),
+                          const SizedBox(height: 14),
+                          _requirementsSection(),
+                          const SizedBox(height: 10),
+                          _deadlineBox(v),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
-          ),
-
-          // Quick info strip
-          SliverToBoxAdapter(
-            child: Container(
-              color: AppColors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-              child: Row(
-                children: [
-                  _metaCol(Icons.access_time, 'Posted', v.postedAt),
-                  _vertDivider(),
-                  _metaCol(Icons.calendar_today_outlined, 'Deadline', v.deadline),
-                ],
-              ),
-            ),
-          ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 10)),
-
-          // About the Role
-          SliverToBoxAdapter(
-            child: _card(
-              icon: Icons.description_outlined,
-              title: 'About the Role',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: v.aboutRole.map((p) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Text(p, style: const TextStyle(fontSize: 14, color: AppColors.gray700, height: 1.55)),
-                )).toList(),
-              ),
-            ),
-          ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 10)),
-
-          // Requirements
-          SliverToBoxAdapter(
-            child: _card(
-              icon: Icons.checklist_outlined,
-              title: 'Requirements',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: v.requirements.map((r) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 20, height: 20,
-                        margin: const EdgeInsets.only(right: 10),
-                        decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
-                        child: const Icon(Icons.check, size: 12, color: AppColors.primary),
-                      ),
-                      Expanded(child: Text(r, style: const TextStyle(fontSize: 14, color: AppColors.gray700, height: 1.4))),
-                    ],
-                  ),
-                )).toList(),
-              ),
-            ),
-          ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ],
+            const SliverToBoxAdapter(child: SizedBox(height: 72)),
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
           decoration: BoxDecoration(
             color: AppColors.white,
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -3)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
             ],
           ),
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => ApplyVacancyScreen(vacancy: vacancy)));
-              },
+              onPressed: _canApply
+                  ? () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              ApplyVacancyScreen(vacancy: _vacancy),
+                        ),
+                      );
+                    }
+                  : null,
               icon: const Icon(Icons.send_rounded, size: 18),
-              label: const Text('Apply Now', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              label: Text(
+                _canApply ? 'Apply Now' : 'Applications closed',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.white,
+                disabledBackgroundColor: AppColors.gray200,
+                disabledForegroundColor: AppColors.gray500,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 elevation: 0,
               ),
             ),
@@ -197,53 +256,497 @@ class VacancyDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _vertDivider() => Container(width: 1, height: 32, color: AppColors.gray200, margin: const EdgeInsets.symmetric(horizontal: 16));
+  Widget _errorBanner() {
+    return Material(
+      color: const Color(0xFFFEF3C7),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  color: Color(0xFFB45309), size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _error!,
+                  style:
+                      const TextStyle(fontSize: 13, color: Color(0xFF92400E)),
+                ),
+              ),
+              TextButton(
+                onPressed: _loadDetail,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-  Widget _metaCol(IconData icon, String label, String value) {
-    return Expanded(
+  Widget _heroWithCard({
+    required BuildContext context,
+    required ClubVacancy v,
+    required double topInset,
+  }) {
+    const heroHeight = 132.0;
+    const cardOverlap = 40.0;
+    final chip = _statusChipLabel;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: heroHeight + topInset,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [_kHeroPurpleTop, _kHeroPurpleBottom],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: -24,
+                top: topInset - 10,
+                child: Icon(
+                  Icons.circle,
+                  size: 100,
+                  color: AppColors.white.withValues(alpha: 0.06),
+                ),
+              ),
+              Positioned(
+                left: -16,
+                top: topInset + 28,
+                child: Icon(
+                  Icons.circle,
+                  size: 64,
+                  color: AppColors.white.withValues(alpha: 0.05),
+                ),
+              ),
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.only(left: 8, right: 8, top: topInset),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 2),
+                        child: IconButton(
+                          style: IconButton.styleFrom(
+                            backgroundColor:
+                                AppColors.white.withValues(alpha: 0.15),
+                            foregroundColor: AppColors.white,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.arrow_back_rounded, size: 22),
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: 'Refresh',
+                        style: IconButton.styleFrom(
+                          backgroundColor:
+                              AppColors.white.withValues(alpha: 0.15),
+                          foregroundColor: AppColors.white,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: _loadDetail,
+                        icon: const Icon(Icons.refresh_rounded, size: 22),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Transform.translate(
+          offset: const Offset(0, -cardOverlap),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Material(
+              elevation: 4,
+              shadowColor: Colors.black.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+              color: AppColors.white,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: _kIconBlueBg,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: const Icon(
+                        Icons.send_rounded,
+                        color: _kIconBlue,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (chip != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.gray100,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          chip,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.gray600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    Text(
+                      v.position,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.gray900,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      v.clubName,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.gray500,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+      ],
+    );
+  }
+
+  /// Mobile-only: two-column date strip under hero.
+  Widget _postedDeadlineStrip(ClubVacancy v) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: AppColors.gray50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.gray200),
+        ),
+        child: Row(
+          children: [
+            Expanded(child: _stripItem(Icons.schedule_rounded, 'Posted', v.postedAt)),
+            Container(width: 1, height: 32, color: AppColors.gray200),
+            Expanded(child: _stripItem(Icons.event_rounded, 'Apply by', v.deadline)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stripItem(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Column(
         children: [
-          Icon(icon, size: 16, color: AppColors.gray500),
+          Icon(icon, size: 16, color: AppColors.gray400),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.gray400)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: AppColors.gray400,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.gray700), textAlign: TextAlign.center),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.gray700,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _card({required IconData icon, required String title, required Widget child}) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
+  /// Desktop / tablet: single compact line (avoids duplicating full strip).
+  Widget _compactMetaInline(ClubVacancy v) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.schedule_rounded, size: 15, color: AppColors.gray400),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.gray600,
+                height: 1.35,
+              ),
+              children: [
+                const TextSpan(
+                  text: 'Posted ',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                TextSpan(
+                  text: v.postedAt,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, color: AppColors.gray900),
+                ),
+                const TextSpan(text: '  ·  '),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Icon(Icons.event_rounded,
+                      size: 14, color: AppColors.gray400),
+                ),
+                const TextSpan(text: ' '),
+                const TextSpan(
+                  text: 'Apply by ',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                TextSpan(
+                  text: v.deadline,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, color: AppColors.gray900),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionHeader({required IconData icon, required String title}) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: _kIconBlueBg,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 17, color: _kIconBlue),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.gray900,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _plainSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: AppColors.gray900,
       ),
-      child: Column(
+    );
+  }
+
+  Widget _aboutSection(ClubVacancy v) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader(icon: Icons.description_outlined, title: 'About the Role'),
+        const SizedBox(height: 10),
+        if (v.aboutRole.isEmpty)
+          Text(
+            'No description was provided for this vacancy.',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.gray500.withValues(alpha: 0.95),
+              height: 1.55,
+            ),
+          )
+        else
+          ...v.aboutRole.map(
+            (p) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                p,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.gray700,
+                  height: 1.55,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _whatYoullGainSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _plainSectionTitle("What You'll Gain"),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, c) {
+            final tileW = (c.maxWidth - 10) / 2;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: _kWhatYoullGainItems.map((g) {
+                return SizedBox(
+                  width: tileW.clamp(120.0, 280.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _kIconBlueBg,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Icon(g.icon, color: _kIconBlue, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            g.text,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.gray700,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _requirementsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader(icon: Icons.fact_check_outlined, title: 'Requirements'),
+        const SizedBox(height: 10),
+        if (_requirementLines.isEmpty)
+          Text(
+            'No specific requirements were listed. Reach out to the club if you have questions.',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.gray500.withValues(alpha: 0.95),
+              height: 1.55,
+            ),
+          )
+        else
+          ..._requirementLines.map(_requirementRow),
+      ],
+    );
+  }
+
+  Widget _requirementRow(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 30, height: 30,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, size: 16, color: AppColors.primary),
-              ),
-              const SizedBox(width: 10),
-              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.gray900)),
-            ],
+          Container(
+            width: 21,
+            height: 21,
+            margin: const EdgeInsets.only(right: 10, top: 2),
+            decoration: const BoxDecoration(
+              color: _kCheckCircleBg,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_rounded,
+              size: 13,
+              color: _kCheckIcon,
+            ),
           ),
-          const SizedBox(height: 14),
-          child,
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.gray700,
+                height: 1.45,
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _deadlineBox(ClubVacancy v) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppColors.gray100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gray200),
+      ),
+      child: Text(
+        'Deadline: ${_deadlineShort(v)}',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.gray700,
+        ),
       ),
     );
   }

@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 class VacancyBenefit {
   final String text;
   final String iconKey;
@@ -22,6 +24,27 @@ class ClubVacancy {
   final String applicants;
   final List<String> requirements;
 
+  /// API: `postedBy` (poster user id, often a UUID).
+  final String? postedBy;
+
+  /// API: `clubPositionId`
+  final int? clubPositionId;
+
+  /// API: `isActive`
+  final bool isActive;
+
+  /// API: `isDraft`
+  final bool isDraft;
+
+  /// API: `status` (e.g. `active`, `draft`).
+  final String status;
+
+  /// Raw ISO timestamp for sorting/debug (optional).
+  final String? createdAtIso;
+
+  /// Raw ISO application deadline (optional).
+  final String? applicationDeadlineIso;
+
   const ClubVacancy({
     required this.id,
     required this.clubId,
@@ -38,7 +61,23 @@ class ClubVacancy {
     required this.deadline,
     required this.applicants,
     required this.requirements,
+    this.postedBy,
+    this.clubPositionId,
+    this.isActive = true,
+    this.isDraft = false,
+    this.status = 'active',
+    this.createdAtIso,
+    this.applicationDeadlineIso,
   });
+
+  static String _formatDisplayDate(String? isoOrText) {
+    if (isoOrText == null || isoOrText.isEmpty) return '—';
+    final dt = DateTime.tryParse(isoOrText);
+    if (dt != null) {
+      return DateFormat.yMMMd().format(dt.toLocal());
+    }
+    return isoOrText;
+  }
 
   factory ClubVacancy.fromJson(Map<String, dynamic> json) {
     final id = int.tryParse((json['id'] ?? json['vacancyId'] ?? 0).toString()) ?? 0;
@@ -47,14 +86,21 @@ class ClubVacancy {
     final title = (json['title'] ?? json['position'] ?? json['positionTitle'] ?? 'Untitled') as String;
     final description = (json['description'] ?? '') as String;
 
+    final isDraft = json['isDraft'] == true;
+    final isActive = json['isActive'] != false;
     final statusRaw = (json['status'] ?? 'active').toString().toLowerCase();
-    final categoryTag = statusRaw == 'draft' ? 'DRAFT' : 'ACTIVE';
+    final categoryTag =
+        (isDraft || statusRaw == 'draft') ? 'DRAFT' : statusRaw.toUpperCase();
 
     final createdAt = (json['createdAt'] ?? json['postedAt'] ?? '').toString();
-    final postedAt = createdAt.length >= 10 ? createdAt.substring(0, 10) : createdAt;
+    final postedAt = _formatDisplayDate(
+        createdAt.isNotEmpty ? createdAt : null);
 
-    final deadline = (json['applicationDeadline'] ?? json['deadline'] ?? 'Open').toString();
-    final formattedDeadline = deadline.length >= 10 ? deadline.substring(0, 10) : deadline;
+    final deadlineRaw =
+        (json['applicationDeadline'] ?? json['deadline'] ?? '').toString();
+    final deadline = deadlineRaw.isEmpty
+        ? 'Open'
+        : _formatDisplayDate(deadlineRaw);
 
     final requirementsRaw = json['requirements'];
     final requirements = <String>[];
@@ -63,6 +109,22 @@ class ClubVacancy {
         requirements.add(r.toString());
       }
     }
+    if (requirements.isEmpty) {
+      final pos = json['position'];
+      if (pos is Map<String, dynamic>) {
+        final nested = pos['requirements'];
+        if (nested is List) {
+          for (final r in nested) {
+            requirements.add(r.toString());
+          }
+        }
+      }
+    }
+
+    final postedBy = json['postedBy']?.toString().trim();
+
+    final clubPositionId =
+        int.tryParse((json['clubPositionId'] ?? '').toString());
 
     return ClubVacancy(
       id: id,
@@ -77,9 +139,18 @@ class ClubVacancy {
       aboutRole: description.isNotEmpty ? [description] : [],
       responsibilities: const [],
       benefits: const [],
-      deadline: formattedDeadline,
+      deadline: deadline,
       applicants: '',
       requirements: requirements,
+      postedBy:
+          (postedBy != null && postedBy.isNotEmpty) ? postedBy : null,
+      clubPositionId: clubPositionId,
+      isActive: isActive,
+      isDraft: isDraft,
+      status: statusRaw,
+      createdAtIso: createdAt.isNotEmpty ? createdAt : null,
+      applicationDeadlineIso:
+          deadlineRaw.isNotEmpty ? deadlineRaw : null,
     );
   }
 }

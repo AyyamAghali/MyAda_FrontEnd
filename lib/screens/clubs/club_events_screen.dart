@@ -45,6 +45,62 @@ String _formatClubEventTimeRange(String? start, String? end) {
   return '$startText - $endText';
 }
 
+bool _isHttpUrl(String s) =>
+    s.startsWith('http://') || s.startsWith('https://');
+
+/// Poster for ticket cards: HTTPS/http, gateway-relative paths, or asset keys.
+Widget _eventTicketThumbnail(String? rawUrl) {
+  const size = 62.0;
+  Widget placeholder() => Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        color: AppColors.primary.withValues(alpha: 0.08),
+        child: const Icon(Icons.event, color: AppColors.primary, size: 28),
+      );
+  if (rawUrl == null || rawUrl.trim().isEmpty) return placeholder();
+  final trimmed = rawUrl.trim();
+  final resolved = _isHttpUrl(trimmed) ? trimmed : resolveMediaUrl(trimmed);
+  if (resolved.isEmpty) return placeholder();
+  if (_isHttpUrl(resolved)) {
+    return Image.network(
+      resolved,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return SizedBox(
+          width: size,
+          height: size,
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                value: progress.expectedTotalBytes != null
+                    ? progress.cumulativeBytesLoaded /
+                        progress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (_, __, ___) => placeholder(),
+    );
+  }
+  return Image.asset(
+    trimmed,
+    width: size,
+    height: size,
+    fit: BoxFit.cover,
+    errorBuilder: (_, __, ___) => placeholder(),
+  );
+}
+
 class ClubEventsScreen extends StatefulWidget {
   final bool embedInHub;
   final int? filterClubId;
@@ -706,20 +762,7 @@ class _TicketCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: (e.imageUrl == null || e.imageUrl!.isEmpty)
-                      ? Container(
-                          width: 62,
-                          height: 62,
-                          color: AppColors.primary.withValues(alpha: 0.08),
-                          child:
-                              const Icon(Icons.event, color: AppColors.primary),
-                        )
-                      : Image.asset(
-                          e.imageUrl!,
-                          width: 62,
-                          height: 62,
-                          fit: BoxFit.cover,
-                        ),
+                  child: _eventTicketThumbnail(e.imageUrl),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
