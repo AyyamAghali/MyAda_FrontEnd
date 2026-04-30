@@ -1,5 +1,5 @@
 enum TicketStatus {
-  pending,
+  newTicket,
   assigned,
   inProgress,
   completed,
@@ -7,9 +7,8 @@ enum TicketStatus {
 }
 
 enum TicketPriority {
-  low,
-  medium,
-  high,
+  standard,
+  critical,
 }
 
 enum TicketCategory {
@@ -36,7 +35,6 @@ class SupportTicket {
   final String? assignedTo;
   final String? completedAt;
   final String? cancelledReason;
-  final int? rating;
   final String type; // 'IT' or 'FM'
 
   SupportTicket({
@@ -52,7 +50,6 @@ class SupportTicket {
     this.assignedTo,
     this.completedAt,
     this.cancelledReason,
-    this.rating,
     required this.type,
   });
 
@@ -80,17 +77,16 @@ class SupportTicket {
       if (s.contains('assign') || s.contains('accepted')) {
         return TicketStatus.assigned;
       }
-      // New / unassigned / queue / open — My Requests "Open" tab includes these.
-      return TicketStatus.pending;
+      // New / unassigned / queue / open.
+      return TicketStatus.newTicket;
     }
 
     TicketPriority parsePriority(Object? raw) {
       final s = (raw ?? '').toString().trim().toLowerCase();
-      if (s == 'urgent' || s == 'high' || s == 'critical')
-        return TicketPriority.high;
-      if (s == 'medium' || s == 'normal' || s == 'standard')
-        return TicketPriority.medium;
-      return TicketPriority.low;
+      if (s == 'critical' || s == 'urgent' || s == 'high') {
+        return TicketPriority.critical;
+      }
+      return TicketPriority.standard;
     }
 
     TicketCategory parseCategory(Object? raw) {
@@ -171,15 +167,14 @@ class SupportTicket {
           ?.toString(),
       completedAt: completed?.toIso8601String(),
       cancelledReason: json['cancelledReason']?.toString(),
-      rating: asInt(json['rating']),
       type: area == 'FM' ? 'FM' : 'IT',
     );
   }
 
   String get statusString {
     switch (status) {
-      case TicketStatus.pending:
-        return 'Pending';
+      case TicketStatus.newTicket:
+        return 'New';
       case TicketStatus.assigned:
         return 'Assigned';
       case TicketStatus.inProgress:
@@ -193,12 +188,10 @@ class SupportTicket {
 
   String get priorityString {
     switch (priority) {
-      case TicketPriority.low:
-        return 'Low';
-      case TicketPriority.medium:
-        return 'Medium';
-      case TicketPriority.high:
-        return 'High';
+      case TicketPriority.standard:
+        return 'Standard';
+      case TicketPriority.critical:
+        return 'Critical';
     }
   }
 

@@ -11,8 +11,15 @@ import '../../widgets/start_support_call_sheet.dart';
 
 class TicketDetailView extends StatefulWidget {
   final SupportTicket ticket;
+  final bool showContactStaffAction;
+  final bool showCancelAction;
 
-  const TicketDetailView({super.key, required this.ticket});
+  const TicketDetailView({
+    super.key,
+    required this.ticket,
+    this.showContactStaffAction = true,
+    this.showCancelAction = true,
+  });
 
   @override
   State<TicketDetailView> createState() => _TicketDetailViewState();
@@ -534,38 +541,12 @@ class _TicketDetailViewState extends State<TicketDetailView> {
   // ── Bottom actions ─────────────────────────────────────────────────────
 
   Widget _buildBottomActions(BuildContext context) {
-    if (_ticket.status == TicketStatus.completed) {
-      return SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            border: Border(top: BorderSide(color: AppColors.gray200, width: 1)),
-          ),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _showRatingDialog(context),
-              icon: const Icon(Icons.star_outline),
-              label: const Text(
-                'Rate This Ticket',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+    final canShowOnClosed = widget.showContactStaffAction;
+    final isClosed = _ticket.status == TicketStatus.completed ||
+        _ticket.status == TicketStatus.cancelled;
+    if (isClosed && !canShowOnClosed) return const SizedBox.shrink();
 
-    if (_ticket.status == TicketStatus.cancelled) {
+    if (!widget.showContactStaffAction && !widget.showCancelAction) {
       return const SizedBox.shrink();
     }
 
@@ -579,45 +560,48 @@ class _TicketDetailViewState extends State<TicketDetailView> {
         ),
         child: Row(
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _showInAppCallSheet(context),
-                icon: const Icon(Icons.call_outlined, size: 17),
-                label: const Text(
-                  'Call staff',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: BorderSide(
-                    color: AppColors.primary.withValues(alpha: 0.45),
+            if (widget.showContactStaffAction)
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showInAppCallSheet(context),
+                  icon: const Icon(Icons.call_outlined, size: 17),
+                  label: const Text(
+                    'Contact staff',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _showCancelDialog(context),
-                icon: const Icon(Icons.close_rounded, size: 17),
-                label: const Text(
-                  'Cancel ticket',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.gray700,
-                  side: const BorderSide(color: AppColors.gray300),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: BorderSide(
+                      color: AppColors.primary.withValues(alpha: 0.45),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
-            ),
+            if (widget.showContactStaffAction && widget.showCancelAction)
+              const SizedBox(width: 12),
+            if (widget.showCancelAction && !isClosed)
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showCancelDialog(context),
+                  icon: const Icon(Icons.close_rounded, size: 17),
+                  label: const Text(
+                    'Cancel ticket',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.gray700,
+                    side: const BorderSide(color: AppColors.gray300),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -732,7 +716,6 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                     assignedTo: _ticket.assignedTo,
                     completedAt: _ticket.completedAt,
                     cancelledReason: reason,
-                    rating: _ticket.rating,
                     type: _ticket.type,
                   );
                 });
@@ -764,63 +747,11 @@ class _TicketDetailViewState extends State<TicketDetailView> {
     );
   }
 
-  void _showRatingDialog(BuildContext context) {
-    int rating = _ticket.rating ?? 0;
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Rate This Ticket'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('How would you rate the support you received?'),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (index) {
-                  return IconButton(
-                    icon: Icon(
-                      Icons.star,
-                      size: 40,
-                      color: index < rating ? Colors.amber : AppColors.gray300,
-                    ),
-                    onPressed: () {
-                      setState(() => rating = index + 1);
-                    },
-                  );
-                }),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Rating submitted: $rating stars (mock)'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              child: const Text('Submit'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ── Color helpers ──────────────────────────────────────────────────────
 
   Color _getStatusColor(TicketStatus status) {
     switch (status) {
-      case TicketStatus.pending:
+      case TicketStatus.newTicket:
         return Colors.blue;
       case TicketStatus.assigned:
         return Colors.blue;
@@ -835,11 +766,9 @@ class _TicketDetailViewState extends State<TicketDetailView> {
 
   Color _getPriorityColor(TicketPriority priority) {
     switch (priority) {
-      case TicketPriority.low:
+      case TicketPriority.standard:
         return Colors.green;
-      case TicketPriority.medium:
-        return Colors.orange;
-      case TicketPriority.high:
+      case TicketPriority.critical:
         return Colors.red;
     }
   }

@@ -777,7 +777,7 @@ class StaffJobDetail extends StatelessWidget {
 
     try {
       if (started) {
-        await SupportService().startStaffRequest(
+        await SupportService().markStaffRequestInProgress(
           requestId: requestId,
           staffId: staff,
         );

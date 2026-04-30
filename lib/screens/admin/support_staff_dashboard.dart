@@ -14,14 +14,6 @@ enum StaffRoleType {
   fm,
 }
 
-enum _PresenceStrip {
-  /// Accepting new assignments (still on active duty).
-  availableForAssignments,
-
-  /// Temporarily paused while on active duty.
-  onBreak,
-}
-
 class SupportStaffDashboard extends StatefulWidget {
   const SupportStaffDashboard({
     super.key,
@@ -39,19 +31,14 @@ class SupportStaffDashboard extends StatefulWidget {
 class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
   int _tabIndex = 0;
   int _historyPeriod = 1;
-
-  /// Working today — enables assignment / break strips below.
   bool _activeDuty = true;
-
-  /// When [_activeDuty]: whether you're available or on break.
-  _PresenceStrip _presence = _PresenceStrip.availableForAssignments;
+  int _availabilityIndex = 0; // 0=available, 1=break
 
   final SupportService _supportService = SupportService();
   final DateFormat _fullDateFormat = DateFormat('MMM d, yyyy, h:mm a');
 
   List<SupportTicket> _tickets = const [];
   bool _isLoading = true;
-  bool _isStatusSaving = false;
   String? _staffId;
   String? _error;
 
@@ -111,13 +98,6 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
         );
       }
 
-      SupportStaffStatus? status;
-      try {
-        status = await _supportService.fetchStaffStatus(memberId: staffId);
-      } catch (_) {
-        // Status row may not exist yet; treat as offline.
-      }
-
       final tickets =
           await _supportService.fetchStaffRequests(staffId: staffId);
 
@@ -125,7 +105,6 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
       setState(() {
         _staffId = staffId;
         _tickets = tickets;
-        if (status != null) _applyAvailability(status.status);
         _isLoading = false;
       });
     } catch (e) {
@@ -134,49 +113,6 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
         _error = e.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
       });
-    }
-  }
-
-  void _applyAvailability(SupportStaffAvailability status) {
-    switch (status) {
-      case SupportStaffAvailability.online:
-        _activeDuty = true;
-        _presence = _PresenceStrip.availableForAssignments;
-      case SupportStaffAvailability.onBreak:
-        _activeDuty = true;
-        _presence = _PresenceStrip.onBreak;
-      case SupportStaffAvailability.offline:
-        _activeDuty = false;
-    }
-  }
-
-  Future<void> _setAvailability(SupportStaffAvailability next) async {
-    final staffId = _staffId;
-    if (staffId == null || staffId.isEmpty) {
-      _showSnackBar('Authentication required. Please sign in again.');
-      return;
-    }
-
-    final previousActiveDuty = _activeDuty;
-    final previousPresence = _presence;
-    setState(() {
-      _isStatusSaving = true;
-      _applyAvailability(next);
-    });
-
-    try {
-      await _supportService.updateStaffStatus(memberId: staffId, status: next);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _activeDuty = previousActiveDuty;
-        _presence = previousPresence;
-      });
-      _showSnackBar(e.toString().replaceFirst('Exception: ', ''));
-    } finally {
-      if (mounted) {
-        setState(() => _isStatusSaving = false);
-      }
     }
   }
 
@@ -225,7 +161,7 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(0, 8, 0, 12),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
                 child: _buildPillTabs(),
               ),
               Expanded(
@@ -256,7 +192,7 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
       final selected = _tabIndex == index;
       return Expanded(
         child: Padding(
-          padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
+          padding: EdgeInsets.only(right: index == 0 ? 10 : 0),
           child: Material(
             color: Colors.transparent,
             child: InkWell(
@@ -280,11 +216,7 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      icon,
-                      size: 20,
-                      color: _slateLabel,
-                    ),
+                    Icon(icon, size: 20, color: _slateLabel),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
@@ -363,15 +295,27 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
   }
 
   Widget _buildDashboardTab() {
+    final weekly = _weeklyPerformance();
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildWeeklyPerformanceSummary(),
-          const SizedBox(height: 16),
+          _buildCardSection(
+            title: 'WEEKLY PERFORMANCE',
+            child: Text(
+              'Completed ${weekly.completed} of ${weekly.total} tasks this week.',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.gray700,
+                height: 1.35,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           _buildAvailabilityCard(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 18),
           Text(
             'My Assigned Jobs',
             style: AppTextStyles.moduleAppBarTitle.copyWith(
@@ -398,230 +342,175 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
     );
   }
 
-  Widget _eyebrow(String text) {
-    return Text(
-      text.toUpperCase(),
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.1,
-        color: AppColors.gray400,
-      ),
-    );
-  }
+  ({int completed, int total}) _weeklyPerformance() {
+    DateTime? parseLocal(String? iso) =>
+        iso == null ? null : DateTime.tryParse(iso)?.toLocal();
 
-  /// Numbers only — completed vs target for the week (no progress bar).
-  Widget _buildWeeklyPerformanceSummary() {
     final now = DateTime.now();
-    final weekStart = DateTime(now.year, now.month, now.day)
+    final startOfWeek = DateTime(now.year, now.month, now.day)
         .subtract(Duration(days: now.weekday - 1));
-    final weekTickets = _tickets.where((ticket) {
-      final completed = DateTime.tryParse(ticket.completedAt ?? '');
-      final created = DateTime.tryParse(ticket.createdAt);
-      final when = completed ?? created;
-      return when == null || !when.isBefore(weekStart);
-    }).toList(growable: false);
-    final completed = weekTickets
-        .where((ticket) => ticket.status == TicketStatus.completed)
-        .length;
-    final total = weekTickets.length;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.gray200.withValues(alpha: 0.85)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _eyebrow('Weekly performance'),
-          const SizedBox(height: 10),
-          RichText(
-            text: TextSpan(
-              style: const TextStyle(
-                fontSize: 15,
-                height: 1.35,
-                color: AppColors.gray700,
-              ),
-              children: [
-                const TextSpan(text: 'Completed '),
-                TextSpan(
-                  text: '$completed',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.gray900,
-                  ),
-                ),
-                const TextSpan(text: ' of '),
-                TextSpan(
-                  text: '$total',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const TextSpan(text: ' tasks this week.'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    final total = _tickets.where((t) {
+      final created = parseLocal(t.createdAt);
+      return created == null || !created.isBefore(startOfWeek);
+    }).length;
+
+    final completed = _tickets.where((t) {
+      if (t.status != TicketStatus.completed) return false;
+      final doneAt = parseLocal(t.completedAt) ?? parseLocal(t.createdAt);
+      return doneAt == null || !doneAt.isBefore(startOfWeek);
+    }).length;
+
+    return (completed: completed, total: total);
   }
 
   Widget _buildAvailabilityCard() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.gray200.withValues(alpha: 0.85)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+    return _buildCardSection(
+      title: 'AVAILABILITY',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _eyebrow('Availability'),
-          const SizedBox(height: 12),
           Row(
             children: [
               const Expanded(
                 child: Text(
                   'Active Duty',
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.gray900,
                   ),
                 ),
               ),
               Switch.adaptive(
                 value: _activeDuty,
-                onChanged: _isStatusSaving
-                    ? null
-                    : (v) => _setAvailability(
-                          v
-                              ? SupportStaffAvailability.online
-                              : SupportStaffAvailability.offline,
-                        ),
-                activeTrackColor: const Color(0xFF3B82F6),
-                activeThumbColor: AppColors.white,
+                onChanged: (v) => setState(() {
+                  _activeDuty = v;
+                  if (!v) _availabilityIndex = 1;
+                }),
+                activeColor: AppColors.primary,
               ),
             ],
           ),
-          if (_activeDuty) ...[
-            const SizedBox(height: 12),
-            Text(
-              'When you need to pause briefly, choose a status below.',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.gray500,
-                height: 1.35,
-              ),
+          const SizedBox(height: 8),
+          const Text(
+            'When you need to pause briefly, choose a status below.',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.gray500,
+              height: 1.35,
             ),
-            const SizedBox(height: 10),
-            _presenceRow(
-              selected: _presence == _PresenceStrip.availableForAssignments,
-              dotColor: const Color(0xFF22C55E),
-              background: const Color(0xFFF1F5F9),
-              borderColor: AppColors.gray200,
-              title: 'Available for assignments',
-              titleStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF334155),
-              ),
-              onTap: _isStatusSaving
-                  ? null
-                  : () => _setAvailability(SupportStaffAvailability.online),
-            ),
-            const SizedBox(height: 8),
-            _presenceRow(
-              selected: _presence == _PresenceStrip.onBreak,
-              dotColor: const Color(0xFFF59E0B),
-              background: const Color(0xFFF0FDF4),
-              borderColor: const Color(0xFFBBF7D0).withValues(alpha: 0.7),
-              title: 'On break',
-              titleStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF064E3B),
-              ),
-              onTap: _isStatusSaving
-                  ? null
-                  : () => _setAvailability(SupportStaffAvailability.onBreak),
-            ),
-          ] else ...[
-            const SizedBox(height: 10),
-            Text(
-              'You\'re not on active duty today. Turn on when you start work.',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.gray500,
-                height: 1.4,
-              ),
-            ),
-          ],
+          ),
+          const SizedBox(height: 12),
+          _availabilityOption(
+            index: 0,
+            label: 'Available for assignments',
+            dotColor: const Color(0xFF16A34A),
+            activeBg: const Color(0xFFEFF6FF),
+            activeBorder: AppColors.primary.withValues(alpha: 0.55),
+          ),
+          const SizedBox(height: 10),
+          _availabilityOption(
+            index: 1,
+            label: 'On break',
+            dotColor: const Color(0xFFF59E0B),
+            activeBg: const Color(0xFFF0FDF4),
+            activeBorder: const Color(0xFFBBF7D0),
+          ),
         ],
       ),
     );
   }
 
-  Widget _presenceRow({
-    required bool selected,
+  Widget _availabilityOption({
+    required int index,
+    required String label,
     required Color dotColor,
-    required Color background,
-    required Color borderColor,
-    required String title,
-    required TextStyle titleStyle,
-    required VoidCallback? onTap,
+    required Color activeBg,
+    required Color activeBorder,
   }) {
+    final selected = _availabilityIndex == index;
+    final enabled = _activeDuty || index == 1;
+    final bg = selected ? activeBg : AppColors.gray50;
+    final border = selected ? activeBorder : AppColors.gray200;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        onTap: !enabled ? null : () => setState(() => _availabilityIndex = index),
+        borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? AppColors.primary : borderColor,
-              width: selected ? 1.5 : 1,
-            ),
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border),
           ),
           child: Row(
             children: [
               Container(
-                width: 8,
-                height: 8,
+                width: 10,
+                height: 10,
                 decoration: BoxDecoration(
+                  color: enabled ? dotColor : AppColors.gray300,
                   shape: BoxShape.circle,
-                  color: dotColor,
                 ),
               ),
               const SizedBox(width: 10),
-              Expanded(child: Text(title, style: titleStyle)),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: enabled ? AppColors.gray700 : AppColors.gray400,
+                  ),
+                ),
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardSection({
+    required String title,
+    required Widget child,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.gray200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: AppColors.gray400,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            child,
+          ],
         ),
       ),
     );
@@ -874,8 +763,6 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
                 _historyPeriodChip('Last 30 days', 1),
                 const SizedBox(width: 8),
                 _historyPeriodChip('Last 3 months', 2),
-                const SizedBox(width: 8),
-                _historyPeriodChip('Custom range', 3),
               ],
             ),
           ),
@@ -895,9 +782,6 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          if (index == 3) {
-            _showSnackBar('Custom range (coming soon).');
-          }
           setState(() => _historyPeriod = index);
         },
         borderRadius: BorderRadius.circular(10),

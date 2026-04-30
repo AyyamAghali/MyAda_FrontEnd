@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,56 +7,14 @@ import 'package:http/http.dart' as http;
 import '../models/support_ticket.dart';
 import '../widgets/support_location_picker.dart';
 import 'auth_service.dart';
+import 'support_api_config.dart';
 
-const String kSupportBaseUrl = 'http://13.60.31.141:5000/support/api';
+const Duration _kSupportRequestTimeout = Duration(seconds: 20);
 
-enum SupportStaffAvailability {
-  offline,
-  online,
-  onBreak,
-}
-
-class SupportStaffStatus {
-  final String memberId;
-  final SupportStaffAvailability status;
-
-  const SupportStaffStatus({
-    required this.memberId,
-    required this.status,
-  });
-
-  factory SupportStaffStatus.fromJson(Map<String, dynamic> json) {
-    return SupportStaffStatus(
-      memberId: (json['memberId'] ?? json['id'] ?? '').toString(),
-      status: _parseStaffAvailability(json['status']),
-    );
-  }
-
-  static SupportStaffAvailability _parseStaffAvailability(Object? raw) {
-    final value = (raw ?? '').toString().trim().toLowerCase();
-    if (value == 'online' || value == 'available') {
-      return SupportStaffAvailability.online;
-    }
-    if (value == 'onbreak' ||
-        value == 'on_break' ||
-        value == 'break' ||
-        value == 'paused') {
-      return SupportStaffAvailability.onBreak;
-    }
-    return SupportStaffAvailability.offline;
-  }
-}
-
-String supportStaffAvailabilityApiValue(SupportStaffAvailability status) {
-  switch (status) {
-    case SupportStaffAvailability.online:
-      return 'Online';
-    case SupportStaffAvailability.onBreak:
-      return 'OnBreak';
-    case SupportStaffAvailability.offline:
-      return 'Offline';
-  }
-}
+/// Mobile Support module service aligned with:
+/// "Support (Dispatcher + Staff) — Mobile Developer Documentation".
+///
+/// This client intentionally only implements endpoints listed in that doc.
 
 class SupportCategoryOption {
   final int id;
@@ -116,11 +75,145 @@ class SupportServiceException implements Exception {
 }
 
 class SupportService {
+  Future<List<String>> _baseUrls() async {
+    await SupportApiConfig.ensureInitialized();
+    return SupportApiConfig.baseUrlCandidates;
+  }
+
+  Uri _uriFromBase(String baseUrl, String path) => Uri.parse('$baseUrl$path');
+
+  bool _shouldTryNextBase(Object error) {
+    if (error is SocketException) return true;
+    if (error is HttpException) return true;
+    if (error is TimeoutException) return true;
+    if (error is SupportServiceException) {
+      final code = error.statusCode;
+      if (code == null) return false;
+      // Doc behavior: retry across bases on 404 and gateway errors.
+      return code == 404 || code == 502 || code == 503 || code == 504;
+    }
+    return false;
+  }
+
+  Future<http.Response> _authorizedGetWithFailover(String path) async {
+    final bases = await _baseUrls();
+    Object? lastError;
+    for (final base in bases) {
+      final uri = _uriFromBase(base, path);
+      try {
+        final response = await _authorizedGet(uri);
+        return response;
+      } catch (e) {
+        lastError = e;
+        if (!_shouldTryNextBase(e)) rethrow;
+      }
+    }
+    if (lastError is Exception) throw lastError;
+    throw const SupportServiceException(message: 'Support request failed.');
+  }
+
+  Future<http.Response> _authorizedPutWithFailover(
+    String path, {
+    Map<String, dynamic>? jsonBody,
+  }) async {
+    final bases = await _baseUrls();
+    Object? lastError;
+    for (final base in bases) {
+      final uri = _uriFromBase(base, path);
+      try {
+        final response = await AuthService.instance
+            .sendAuthorized(
+              (token) => http.put(
+                uri,
+                headers: {
+                  'Authorization': 'Bearer $token',
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+                body: jsonEncode(jsonBody ?? const <String, dynamic>{}),
+              ),
+            )
+            .timeout(
+              _kSupportRequestTimeout,
+              onTimeout: () => throw const SupportServiceException(
+                message: 'Support service timed out. Please try again.',
+              ),
+            );
+
+        if (response.statusCode == 200 || response.statusCode == 204) {
+          return response;
+        }
+        throw _buildError(response);
+      } catch (e) {
+        lastError = e;
+        if (!_shouldTryNextBase(e)) rethrow;
+      }
+    }
+    if (lastError is Exception) throw lastError;
+    throw const SupportServiceException(message: 'Support request failed.');
+  }
+
+  Future<http.Response> _authorizedPostWithFailover(
+    String path, {
+    required Map<String, dynamic> jsonBody,
+  }) async {
+    final bases = await _baseUrls();
+    Object? lastError;
+    for (final base in bases) {
+      final uri = _uriFromBase(base, path);
+      try {
+        final response = await AuthService.instance
+            .sendAuthorized(
+              (token) => http.post(
+                uri,
+                headers: {
+                  'Authorization': 'Bearer $token',
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+                body: jsonEncode(jsonBody),
+              ),
+            )
+            .timeout(
+              _kSupportRequestTimeout,
+              onTimeout: () => throw const SupportServiceException(
+                message: 'Support service timed out. Please try again.',
+              ),
+            );
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          return response;
+        }
+        throw _buildError(response);
+      } catch (e) {
+        lastError = e;
+        if (!_shouldTryNextBase(e)) rethrow;
+      }
+    }
+    if (lastError is Exception) throw lastError;
+    throw const SupportServiceException(message: 'Support request failed.');
+  }
+
+  /// Dispatcher/admin view: fetches all support requests visible to the caller.
+  Future<List<SupportTicket>> fetchAllRequests({
+    String sortBy = 'newest', // newest | oldest
+  }) async {
+    final qp = <String, String>{};
+    if (sortBy.trim().isNotEmpty) qp['sortBy'] = sortBy.trim();
+    final path = Uri(path: '/SupportRequests', queryParameters: qp).toString();
+    final response = await _authorizedGetWithFailover(path);
+    final list = _unwrapList(response.body);
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(SupportTicket.fromApiJson)
+        .toList(growable: false);
+  }
+
   Future<List<SupportCategoryOption>> fetchCategories({String? module}) async {
     final path = module == null || module.trim().isEmpty
-        ? '$kSupportBaseUrl/Categories'
-        : '$kSupportBaseUrl/Categories/module/${Uri.encodeComponent(module)}';
-    final response = await _authorizedGet(Uri.parse(path));
+        ? '/Categories'
+        : '/Categories/module/${Uri.encodeComponent(module)}';
+    final response = await _authorizedGetWithFailover(path);
     final list = _unwrapList(response.body);
     return list
         .whereType<Map<String, dynamic>>()
@@ -131,9 +224,8 @@ class SupportService {
 
   Future<List<SupportTicket>> fetchMyRequests(
       {required String memberId}) async {
-    final response = await _authorizedGet(
-      Uri.parse(
-          '$kSupportBaseUrl/SupportRequests/member/${Uri.encodeComponent(memberId)}'),
+    final response = await _authorizedGetWithFailover(
+      '/SupportRequests/member/${Uri.encodeComponent(memberId)}',
     );
     final list = _unwrapList(response.body);
     return list
@@ -145,10 +237,8 @@ class SupportService {
   Future<List<SupportTicket>> fetchStaffRequests({
     required String staffId,
   }) async {
-    final response = await _authorizedGet(
-      Uri.parse(
-        '$kSupportBaseUrl/SupportRequests/staff/${Uri.encodeComponent(staffId)}',
-      ),
+    final response = await _authorizedGetWithFailover(
+      '/SupportRequests/staff/${Uri.encodeComponent(staffId)}',
     );
     final list = _unwrapList(response.body);
     return list
@@ -157,54 +247,15 @@ class SupportService {
         .toList(growable: false);
   }
 
-  Future<SupportStaffStatus> fetchStaffStatus({
-    required String memberId,
-  }) async {
-    final response = await _authorizedGet(
-      Uri.parse(
-        '$kSupportBaseUrl/SupportStaffStatuses/member/${Uri.encodeComponent(memberId)}',
-      ),
-    );
-    return SupportStaffStatus.fromJson(_unwrapMap(response.body));
-  }
-
-  Future<void> updateStaffStatus({
-    required String memberId,
-    required SupportStaffAvailability status,
-  }) async {
-    final uri = Uri.parse(
-      '$kSupportBaseUrl/SupportStaffStatuses/member/${Uri.encodeComponent(memberId)}',
-    );
-    final response = await AuthService.instance.sendAuthorized(
-      (token) => http.put(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'status': supportStaffAvailabilityApiValue(status),
-        }),
-      ),
-    );
-
-    if (response.statusCode == 200 || response.statusCode == 204) return;
-    throw _buildError(response);
-  }
-
   Future<SupportTicket> fetchRequestById(int requestId) async {
-    final response = await _authorizedGet(
-      Uri.parse('$kSupportBaseUrl/SupportRequests/$requestId'),
-    );
+    final response = await _authorizedGetWithFailover('/SupportRequests/$requestId');
     final map = _unwrapMap(response.body);
     return SupportTicket.fromApiJson(map);
   }
 
   Future<List<SupportTimelineEvent>> fetchRequestTimeline(int requestId) async {
-    final response = await _authorizedGet(
-      Uri.parse('$kSupportBaseUrl/SupportRequests/$requestId/timeline'),
-    );
+    final response =
+        await _authorizedGetWithFailover('/SupportRequests/$requestId/timeline');
     final list = _unwrapList(response.body);
     return list
         .whereType<Map<String, dynamic>>()
@@ -212,14 +263,67 @@ class SupportService {
         .toList(growable: false);
   }
 
-  Future<void> startStaffRequest({
+  /// Dispatcher action: assign (or update assignment).
+  ///
+  /// API: `PUT /SupportRequests/{requestId}/assign/dispatcher/{dispatcherId}`
+  Future<void> assignRequest({
+    required int requestId,
+    required String dispatcherId,
+    required String staffId,
+    required String dispatcherInstructions,
+  }) async {
+    await _authorizedPutWithFailover(
+      '/SupportRequests/$requestId/assign/dispatcher/${Uri.encodeComponent(dispatcherId)}',
+      jsonBody: <String, dynamic>{
+        'staffId': staffId,
+        'dispatcherInstructions': dispatcherInstructions,
+      },
+    );
+  }
+
+  /// Dispatcher action: reassign staff (optional, if backend supports).
+  ///
+  /// API: `PUT /SupportRequests/{requestId}/reassign/dispatcher/{dispatcherId}`
+  Future<void> reassignRequest({
+    required int requestId,
+    required String dispatcherId,
+    required String staffId,
+    required String dispatcherInstructions,
+  }) async {
+    await _authorizedPutWithFailover(
+      '/SupportRequests/$requestId/reassign/dispatcher/${Uri.encodeComponent(dispatcherId)}',
+      jsonBody: <String, dynamic>{
+        'staffId': staffId,
+        'dispatcherInstructions': dispatcherInstructions,
+      },
+    );
+  }
+
+  /// Dispatcher action: update internal instructions only.
+  ///
+  /// API: `PUT /SupportRequests/{requestId}/dispatcher-instructions/dispatcher/{dispatcherId}`
+  Future<void> setDispatcherInstructions({
+    required int requestId,
+    required String dispatcherId,
+    required String instructions,
+  }) async {
+    await _authorizedPutWithFailover(
+      '/SupportRequests/$requestId/dispatcher-instructions/dispatcher/${Uri.encodeComponent(dispatcherId)}',
+      jsonBody: <String, dynamic>{'instructions': instructions},
+    );
+  }
+
+  /// Staff action: mark the request as "in progress".
+  ///
+  /// API: `PUT /support/api/SupportRequests/{requestId}/in-progress/staff/{staffId}`
+  Future<void> markStaffRequestInProgress({
     required int requestId,
     required String staffId,
   }) {
     return _putStaffRequestAction(
       requestId: requestId,
       staffId: staffId,
-      action: 'start',
+      action: 'in-progress',
     );
   }
 
@@ -239,21 +343,9 @@ class SupportService {
     required String staffId,
     required String action,
   }) async {
-    final uri = Uri.parse(
-      '$kSupportBaseUrl/SupportRequests/$requestId/$action/staff/${Uri.encodeComponent(staffId)}',
+    await _authorizedPutWithFailover(
+      '/SupportRequests/$requestId/$action/staff/${Uri.encodeComponent(staffId)}',
     );
-    final response = await AuthService.instance.sendAuthorized(
-      (token) => http.put(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      ),
-    );
-
-    if (response.statusCode == 200 || response.statusCode == 204) return;
-    throw _buildError(response);
   }
 
   Future<void> cancelRequest({
@@ -261,25 +353,10 @@ class SupportService {
     required String memberId,
     required String reason,
   }) async {
-    final uri = Uri.parse(
-      '$kSupportBaseUrl/SupportRequests/$requestId/cancel/member/${Uri.encodeComponent(memberId)}',
+    await _authorizedPutWithFailover(
+      '/SupportRequests/$requestId/cancel/member/${Uri.encodeComponent(memberId)}',
+      jsonBody: <String, dynamic>{'reason': reason},
     );
-
-    final body = jsonEncode({'reason': reason});
-    final response = await AuthService.instance.sendAuthorized(
-      (token) => http.put(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: body,
-      ),
-    );
-
-    if (response.statusCode == 200 || response.statusCode == 204) return;
-    throw _buildError(response);
   }
 
   Future<int> createRequest({
@@ -306,25 +383,10 @@ class SupportService {
       attachmentUrls: attachmentUrls,
     );
 
-    final uri = Uri.parse(
-      '$kSupportBaseUrl/SupportRequests/member/${Uri.encodeComponent(memberId)}',
+    final response = await _authorizedPostWithFailover(
+      '/SupportRequests/member/${Uri.encodeComponent(memberId)}',
+      jsonBody: payload,
     );
-
-    final response = await AuthService.instance.sendAuthorized(
-      (token) => http.post(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(payload),
-      ),
-    );
-
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw _buildError(response);
-    }
 
     final map = _unwrapMap(response.body);
     final id = int.tryParse(
@@ -345,23 +407,37 @@ class SupportService {
     final locationType =
         location.type == SupportLocationType.building ? 'building' : 'campus';
     final placeType = location.type == SupportLocationType.building
-        ? (location.isRoom == true ? 'room' : 'area')
+        ? (location.isRoom == true ? 'room' : 'nonRoom')
         : null;
 
+    String? areaDetails;
+    if (location.type == SupportLocationType.campus) {
+      areaDetails = (location.details ?? '').trim().isEmpty
+          ? null
+          : (location.details ?? '').trim();
+    } else if (location.type == SupportLocationType.building &&
+        location.isRoom == false) {
+      areaDetails = (location.details ?? '').trim().isEmpty
+          ? null
+          : (location.details ?? '').trim();
+    }
+
     return <String, dynamic>{
-      'area': area.toLowerCase(),
+      'area': area.toLowerCase(), // it|fm
       'categoryId': categoryId,
-      'locationType': locationType,
-      'buildingId': null,
-      'placeType': placeType,
-      'roomId': null,
-      'areaDetails': location.asDisplayString(),
+      'locationType': locationType, // building|campus
+      'buildingId': location.type == SupportLocationType.building
+          ? location.buildingId
+          : null,
+      'placeType': placeType, // room|nonRoom
+      'roomId': location.type == SupportLocationType.building &&
+              location.isRoom == true
+          ? location.roomId
+          : null,
+      'areaDetails': areaDetails,
       'description': description,
-      'urgency': urgency == TicketPriority.high ? 'urgent' : 'standard',
+      'urgency': urgency == TicketPriority.critical ? 'critical' : 'standard',
       'attachmentUrls': attachmentUrls,
-      // Compatibility fallbacks for backend variants.
-      'module': area.toUpperCase(),
-      'location': location.asDisplayString(),
     };
   }
 
@@ -376,7 +452,9 @@ class SupportService {
         ext.endsWith('.gif');
     if (!isAllowed) return null;
 
-    final uri = Uri.parse('$kSupportBaseUrl/SupportRequests/uploads');
+    final bases = await _baseUrls();
+    if (bases.isEmpty) return null;
+    final uri = _uriFromBase(bases.first, '/SupportRequests/uploads');
     final request = http.MultipartRequest('POST', uri);
 
     await AuthService.instance.loadSession();
@@ -388,7 +466,12 @@ class SupportService {
     request.headers['Accept'] = 'application/json';
     request.files.add(await http.MultipartFile.fromPath('files', path));
 
-    final streamed = await request.send();
+    final streamed = await request.send().timeout(
+      _kSupportRequestTimeout,
+      onTimeout: () => throw const SupportServiceException(
+        message: 'Attachment upload timed out. Please try again.',
+      ),
+    );
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw _buildError(response);
@@ -416,15 +499,22 @@ class SupportService {
   }
 
   Future<http.Response> _authorizedGet(Uri uri) async {
-    final response = await AuthService.instance.sendAuthorized(
-      (token) => http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      ),
-    );
+    final response = await AuthService.instance
+        .sendAuthorized(
+          (token) => http.get(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          ),
+        )
+        .timeout(
+          _kSupportRequestTimeout,
+          onTimeout: () => throw const SupportServiceException(
+            message: 'Support service timed out. Please try again.',
+          ),
+        );
     if (response.statusCode != 200) throw _buildError(response);
     return response;
   }
@@ -489,11 +579,26 @@ class SupportService {
         if (direct is String && direct.isNotEmpty) {
           message = direct;
         }
+        final exception = unwrapped['responseException'];
+        if (exception is Map<String, dynamic>) {
+          final exMsg =
+              (exception['exceptionMessage'] ?? exception['message'])?.toString();
+          if (exMsg != null && exMsg.trim().isNotEmpty) {
+            message = exMsg;
+          }
+        }
       }
       final rootDirect = decoded['message'];
       if (rootDirect is String && rootDirect.isNotEmpty) {
         message = rootDirect;
       }
+    }
+    final raw = response.body.trim();
+    if (raw.isNotEmpty &&
+        !raw.startsWith('{') &&
+        !raw.startsWith('[') &&
+        raw.length <= 240) {
+      message = '$message\n$raw';
     }
     return SupportServiceException(
         statusCode: response.statusCode, message: message);

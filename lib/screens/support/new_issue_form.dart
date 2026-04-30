@@ -24,7 +24,8 @@ class _NewIssueFormState extends State<NewIssueForm> {
   final _categoryController = TextEditingController();
   final _otherCategoryController = TextEditingController();
   final _descriptionController = TextEditingController();
-  TicketPriority _urgencyLevel = TicketPriority.low; // Default to "Not Urgent"
+  TicketPriority _urgencyLevel =
+      TicketPriority.standard; // Default to "standard"
   List<String> _attachments = [];
   bool _isOtherCategorySelected = false;
   late String _module; // IT | FM
@@ -376,11 +377,11 @@ class _NewIssueFormState extends State<NewIssueForm> {
                           child: Column(
                             children: [
                               RadioListTile<TicketPriority>(
-                                title: const Text('Not Urgent',
+                                title: const Text('Standard',
                                     style: TextStyle(fontSize: 14)),
-                                subtitle: const Text('Can wait 24+ hours',
+                                subtitle: const Text('Standard urgency',
                                     style: TextStyle(fontSize: 12)),
-                                value: TicketPriority.low,
+                                value: TicketPriority.standard,
                                 groupValue: _urgencyLevel,
                                 onChanged: (value) =>
                                     setState(() => _urgencyLevel = value!),
@@ -389,11 +390,11 @@ class _NewIssueFormState extends State<NewIssueForm> {
                                 activeColor: primaryColor,
                               ),
                               RadioListTile<TicketPriority>(
-                                title: const Text('Urgent',
+                                title: const Text('Critical',
                                     style: TextStyle(fontSize: 14)),
-                                subtitle: const Text('Needed ASAP',
+                                subtitle: const Text('Critical urgency',
                                     style: TextStyle(fontSize: 12)),
-                                value: TicketPriority.high,
+                                value: TicketPriority.critical,
                                 groupValue: _urgencyLevel,
                                 onChanged: (value) =>
                                     setState(() => _urgencyLevel = value!),

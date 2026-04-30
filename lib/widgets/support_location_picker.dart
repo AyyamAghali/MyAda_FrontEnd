@@ -6,16 +6,20 @@ enum SupportLocationType { building, campus }
 
 class SupportLocationValue {
   final SupportLocationType type;
-  final String? building;
+  final int? buildingId;
+  final String? buildingName;
   final bool? isRoom;
-  final String? room;
+  final int? roomId;
+  final String? roomName;
   final String? details;
 
   const SupportLocationValue({
     required this.type,
-    this.building,
+    this.buildingId,
+    this.buildingName,
     this.isRoom,
-    this.room,
+    this.roomId,
+    this.roomName,
     this.details,
   });
 
@@ -23,8 +27,8 @@ class SupportLocationValue {
     if (type == SupportLocationType.campus) {
       return (details ?? '').trim().isNotEmpty;
     }
-    if ((building ?? '').trim().isEmpty) return false;
-    if (isRoom == true) return (room ?? '').trim().isNotEmpty;
+    if ((buildingName ?? '').trim().isEmpty) return false;
+    if (isRoom == true) return (roomName ?? '').trim().isNotEmpty;
     if (isRoom == false) return (details ?? '').trim().isNotEmpty;
     return false;
   }
@@ -34,10 +38,10 @@ class SupportLocationValue {
       final d = (details ?? '').trim();
       return d.isEmpty ? 'Campus' : 'Campus - $d';
     }
-    final b = (building ?? '').trim();
+    final b = (buildingName ?? '').trim();
     if (b.isEmpty) return '';
     if (isRoom == true) {
-      final r = (room ?? '').trim();
+      final r = (roomName ?? '').trim();
       return r.isEmpty ? b : '$b - Room $r';
     }
     final d = (details ?? '').trim();
@@ -68,56 +72,61 @@ class SupportLocationPicker extends StatefulWidget {
 }
 
 class _SupportLocationPickerState extends State<SupportLocationPicker> {
-  static const List<String> _buildings = [
-    'Main Building',
-    'Library',
-    'Sports Complex',
-    'Building C',
-    'Cafeteria',
+  static const List<_BuildingOption> _buildings = [
+    _BuildingOption(1, 'Main Building', [
+      _RoomOption(101, '101'),
+      _RoomOption(102, '102'),
+      _RoomOption(103, '103'),
+      _RoomOption(201, '201'),
+      _RoomOption(202, '202'),
+      _RoomOption(203, '203'),
+      _RoomOption(301, '301'),
+      _RoomOption(302, '302'),
+      _RoomOption(303, '303'),
+      _RoomOption(1101, 'A101'),
+      _RoomOption(1102, 'A102'),
+      _RoomOption(1201, 'A201'),
+      _RoomOption(1301, 'A301'),
+    ]),
+    _BuildingOption(2, 'Library', [
+      _RoomOption(2001, 'L1'),
+      _RoomOption(2002, 'L2'),
+      _RoomOption(2003, 'L3'),
+      _RoomOption(2101, 'Reading Hall'),
+      _RoomOption(2102, 'Study Room 1'),
+      _RoomOption(2103, 'Study Room 2'),
+      _RoomOption(2104, 'Study Room 3'),
+    ]),
+    _BuildingOption(3, 'Sports Complex', [
+      _RoomOption(3001, 'Gym'),
+      _RoomOption(3002, 'Pool Area'),
+      _RoomOption(3101, 'S101'),
+      _RoomOption(3102, 'S102'),
+      _RoomOption(3201, 'S201'),
+      _RoomOption(3301, 'Locker Room A'),
+      _RoomOption(3302, 'Locker Room B'),
+    ]),
+    _BuildingOption(4, 'Building C', [
+      _RoomOption(4101, 'C101'),
+      _RoomOption(4102, 'C102'),
+      _RoomOption(4103, 'C103'),
+      _RoomOption(4201, 'C201'),
+      _RoomOption(4202, 'C202'),
+      _RoomOption(4203, 'C203'),
+      _RoomOption(4301, 'C301'),
+      _RoomOption(4302, 'C302'),
+    ]),
+    _BuildingOption(5, 'Cafeteria', [
+      _RoomOption(5001, 'Main Hall'),
+      _RoomOption(5002, 'Kitchen'),
+      _RoomOption(5003, 'Storage'),
+    ]),
   ];
 
-  static const Map<String, List<String>> _buildingRooms = {
-    'Main Building': [
-      '101',
-      '102',
-      '103',
-      '201',
-      '202',
-      '203',
-      '301',
-      '302',
-      '303',
-      'A101',
-      'A102',
-      'A201',
-      'A301',
-    ],
-    'Library': [
-      'L1',
-      'L2',
-      'L3',
-      'Reading Hall',
-      'Study Room 1',
-      'Study Room 2',
-      'Study Room 3',
-    ],
-    'Sports Complex': [
-      'Gym',
-      'Pool Area',
-      'S101',
-      'S102',
-      'S201',
-      'Locker Room A',
-      'Locker Room B',
-    ],
-    'Building C': ['C101', 'C102', 'C103', 'C201', 'C202', 'C203', 'C301', 'C302'],
-    'Cafeteria': ['Main Hall', 'Kitchen', 'Storage'],
-  };
-
   late SupportLocationType _type;
-  String? _building;
+  _BuildingOption? _building;
   bool? _isRoom;
-  String? _room;
+  _RoomOption? _room;
   String _details = '';
 
   @override
@@ -125,9 +134,22 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
     super.initState();
     final v = widget.initialValue;
     _type = v?.type ?? SupportLocationType.building;
-    _building = v?.building;
+    if (v?.buildingId != null) {
+      _building = _buildings.firstWhere(
+        (b) => b.id == v!.buildingId,
+        orElse: () => _buildings.first,
+      );
+    }
     _isRoom = v?.isRoom;
-    _room = v?.room;
+    if (v?.roomId != null) {
+      for (final b in _buildings) {
+        final match = b.rooms.where((r) => r.id == v!.roomId).toList();
+        if (match.isNotEmpty) {
+          _room = match.first;
+          break;
+        }
+      }
+    }
     _details = v?.details ?? '';
     WidgetsBinding.instance.addPostFrameCallback((_) => _emit());
   }
@@ -136,9 +158,11 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
     widget.onChanged(
       SupportLocationValue(
         type: _type,
-        building: _building,
+        buildingId: _building?.id,
+        buildingName: _building?.name,
         isRoom: _isRoom,
-        room: _room,
+        roomId: _room?.id,
+        roomName: _room?.name,
         details: _details,
       ),
     );
@@ -265,14 +289,17 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
                   context: context,
                   title: 'Building',
                   accentColor: widget.accentColor,
-                  selectedValue: _building,
+                  selectedValue: _building?.name,
                   options: _buildings
-                      .map((b) => SelectOption(value: b, label: b))
+                      .map((b) => SelectOption(value: b.name, label: b.name))
                       .toList(),
                 );
                 if (result != null) {
                   setState(() {
-                    _building = result;
+                    _building = _buildings.firstWhere(
+                      (b) => b.name == result,
+                      orElse: () => _buildings.first,
+                    );
                     _isRoom = null;
                     _room = null;
                     _details = '';
@@ -288,10 +315,10 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
                       color: AppColors.gray400, size: 22),
                 ),
                 child: Text(
-                  (_building ?? '').isEmpty ? 'Select building' : _building!,
+                  _building == null ? 'Select building' : _building!.name,
                   style: TextStyle(
                     fontSize: 15,
-                    color: (_building ?? '').isEmpty
+                    color: _building == null
                         ? AppColors.gray400
                         : AppColors.gray900,
                   ),
@@ -358,19 +385,22 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
                 onTap: () async {
-                  final rooms = _buildingRooms[_building] ?? [];
+                  final rooms = _building?.rooms ?? const <_RoomOption>[];
                   final result = await showModernSelectSheet<String>(
                     context: context,
                     title: 'Room',
                     accentColor: widget.accentColor,
-                    selectedValue: _room,
+                    selectedValue: _room?.name,
                     options: rooms
-                        .map((r) => SelectOption(value: r, label: r))
+                        .map((r) => SelectOption(value: r.name, label: r.name))
                         .toList(),
                   );
                   if (result != null) {
                     setState(() {
-                      _room = result;
+                      _room = rooms.firstWhere(
+                        (r) => r.name == result,
+                        orElse: () => rooms.first,
+                      );
                       _emit();
                     });
                   }
@@ -383,10 +413,10 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
                         color: AppColors.gray400, size: 22),
                   ),
                   child: Text(
-                    (_room ?? '').isEmpty ? 'Select room' : _room!,
+                  _room == null ? 'Select room' : _room!.name,
                     style: TextStyle(
                       fontSize: 15,
-                      color: (_room ?? '').isEmpty
+                    color: _room == null
                           ? AppColors.gray400
                           : AppColors.gray900,
                     ),
@@ -426,5 +456,20 @@ class _SupportLocationPickerState extends State<SupportLocationPicker> {
       ],
     );
   }
+}
+
+class _BuildingOption {
+  final int id;
+  final String name;
+  final List<_RoomOption> rooms;
+
+  const _BuildingOption(this.id, this.name, this.rooms);
+}
+
+class _RoomOption {
+  final int id;
+  final String name;
+
+  const _RoomOption(this.id, this.name);
 }
 

@@ -478,7 +478,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (context) => const SupportAdminMobileScreen()),
+                  builder: (context) => const SupportAdminScreen()),
             );
           },
         ),

@@ -31,9 +31,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   String _statusMessage = '';
   String? _scannedAt;
   String? _attendanceStatus;
-  int? _round;
-  int? _validScanCount;
-  String? _maskedToken;
   String? _lastDetectedPayload;
   DateTime? _lastDetectedAt;
 
@@ -113,15 +110,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       _statusMessage = 'Submitting attendance…';
       _scannedAt = null;
       _attendanceStatus = null;
-      _round = null;
-      _validScanCount = null;
-      _maskedToken = null;
     });
 
     try {
       final token = rawInput.trim();
       AttendanceService.validateToken(token);
-      _maskedToken = _maskToken(token);
 
       final studentId = AuthService.instance.studentId;
       if (studentId == null || studentId.isEmpty) {
@@ -141,11 +134,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             _state = _ScanState.success;
             _statusMessage = result.message;
             _attendanceStatus = result.status;
-            _round = result.round;
-            _validScanCount = result.validScanCount;
-            _scannedAt = result.scannedAt != null
-                ? DateFormat('MMM d, yyyy • h:mm a').format(result.scannedAt!)
-                : null;
+            _scannedAt = result.scannedAt != null ? _formatGmt4(result.scannedAt!) : null;
           });
         } else {
           setState(() {
@@ -177,16 +166,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       _statusMessage = '';
       _scannedAt = null;
       _attendanceStatus = null;
-      _round = null;
-      _validScanCount = null;
-      _maskedToken = null;
     });
     if (_canUseCamera) _startCamera();
   }
 
-  String _maskToken(String token) {
-    if (token.length <= 8) return '•' * token.length;
-    return '${token.substring(0, 4)}••••${token.substring(token.length - 4)}';
+  String _formatGmt4(DateTime dt) {
+    final utc = dt.isUtc ? dt : dt.toUtc();
+    final gmt4 = utc.add(const Duration(hours: 4));
+    return '${DateFormat('MMM d, yyyy • h:mm a').format(gmt4)} (GMT+4)';
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -569,15 +556,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             if (_scannedAt != null)
               _buildResultDetail(
                   Icons.access_time_outlined, 'Recorded at', _scannedAt!),
-            if (_round != null)
-              _buildResultDetail(
-                  Icons.repeat_outlined, 'Round', _round.toString()),
-            if (_validScanCount != null)
-              _buildResultDetail(Icons.confirmation_num_outlined,
-                  'Valid scans', _validScanCount.toString()),
-            if (_maskedToken != null)
-              _buildResultDetail(
-                  Icons.token_outlined, 'Token', _maskedToken!),
           ] else ...[
             const SizedBox(height: 12),
             OutlinedButton.icon(

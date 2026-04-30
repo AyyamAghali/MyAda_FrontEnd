@@ -646,6 +646,51 @@ class _LessonAttendanceDetailState extends State<_LessonAttendanceDetail> {
   String? _error;
   List<_SessionRecord> _sessions = [];
 
+  ({int present, int late, int absent, int excused, int total, double rate})
+      _computeSessionStats() {
+    var present = 0;
+    var late = 0;
+    var absent = 0;
+    var excused = 0;
+    var total = 0;
+
+    for (final s in _sessions) {
+      final status = s.status.trim().toLowerCase();
+      switch (status) {
+        case 'present':
+          present++;
+          total++;
+          break;
+        case 'late':
+          late++;
+          total++;
+          break;
+        case 'absent':
+          absent++;
+          total++;
+          break;
+        case 'excused':
+          excused++;
+          total++;
+          break;
+        default:
+          // Ignore unknown statuses in the summary calculation.
+          break;
+      }
+    }
+
+    final attended = present + late + excused;
+    final rate = total > 0 ? attended / total : 0.0;
+    return (
+      present: present,
+      late: late,
+      absent: absent,
+      excused: excused,
+      total: total,
+      rate: rate,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -799,7 +844,7 @@ class _LessonAttendanceDetailState extends State<_LessonAttendanceDetail> {
   }
 
   Widget _buildSummaryBar() {
-    final lesson = widget.lesson;
+    final stats = _computeSessionStats();
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 4),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -813,14 +858,14 @@ class _LessonAttendanceDetailState extends State<_LessonAttendanceDetail> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _SummaryItem(
-              label: 'Present', value: lesson.present.toString(), light: true),
+              label: 'Present', value: stats.present.toString(), light: true),
           _SummaryItem(
-              label: 'Late', value: lesson.late.toString(), light: true),
+              label: 'Late', value: stats.late.toString(), light: true),
           _SummaryItem(
-              label: 'Absent', value: lesson.absent.toString(), light: true),
+              label: 'Absent', value: stats.absent.toString(), light: true),
           _SummaryItem(
               label: 'Rate',
-              value: '${(lesson.attendanceRate * 100).toInt()}%',
+              value: '${(stats.rate * 100).round()}%',
               light: true),
         ],
       ),

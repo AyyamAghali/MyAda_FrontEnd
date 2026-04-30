@@ -97,8 +97,10 @@ class _MyRequestsState extends State<MyRequests>
           t.type.toLowerCase() == _typeFilter.toLowerCase();
 
       final matchUrgency = _urgencyFilter == 'all' ||
-          (_urgencyFilter == 'urgent' && t.priority == TicketPriority.high) ||
-          (_urgencyFilter == 'not_urgent' && t.priority != TicketPriority.high);
+          (_urgencyFilter == 'critical' &&
+              t.priority == TicketPriority.critical) ||
+          (_urgencyFilter == 'standard' &&
+              t.priority != TicketPriority.critical);
 
       return matchQuery && matchType && matchUrgency;
     }).toList();
@@ -682,8 +684,7 @@ class _MyRequestsState extends State<MyRequests>
     Color textColor;
 
     switch (status) {
-      case TicketStatus.pending:
-        // Treat pending as assigned (pending is deprecated for IT/FM requests)
+      case TicketStatus.newTicket:
         bgColor = const Color(0xFFEFF6FF); // Soft pastel blue
         textColor = const Color(0xFF2563EB);
         break;
@@ -712,13 +713,15 @@ class _MyRequestsState extends State<MyRequests>
         borderRadius: BorderRadius.circular(20), // Pill-shaped
       ),
       child: Text(
-        status == TicketStatus.pending || status == TicketStatus.assigned
-            ? 'Assigned'
+        status == TicketStatus.newTicket
+            ? 'New'
+            : status == TicketStatus.assigned
+                ? 'Assigned'
             : status == TicketStatus.inProgress
                 ? 'In Progress'
                 : status == TicketStatus.completed
                     ? 'Completed'
-                    : 'Canceled',
+                    : 'Cancelled',
         style: TextStyle(
           fontSize: 11,
           color: textColor,
@@ -735,21 +738,15 @@ class _MyRequestsState extends State<MyRequests>
     String label;
 
     switch (priority) {
-      case TicketPriority.low:
+      case TicketPriority.standard:
         bgColor = const Color(0xFFECFDF5); // Soft pastel green
         textColor = const Color(0xFF059669);
-        label = 'Not Urgent';
+        label = 'Standard';
         break;
-      case TicketPriority.medium:
-        // Map medium to "Not Urgent" since we only have two options now
-        bgColor = const Color(0xFFECFDF5); // Soft pastel green
-        textColor = const Color(0xFF059669);
-        label = 'Not Urgent';
-        break;
-      case TicketPriority.high:
+      case TicketPriority.critical:
         bgColor = const Color(0xFFFEE2E2); // Soft pastel red
         textColor = const Color(0xFFDC2626);
-        label = 'Urgent';
+        label = 'Critical';
         break;
     }
 
