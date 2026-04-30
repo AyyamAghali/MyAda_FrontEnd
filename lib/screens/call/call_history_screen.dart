@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../services/auth_service.dart';
 import '../../services/call/call_api.dart';
+import '../../services/call/call_controller.dart';
 import '../../services/call/call_history_controller.dart';
 import '../../utils/constants.dart';
 import '../../widgets/support_call_link_ui.dart';
@@ -243,6 +245,7 @@ class _CallHistoryScreenState extends State<CallHistoryScreen> {
         return _CallHistoryListCard(
           item: visible[index],
           onTap: () => _showDetails(visible[index].callId),
+          onCallBack: () => _callBackFromHistory(context, visible[index]),
         );
       },
       separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -250,16 +253,90 @@ class _CallHistoryScreenState extends State<CallHistoryScreen> {
     );
   }
 
+  Future<void> _callBackFromHistory(
+    BuildContext context,
+    CallHistoryItem item,
+  ) async {
+    await AuthService.instance.loadSession();
+    final self = AuthService.instance.studentId?.trim();
+    if (self == null || self.isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to place a call.')),
+      );
+      return;
+    }
+
+    final callerId = item.caller.userId.trim();
+    final dispatcherId = item.dispatcher.userId.trim();
+
+    String? targetId;
+    String? targetLabel;
+    if (self == callerId) {
+      targetId = dispatcherId;
+      targetLabel = item.dispatcher.displayName;
+    } else if (self == dispatcherId) {
+      targetId = callerId;
+      targetLabel = item.caller.displayName;
+    }
+
+    if (targetId == null || targetId.isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You can only call back the other participant.'),
+        ),
+      );
+      return;
+    }
+
+    var resolvedName = (targetLabel ?? '').trim();
+    final idLower = targetId.toLowerCase();
+    if (resolvedName.isEmpty ||
+        resolvedName.toLowerCase() == idLower ||
+        _looksLikeUuid(resolvedName)) {
+      try {
+        final profile = await AuthService.instance.fetchUserById(targetId);
+        final full =
+            '${profile.firstName ?? ''} ${profile.lastName ?? ''}'.trim();
+        if (full.isNotEmpty) {
+          resolvedName = full;
+        } else if (profile.userName.trim().isNotEmpty) {
+          resolvedName = profile.userName.trim();
+        }
+      } catch (_) {}
+    }
+    if (resolvedName.isEmpty) resolvedName = targetId;
+
+    try {
+      await CallController.instance.requestCall(
+        targetId,
+        dispatcherDisplayName: resolvedName,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _showDetails(String callId) async {
-    showModalBottomSheet<void>(
+    final future = _history.fetchItem(callId);
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return FutureBuilder<CallHistoryItem>(
-          future: _history.fetchItem(callId),
+          future: future,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
               return const SafeArea(
@@ -295,6 +372,14 @@ class _CallHistoryScreenState extends State<CallHistoryScreen> {
       },
     );
   }
+}
+
+bool _looksLikeUuid(String value) {
+  final v = value.trim();
+  final re = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+  return re.hasMatch(v);
 }
 
 class _ImmediateHelpStyleHeader extends StatelessWidget {
@@ -452,10 +537,12 @@ class _CallHistoryListCard extends StatelessWidget {
   const _CallHistoryListCard({
     required this.item,
     required this.onTap,
+    required this.onCallBack,
   });
 
   final CallHistoryItem item;
   final VoidCallback onTap;
+  final VoidCallback onCallBack;
 
   @override
   Widget build(BuildContext context) {
@@ -472,7 +559,13 @@ class _CallHistoryListCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SupportCallLeadingIcon(icon: Icons.call_rounded),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onCallBack,
+                    child: const SupportCallLeadingIcon(
+                      icon: Icons.call_rounded,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

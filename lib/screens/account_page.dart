@@ -4,7 +4,7 @@ import '../models/user_role.dart';
 import '../services/auth_service.dart';
 import '../services/call/call_controller.dart';
 import '../utils/constants.dart';
-import '../widgets/app_back_button.dart';
+import '../utils/responsive.dart';
 import 'login_page.dart';
 
 class AccountPage extends StatefulWidget {
@@ -112,7 +112,10 @@ class _AccountPageState extends State<AccountPage> {
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(
-              left: 20, right: 20, top: 16, bottom: 80,
+              left: 20,
+              right: 20,
+              top: 16,
+              bottom: 80,
             ),
             child: Column(
               children: [
@@ -167,24 +170,44 @@ class _AccountPageState extends State<AccountPage> {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
         ),
-      ),
-      child: Row(
-        children: [
-          AppBackButton(onPressed: () => Navigator.pop(context)),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Account',
-              style: AppTextStyles.moduleAppBarTitleOnDark,
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 20 : 28,
+          isMobile ? 14 : 18,
+          isMobile ? 20 : 28,
+          isMobile ? 14 : 18,
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          child: Text(
+            'Account',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isMobile ? 22 : 26,
+              fontWeight: FontWeight.w800,
+              color: AppColors.gray900,
+              letterSpacing: -0.6,
+              height: 1.1,
+            ),
+          ),
+        ),
       ),
     );
   }

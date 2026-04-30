@@ -1,20 +1,81 @@
+import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:proximity_sensor/proximity_sensor.dart';
 
 import '../../services/call/call_controller.dart';
 import '../../utils/constants.dart';
 
 /// WhatsApp-style active call screen rendered on top of the app while a call
-/// is ringing, being answered, or in progress.
-///
-/// The widget is intentionally stateless - it reads everything it needs from
-/// the [CallController] singleton which is provided to the overlay host via
-/// an [AnimatedBuilder] rebuild.
-class ActiveCallScreen extends StatelessWidget {
+/// is dialing, ringing, being answered, or in progress.
+class ActiveCallScreen extends StatefulWidget {
   const ActiveCallScreen({super.key});
 
   static const _avatarAsset = 'assets/images/support_dispatcher_avatar.png';
+
+  @override
+  State<ActiveCallScreen> createState() => _ActiveCallScreenState();
+}
+
+class _ActiveCallScreenState extends State<ActiveCallScreen> {
+  static const _avatarAsset = ActiveCallScreen._avatarAsset;
+
+  StreamSubscription<int>? _proximitySub;
+  bool _proximityNear = false;
+  bool _androidProximityNativeOn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    CallController.instance.addListener(_onCallControllerChanged);
+    _onCallControllerChanged();
+  }
+
+  @override
+  void dispose() {
+    CallController.instance.removeListener(_onCallControllerChanged);
+    unawaited(_setAndroidProximityScreenOff(false));
+    unawaited(_proximitySub?.cancel());
+    super.dispose();
+  }
+
+  void _onCallControllerChanged() {
+    if (!mounted) return;
+    final phase = CallController.instance.phase;
+    final voiceProximityActive =
+        phase == CallPhase.inCall || phase == CallPhase.accepted;
+
+    if (voiceProximityActive) {
+      unawaited(_setAndroidProximityScreenOff(true));
+      _proximitySub ??= ProximitySensor.events.listen((event) {
+        if (!mounted) return;
+        final near = event > 0;
+        if (near != _proximityNear) {
+          setState(() => _proximityNear = near);
+        }
+      });
+    } else {
+      unawaited(_setAndroidProximityScreenOff(false));
+      unawaited(_proximitySub?.cancel());
+      _proximitySub = null;
+      if (_proximityNear) {
+        _proximityNear = false;
+      }
+    }
+
+    setState(() {});
+  }
+
+  Future<void> _setAndroidProximityScreenOff(bool enabled) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (_androidProximityNativeOn == enabled) return;
+    try {
+      await ProximitySensor.setProximityScreenOff(enabled);
+      _androidProximityNativeOn = enabled;
+    } catch (_) {}
+  }
 
   String _formatDuration(Duration d) {
     String two(int n) => n.toString().padLeft(2, '0');
@@ -29,14 +90,14 @@ class ActiveCallScreen extends StatelessWidget {
 
   String _statusText(CallPhase phase, CallController controller) {
     switch (phase) {
-      case CallPhase.ringing:
-        return 'Ringing';
-      case CallPhase.accepted:
-        return 'Connecting ${_formatDuration(controller.connectingDuration)}';
       case CallPhase.inCall:
         return _formatDuration(controller.callDuration);
+      case CallPhase.calling:
+      case CallPhase.ringing:
+      case CallPhase.accepted:
+        return 'Ringing';
       default:
-        return 'Connecting ${_formatDuration(controller.connectingDuration)}';
+        return 'Ringing';
     }
   }
 
@@ -46,10 +107,12 @@ class ActiveCallScreen extends StatelessWidget {
     final phase = controller.phase;
     final peer = controller.peer;
 
-    final displayName = peer?.displayName?.trim().isNotEmpty == true
-        ? peer!.displayName!
-        : (peer?.userId ?? 'Support person');
+    final name = peer?.displayName?.trim();
+    final displayName = (name != null && name.isNotEmpty)
+        ? name
+        : (peer?.userId?.trim().isNotEmpty == true ? peer!.userId! : 'Support');
     final timerText = _statusText(phase, controller);
+    final showElapsedOnly = phase == CallPhase.inCall;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
@@ -129,7 +192,9 @@ class ActiveCallScreen extends StatelessWidget {
                     Center(
                       child: _PulsingAvatar(
                         assetPath: _avatarAsset,
-                        isRinging: phase == CallPhase.ringing,
+                        isRinging: phase == CallPhase.calling ||
+                            phase == CallPhase.ringing ||
+                            phase == CallPhase.accepted,
                       ),
                     ),
                     const SizedBox(height: 28),
@@ -149,7 +214,7 @@ class ActiveCallScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.78),
-                        fontSize: phase == CallPhase.inCall ? 20 : 16,
+                        fontSize: showElapsedOnly ? 20 : 16,
                         fontWeight: FontWeight.w600,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
@@ -162,6 +227,20 @@ class ActiveCallScreen extends StatelessWidget {
                 ),
               ),
             ),
+            if (_proximityNear &&
+                (phase == CallPhase.inCall || phase == CallPhase.accepted))
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black,
+                  child: Center(
+                    child: Icon(
+                      Icons.phone_in_talk_rounded,
+                      size: 56,
+                      color: Colors.white.withValues(alpha: 0.2),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -418,7 +497,7 @@ class _HangUpButton extends StatelessWidget {
 
   Future<void> _handleHangUp() async {
     final phase = controller.phase;
-    if (phase == CallPhase.ringing) {
+    if (phase == CallPhase.calling || phase == CallPhase.ringing) {
       await controller.cancelOutgoingCall(reason: 'Cancelled by caller');
       return;
     }

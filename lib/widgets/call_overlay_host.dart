@@ -36,7 +36,12 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
   }
 
   void _maybeShowTransientMessage() {
-    final phase = CallController.instance.phase;
+    final controller = CallController.instance;
+    if (controller.consumeNoDispatcherAvailableDialog()) {
+      _showNoDispatcherAvailableDialog();
+    }
+
+    final phase = controller.phase;
     if (phase == _lastPhase) return;
     _lastPhase = phase;
 
@@ -44,22 +49,21 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
     switch (phase) {
       case CallPhase.rejected:
         _showRejectedCallDialog(
-          CallController.instance.errorMessage ??
-              'The support person declined your call.',
+          controller.errorMessage ?? 'The support person declined your call.',
         );
         break;
       case CallPhase.cancelled:
-        msg = CallController.instance.errorMessage ?? 'Call cancelled.';
+        msg = controller.errorMessage ?? 'Call cancelled.';
         break;
       case CallPhase.timeout:
-        msg = CallController.instance.errorMessage ??
+        msg = controller.errorMessage ??
             'The dispatcher did not answer in time.';
         break;
       case CallPhase.ended:
-        msg = CallController.instance.errorMessage ?? 'Call ended.';
+        msg = controller.errorMessage ?? 'Call ended.';
         break;
       case CallPhase.error:
-        msg = CallController.instance.errorMessage;
+        msg = controller.errorMessage;
         break;
       default:
         msg = null;
@@ -69,6 +73,35 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
       if (messenger == null) return;
       messenger.showSnackBar(SnackBar(content: Text(msg)));
     }
+  }
+
+  void _showNoDispatcherAvailableDialog() {
+    Future<void>.microtask(() async {
+      if (!mounted) return;
+      final nav = appNavigatorKey.currentState;
+      if (nav == null) return;
+      await showDialog<void>(
+        context: nav.context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            title: const Text('No dispatcher available'),
+            content: const Text(
+              'No dispatcher is available at the moment. Please try again later.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    });
   }
 
   void _showRejectedCallDialog(String reason) {

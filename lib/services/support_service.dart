@@ -9,6 +9,54 @@ import 'auth_service.dart';
 
 const String kSupportBaseUrl = 'http://13.60.31.141:5000/support/api';
 
+enum SupportStaffAvailability {
+  offline,
+  online,
+  onBreak,
+}
+
+class SupportStaffStatus {
+  final String memberId;
+  final SupportStaffAvailability status;
+
+  const SupportStaffStatus({
+    required this.memberId,
+    required this.status,
+  });
+
+  factory SupportStaffStatus.fromJson(Map<String, dynamic> json) {
+    return SupportStaffStatus(
+      memberId: (json['memberId'] ?? json['id'] ?? '').toString(),
+      status: _parseStaffAvailability(json['status']),
+    );
+  }
+
+  static SupportStaffAvailability _parseStaffAvailability(Object? raw) {
+    final value = (raw ?? '').toString().trim().toLowerCase();
+    if (value == 'online' || value == 'available') {
+      return SupportStaffAvailability.online;
+    }
+    if (value == 'onbreak' ||
+        value == 'on_break' ||
+        value == 'break' ||
+        value == 'paused') {
+      return SupportStaffAvailability.onBreak;
+    }
+    return SupportStaffAvailability.offline;
+  }
+}
+
+String supportStaffAvailabilityApiValue(SupportStaffAvailability status) {
+  switch (status) {
+    case SupportStaffAvailability.online:
+      return 'Online';
+    case SupportStaffAvailability.onBreak:
+      return 'OnBreak';
+    case SupportStaffAvailability.offline:
+      return 'Offline';
+  }
+}
+
 class SupportCategoryOption {
   final int id;
   final String module;
@@ -94,6 +142,57 @@ class SupportService {
         .toList(growable: false);
   }
 
+  Future<List<SupportTicket>> fetchStaffRequests({
+    required String staffId,
+  }) async {
+    final response = await _authorizedGet(
+      Uri.parse(
+        '$kSupportBaseUrl/SupportRequests/staff/${Uri.encodeComponent(staffId)}',
+      ),
+    );
+    final list = _unwrapList(response.body);
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(SupportTicket.fromApiJson)
+        .toList(growable: false);
+  }
+
+  Future<SupportStaffStatus> fetchStaffStatus({
+    required String memberId,
+  }) async {
+    final response = await _authorizedGet(
+      Uri.parse(
+        '$kSupportBaseUrl/SupportStaffStatuses/member/${Uri.encodeComponent(memberId)}',
+      ),
+    );
+    return SupportStaffStatus.fromJson(_unwrapMap(response.body));
+  }
+
+  Future<void> updateStaffStatus({
+    required String memberId,
+    required SupportStaffAvailability status,
+  }) async {
+    final uri = Uri.parse(
+      '$kSupportBaseUrl/SupportStaffStatuses/member/${Uri.encodeComponent(memberId)}',
+    );
+    final response = await AuthService.instance.sendAuthorized(
+      (token) => http.put(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'status': supportStaffAvailabilityApiValue(status),
+        }),
+      ),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 204) return;
+    throw _buildError(response);
+  }
+
   Future<SupportTicket> fetchRequestById(int requestId) async {
     final response = await _authorizedGet(
       Uri.parse('$kSupportBaseUrl/SupportRequests/$requestId'),
@@ -111,6 +210,50 @@ class SupportService {
         .whereType<Map<String, dynamic>>()
         .map(SupportTimelineEvent.fromJson)
         .toList(growable: false);
+  }
+
+  Future<void> startStaffRequest({
+    required int requestId,
+    required String staffId,
+  }) {
+    return _putStaffRequestAction(
+      requestId: requestId,
+      staffId: staffId,
+      action: 'start',
+    );
+  }
+
+  Future<void> completeStaffRequest({
+    required int requestId,
+    required String staffId,
+  }) {
+    return _putStaffRequestAction(
+      requestId: requestId,
+      staffId: staffId,
+      action: 'complete',
+    );
+  }
+
+  Future<void> _putStaffRequestAction({
+    required int requestId,
+    required String staffId,
+    required String action,
+  }) async {
+    final uri = Uri.parse(
+      '$kSupportBaseUrl/SupportRequests/$requestId/$action/staff/${Uri.encodeComponent(staffId)}',
+    );
+    final response = await AuthService.instance.sendAuthorized(
+      (token) => http.put(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 204) return;
+    throw _buildError(response);
   }
 
   Future<void> cancelRequest({
@@ -243,7 +386,7 @@ class SupportService {
     }
     request.headers['Authorization'] = 'Bearer $token';
     request.headers['Accept'] = 'application/json';
-    request.files.add(await http.MultipartFile.fromPath('file', path));
+    request.files.add(await http.MultipartFile.fromPath('files', path));
 
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
@@ -251,17 +394,23 @@ class SupportService {
       throw _buildError(response);
     }
 
-    final map = _unwrapMap(response.body);
-    final urlCandidates = <Object?>[
-      map['url'],
-      map['fileUrl'],
-      map['uploadedUrl'],
-      map['path'],
-      map['location'],
-    ];
-    for (final raw in urlCandidates) {
-      final s = raw?.toString() ?? '';
-      if (s.isNotEmpty) return s;
+    final decoded = _decode(response.body);
+    if (decoded is List && decoded.isNotEmpty) {
+      final first = decoded.first?.toString() ?? '';
+      if (first.isNotEmpty) return first;
+    }
+    if (decoded is Map<String, dynamic>) {
+      final root = _unwrapRoot(decoded);
+      if (root is List && root.isNotEmpty) {
+        final first = root.first?.toString() ?? '';
+        if (first.isNotEmpty) return first;
+      }
+      if (root is Map<String, dynamic>) {
+        for (final key in ['url', 'fileUrl', 'uploadedUrl', 'path', 'location']) {
+          final s = root[key]?.toString() ?? '';
+          if (s.isNotEmpty) return s;
+        }
+      }
     }
     return null;
   }

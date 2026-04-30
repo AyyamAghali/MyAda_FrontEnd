@@ -1,7 +1,6 @@
 import '../models/user_role.dart';
 import '../services/auth_service.dart';
 import '../services/club_api_service.dart';
-import '../services/club_employee_store.dart';
 
 /// Who may use club entrance ticket scanning and for which clubs.
 class ClubEntranceScanAccess {
@@ -12,8 +11,11 @@ class ClubEntranceScanAccess {
     await AuthService.instance.loadSession();
     final roles = AuthService.instance.roles;
     if (roles.contains(UserRole.admin)) return null;
+    if (roles.contains(UserRole.clubAdmin) || roles.contains(UserRole.clubRep)) {
+      return null;
+    }
 
-    final ids = await employeeClubIds();
+    final ids = await staffClubIdsFromMemberships();
     return ids;
   }
 
@@ -22,15 +24,16 @@ class ClubEntranceScanAccess {
     await AuthService.instance.loadSession();
     final roles = AuthService.instance.roles;
     if (roles.contains(UserRole.admin)) return true;
-    final ids = await employeeClubIds();
+    if (roles.contains(UserRole.clubAdmin) || roles.contains(UserRole.clubRep)) {
+      return true;
+    }
+    final ids = await staffClubIdsFromMemberships();
     return ids.isNotEmpty;
   }
 
-  /// Club ids derived from staff-like memberships, local event-manager prefs, etc.
-  static Future<Set<int>> employeeClubIds() async {
+  /// Club ids where the user's **membership role** is club staff (officers/managers), not plain members.
+  static Future<Set<int>> staffClubIdsFromMemberships() async {
     final out = <int>{};
-    out.addAll(await ClubEmployeeStore.eventManagerClubIds());
-
     final userId = AuthService.instance.studentId?.trim() ?? '';
     if (userId.isEmpty) return out;
 
@@ -55,11 +58,33 @@ class ClubEntranceScanAccess {
     return out;
   }
 
-  /// Plain "Member" is not club staff for scanning; any other non-empty role counts.
+  /// True when the per-club membership role is leadership/operations (can scan), not a generic member.
   static bool _membershipRoleImpliesClubStaff(String role) {
     final r = role.trim().toLowerCase();
-    if (r.isEmpty || r == 'member') return false;
-    return true;
+    if (r.isEmpty) return false;
+
+    // Reject common member-only labels (and phrases that are still "just a member").
+    const memberOnlyExact = {
+      'member',
+      'members',
+      'club member',
+      'active member',
+      'general member',
+      'regular member',
+      'student member',
+      'standard member',
+    };
+    if (memberOnlyExact.contains(r)) return false;
+
+    // Leadership / ops titles — must match at least one hint (avoids "Participant", random strings, etc.).
+    final staffHints = RegExp(
+      r'president|vice|treasurer|secretary|officer|manager|managing|'
+      r'admin|administrator|director|coordinator|captain|chair|head|'
+      r'founder|exec|board|committee|representative|ambassador|'
+      r'steward|planner|organizer|team\s*lead|\blead\b|\bstaff\b',
+      caseSensitive: false,
+    );
+    return staffHints.hasMatch(r);
   }
 
   static int? _parsePositiveInt(Object? value) {

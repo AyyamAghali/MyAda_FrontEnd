@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import '../rbac/app_home_access.dart';
-import '../rbac/club_entrance_scan_access.dart';
 import '../services/auth_service.dart';
 import '../services/call/call_controller.dart';
 import '../utils/constants.dart';
 import '../utils/responsive.dart';
-import '../widgets/app_back_button.dart';
 import '../widgets/id_card.dart';
 import 'lost_found/home_screen.dart';
 import 'clubs/club_management_hub.dart';
-import 'clubs/entrance_scan_flow.dart';
 import 'support/support_module.dart';
 import 'attendance/attendance_home.dart';
 import 'account_page.dart';
@@ -285,26 +282,46 @@ class _MasterHomePageState extends State<MasterHomePage> {
   }
 
   Widget _buildAccountHeader(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
     final topInset = MediaQuery.of(context).padding.top;
+
     return Container(
       key: const ValueKey('account-header'),
-      padding: EdgeInsets.fromLTRB(20, topInset + 14, 20, 14),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
         ),
-      ),
-      child: Row(
-        children: [
-          AppBackButton(onPressed: () => _selectTab(0)),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Account',
-              style: AppTextStyles.moduleAppBarTitleOnDark,
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: isMobile ? 20 : 28,
+          right: isMobile ? 20 : 28,
+          top: topInset + (isMobile ? 12 : 14),
+          bottom: isMobile ? 14 : 18,
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          child: Text(
+            'Account',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isMobile ? 22 : 26,
+              fontWeight: FontWeight.w800,
+              color: AppColors.gray900,
+              letterSpacing: -0.6,
+              height: 1.1,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -453,24 +470,6 @@ class _MasterHomePageState extends State<MasterHomePage> {
             );
           },
         ),
-      if (access.showEventScanner)
-        _HomeAction(
-          label: 'Event\nScanner',
-          icon: Icons.qr_code_scanner,
-          onTap: (context) async {
-            final allowed =
-                await ClubEntranceScanAccess.allowedClubIdsForCurrentUser();
-            if (!context.mounted) return;
-            await Navigator.push<void>(
-              context,
-              MaterialPageRoute<void>(
-                builder: (context) => SelectClubForScanScreen(
-                  allowedClubIds: allowed,
-                ),
-              ),
-            );
-          },
-        ),
       if (access.showSupportDispatcherConsole)
         _HomeAction(
           label: 'Support\nDispatcher',
@@ -552,15 +551,6 @@ class _MasterHomePageState extends State<MasterHomePage> {
 
   List<_HomeAction> _adminToolsFor(AppHomeAccess access) {
     final tools = <_HomeAction>[];
-    if (access.showClubAdminModule) {
-      tools.add(
-        _adminAction(
-          label: 'Club\nAdmin',
-          icon: Icons.admin_panel_settings_outlined,
-          module: AdminModule.club,
-        ),
-      );
-    }
     if (access.showSupportAdminModule) {
       tools.add(
         _adminAction(
@@ -576,24 +566,6 @@ class _MasterHomePageState extends State<MasterHomePage> {
           label: 'Lost & Found\nAdmin',
           icon: Icons.manage_search_outlined,
           module: AdminModule.lostFound,
-        ),
-      );
-    }
-    if (access.showRoomAdmin) {
-      tools.add(
-        _adminAction(
-          label: 'Room\nAdmin',
-          icon: Icons.meeting_room_outlined,
-          module: AdminModule.room,
-        ),
-      );
-    }
-    if (access.showAttendanceAdmin) {
-      tools.add(
-        _adminAction(
-          label: 'Attendance\nAdmin',
-          icon: Icons.fact_check_outlined,
-          module: AdminModule.attendance,
         ),
       );
     }

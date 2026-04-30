@@ -52,14 +52,14 @@ class AppHomeAccess {
     showLostFound: true,
     showAdaClubs: true,
     showSupportCenter: true,
-    showEventScanner: true,
+    showEventScanner: false,
     showSupportDispatcherConsole: true,
     showStaffPortal: true,
     showLostFoundAdmin: true,
-    showClubAdminModule: true,
+    showClubAdminModule: false,
     showSupportAdminModule: true,
-    showRoomAdmin: true,
-    showAttendanceAdmin: true,
+    showRoomAdmin: false,
+    showAttendanceAdmin: false,
   );
 
   AppHomeAccess merge(AppHomeAccess o) {
@@ -210,7 +210,7 @@ class AppHomeAccess {
           showLostFound: true,
           showAdaClubs: true,
           showSupportCenter: false,
-          showEventScanner: true,
+          showEventScanner: false,
           showSupportDispatcherConsole: false,
           showStaffPortal: false,
           showLostFoundAdmin: false,

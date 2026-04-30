@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../../models/support_ticket.dart';
+import '../../services/auth_service.dart';
+import '../../services/support_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_back_button.dart';
 import '../../widgets/responsive_container.dart';
 import 'staff_job_detail.dart';
 import '../login_page.dart';
@@ -7,6 +12,14 @@ import '../login_page.dart';
 enum StaffRoleType {
   it,
   fm,
+}
+
+enum _PresenceStrip {
+  /// Accepting new assignments (still on active duty).
+  availableForAssignments,
+
+  /// Temporarily paused while on active duty.
+  onBreak,
 }
 
 class SupportStaffDashboard extends StatefulWidget {
@@ -24,161 +37,325 @@ class SupportStaffDashboard extends StatefulWidget {
 }
 
 class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
-  bool _onDuty = true;
-  int _historyFilter = 0;
-  int _inventoryFilter = 0;
+  int _tabIndex = 0;
+  int _historyPeriod = 1;
 
-  final List<Map<String, String>> _assignedJobs = [
-    {
-      'label': 'Emergency',
-      'id': 'REQ-8812',
-      'time': '12m ago',
-      'title': 'Server Room AC Unit Failure',
-      'location': 'Main Library, Server Room 204',
-      'category': 'Facilities Support',
-      'status': 'In Progress',
-    },
-    {
-      'label': 'IT Support',
-      'id': 'REQ-8945',
-      'time': '45m ago',
-      'title': 'Dual-Monitor Setup Required',
-      'location': 'Admin Building, Office 12',
-      'category': 'IT Support',
-      'status': 'Queued',
-    },
-    {
-      'label': 'Facilities',
-      'id': 'REQ-9012',
-      'time': '1h ago',
-      'title': 'Desk Lamp Repair',
-      'location': 'East Dorm, Room 410',
-      'category': 'Facilities',
-      'status': 'Queued',
-    },
-  ];
+  /// Working today — enables assignment / break strips below.
+  bool _activeDuty = true;
 
-  final List<Map<String, String>> _teamFeed = [
-    {
-      'name': 'Maria G.',
-      'message': 'marked REQ-8812 as complete',
-      'time': '2m ago',
-    },
-    {
-      'name': 'Kevin T.',
-      'message': 'is now on break',
-      'time': '15m ago',
-    },
-  ];
+  /// When [_activeDuty]: whether you're available or on break.
+  _PresenceStrip _presence = _PresenceStrip.availableForAssignments;
 
-  final List<Map<String, String>> _historyItems = [
-    {
-      'title': 'Server Room AC Unit Failure',
-      'location': 'Main Library, Server Room 204',
-      'time': 'Yesterday 4:12 PM',
-      'status': 'Completed',
-      'rating': '5.0',
-    },
-    {
-      'title': 'Wi-Fi Connectivity Issue',
-      'location': 'Student Union, Level 2',
-      'time': 'Yesterday 11:30 AM',
-      'status': 'Completed',
-      'rating': '4.8',
-    },
-    {
-      'title': 'Projector Setup',
-      'location': 'Hall B',
-      'time': 'Mon 09:15 AM',
-      'status': 'Resolved',
-      'rating': '4.9',
-    },
-  ];
+  final SupportService _supportService = SupportService();
+  final DateFormat _fullDateFormat = DateFormat('MMM d, yyyy, h:mm a');
 
-  final List<Map<String, String>> _inventoryItems = [
-    {
-      'name': 'HDMI Adapters',
-      'count': '12 in stock',
-      'status': 'Available',
-    },
-    {
-      'name': 'Projector Bulbs',
-      'count': '3 in stock',
-      'status': 'Low',
-    },
-    {
-      'name': 'Ethernet Cables',
-      'count': '28 in stock',
-      'status': 'Available',
-    },
-    {
-      'name': 'Access Cards',
-      'count': '2 in stock',
-      'status': 'Low',
-    },
-  ];
+  List<SupportTicket> _tickets = const [];
+  bool _isLoading = true;
+  bool _isStatusSaving = false;
+  String? _staffId;
+  String? _error;
+
+  static const Color _pillActiveBg = Color(0xFFE8EEF5);
+  static const Color _slateLabel = Color(0xFF334155);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStaffPortal();
+  }
+
+  List<SupportTicket> get _assignedJobs => _tickets
+      .where((ticket) =>
+          ticket.status != TicketStatus.completed &&
+          ticket.status != TicketStatus.cancelled)
+      .toList(growable: false);
+
+  List<SupportTicket> get _historyItems {
+    final cutoff = _historyCutoff();
+    return _tickets.where((ticket) {
+      if (ticket.status != TicketStatus.completed) return false;
+      if (cutoff == null) return true;
+      final completed = DateTime.tryParse(ticket.completedAt ?? '');
+      final created = DateTime.tryParse(ticket.createdAt);
+      final when = completed ?? created;
+      return when == null || !when.isBefore(cutoff);
+    }).toList(growable: false);
+  }
+
+  DateTime? _historyCutoff() {
+    final now = DateTime.now();
+    switch (_historyPeriod) {
+      case 0:
+        return now.subtract(const Duration(days: 7));
+      case 1:
+        return now.subtract(const Duration(days: 30));
+      case 2:
+        return DateTime(now.year, now.month - 3, now.day);
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _loadStaffPortal() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      await AuthService.instance.loadSession();
+      final staffId = AuthService.instance.studentId;
+      if (staffId == null || staffId.trim().isEmpty) {
+        throw const SupportServiceException(
+          message: 'Authentication required. Please sign in again.',
+        );
+      }
+
+      SupportStaffStatus? status;
+      try {
+        status = await _supportService.fetchStaffStatus(memberId: staffId);
+      } catch (_) {
+        // Status row may not exist yet; treat as offline.
+      }
+
+      final tickets =
+          await _supportService.fetchStaffRequests(staffId: staffId);
+
+      if (!mounted) return;
+      setState(() {
+        _staffId = staffId;
+        _tickets = tickets;
+        if (status != null) _applyAvailability(status.status);
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _applyAvailability(SupportStaffAvailability status) {
+    switch (status) {
+      case SupportStaffAvailability.online:
+        _activeDuty = true;
+        _presence = _PresenceStrip.availableForAssignments;
+      case SupportStaffAvailability.onBreak:
+        _activeDuty = true;
+        _presence = _PresenceStrip.onBreak;
+      case SupportStaffAvailability.offline:
+        _activeDuty = false;
+    }
+  }
+
+  Future<void> _setAvailability(SupportStaffAvailability next) async {
+    final staffId = _staffId;
+    if (staffId == null || staffId.isEmpty) {
+      _showSnackBar('Authentication required. Please sign in again.');
+      return;
+    }
+
+    final previousActiveDuty = _activeDuty;
+    final previousPresence = _presence;
+    setState(() {
+      _isStatusSaving = true;
+      _applyAvailability(next);
+    });
+
+    try {
+      await _supportService.updateStaffStatus(memberId: staffId, status: next);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _activeDuty = previousActiveDuty;
+        _presence = previousPresence;
+      });
+      _showSnackBar(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) {
+        setState(() => _isStatusSaving = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundLight,
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: AppColors.white,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.staffName,
-                style: const TextStyle(
-                  color: AppColors.gray900,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                ),
-              ),
-              Text(
-                widget.roleType == StaffRoleType.it ? 'IT Specialist' : 'Facilities Specialist',
-                style: const TextStyle(
-                  color: AppColors.gray500,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+    return Scaffold(
+      backgroundColor: ClubUiColors.pageBg,
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: AppColors.white,
+        surfaceTintColor: Colors.transparent,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Center(
+            child: AppBackButton(onPressed: () => Navigator.maybePop(context)),
+          ),
+        ),
+        leadingWidth: 52,
+        title: const Text('Staff Portal'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded,
+                color: AppColors.gray600),
+            onPressed: () => _showSnackBar('Notifications will appear here.'),
+          ),
+          PopupMenuButton<String>(
+            icon:
+                const Icon(Icons.more_horiz_rounded, color: AppColors.gray600),
+            onSelected: (v) {
+              if (v == 'logout') _logout();
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'logout',
+                child: Text('Sign out'),
               ),
             ],
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search, color: AppColors.gray600),
-              onPressed: () => _showSnackBar('Search is mocked.'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.notifications_none, color: AppColors.gray600),
-              onPressed: () => _showSnackBar('Notifications are mocked.'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout, color: AppColors.gray600),
-              onPressed: () => _logout(),
-            ),
-          ],
-          bottom: const TabBar(
-            isScrollable: true,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.gray500,
-            indicatorColor: AppColors.primary,
-            tabs: [
-              Tab(icon: Icon(Icons.dashboard_outlined, size: 18), text: 'Dashboard'),
-              Tab(icon: Icon(Icons.history, size: 18), text: 'History'),
-              Tab(icon: Icon(Icons.inventory_2_outlined, size: 18), text: 'Inventory'),
+        ],
+      ),
+      body: SafeArea(
+        child: ResponsiveContainer(
+          backgroundColor: ClubUiColors.pageBg,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 8, 0, 12),
+                child: _buildPillTabs(),
+              ),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? _buildErrorState()
+                        : RefreshIndicator(
+                            onRefresh: _loadStaffPortal,
+                            child: _tabIndex == 0
+                                ? _buildDashboardTab()
+                                : _buildHistoryTab(),
+                          ),
+              ),
             ],
           ),
         ),
-        body: TabBarView(
+      ),
+    );
+  }
+
+  Widget _buildPillTabs() {
+    Widget pill({
+      required int index,
+      required IconData icon,
+      required String label,
+    }) {
+      final selected = _tabIndex == index;
+      return Expanded(
+        child: Padding(
+          padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => setState(() => _tabIndex = index),
+              borderRadius: BorderRadius.circular(999),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: selected ? _pillActiveBg : AppColors.white,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: selected
+                        ? AppColors.gray300.withValues(alpha: 0.95)
+                        : AppColors.gray200,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 20,
+                      color: _slateLabel,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        label,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: _slateLabel,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        pill(
+          index: 0,
+          icon: Icons.dashboard_customize_outlined,
+          label: 'Dashboard',
+        ),
+        pill(
+          index: 1,
+          icon: Icons.history_rounded,
+          label: 'History',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildDashboardTab(),
-            _buildHistoryTab(),
-            _buildInventoryTab(),
+            const Icon(Icons.cloud_off_rounded,
+                size: 46, color: AppColors.gray300),
+            const SizedBox(height: 12),
+            const Text(
+              'Could not load staff portal',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.gray900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _error ?? 'Please try again.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.gray500,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              onPressed: _loadStaffPortal,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Retry'),
+            ),
           ],
         ),
       ),
@@ -186,530 +363,693 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
   }
 
   Widget _buildDashboardTab() {
-    return SafeArea(
-      child: ResponsiveContainer(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionHeader('Availability'),
-              const SizedBox(height: 12),
-              _buildAvailabilityCard(),
-              const SizedBox(height: 16),
-              _buildSectionHeader('Weekly Performance'),
-              const SizedBox(height: 12),
-              _buildPerformanceCards(),
-              const SizedBox(height: 16),
-              _buildSectionHeader('My Assigned Jobs'),
-              const SizedBox(height: 12),
-              ..._assignedJobs.map(_buildJobCard),
-              const SizedBox(height: 16),
-              _buildSectionHeader('Team Feed'),
-              const SizedBox(height: 12),
-              ..._teamFeed.map(_buildTeamFeedCard),
-            ],
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildWeeklyPerformanceSummary(),
+          const SizedBox(height: 16),
+          _buildAvailabilityCard(),
+          const SizedBox(height: 24),
+          Text(
+            'My Assigned Jobs',
+            style: AppTextStyles.moduleAppBarTitle.copyWith(
+              fontSize: 20,
+              letterSpacing: -0.3,
+            ),
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            'Priority queue for campus maintenance',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.gray500,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (_assignedJobs.isEmpty)
+            _buildEmptyJobs()
+          else
+            ..._assignedJobs.map(_buildJobCard),
+        ],
       ),
     );
   }
 
-  Widget _buildHistoryTab() {
-    return SafeArea(
-      child: ResponsiveContainer(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionHeader('Completed Tasks'),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: [
-                  _buildHistoryChip('All', 0),
-                  _buildHistoryChip('This Week', 1),
-                  _buildHistoryChip('This Month', 2),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ..._historyItems.map(_buildHistoryCard),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInventoryTab() {
-    return SafeArea(
-      child: ResponsiveContainer(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionHeader('Inventory Overview'),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: [
-                  _buildInventoryChip('All', 0),
-                  _buildInventoryChip('Low Stock', 1),
-                  _buildInventoryChip('Available', 2),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ..._inventoryItems.map(_buildInventoryCard),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => _showSnackBar('Request item (mock).'),
-                icon: const Icon(Icons.add),
-                label: const Text('Request Item'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
+  Widget _eyebrow(String text) {
     return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
+      text.toUpperCase(),
+      style: TextStyle(
+        fontSize: 10,
         fontWeight: FontWeight.w700,
-        color: AppColors.gray900,
+        letterSpacing: 1.1,
+        color: AppColors.gray400,
+      ),
+    );
+  }
+
+  /// Numbers only — completed vs target for the week (no progress bar).
+  Widget _buildWeeklyPerformanceSummary() {
+    final now = DateTime.now();
+    final weekStart = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+    final weekTickets = _tickets.where((ticket) {
+      final completed = DateTime.tryParse(ticket.completedAt ?? '');
+      final created = DateTime.tryParse(ticket.createdAt);
+      final when = completed ?? created;
+      return when == null || !when.isBefore(weekStart);
+    }).toList(growable: false);
+    final completed = weekTickets
+        .where((ticket) => ticket.status == TicketStatus.completed)
+        .length;
+    final total = weekTickets.length;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.gray200.withValues(alpha: 0.85)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _eyebrow('Weekly performance'),
+          const SizedBox(height: 10),
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.35,
+                color: AppColors.gray700,
+              ),
+              children: [
+                const TextSpan(text: 'Completed '),
+                TextSpan(
+                  text: '$completed',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.gray900,
+                  ),
+                ),
+                const TextSpan(text: ' of '),
+                TextSpan(
+                  text: '$total',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const TextSpan(text: ' tasks this week.'),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildAvailabilityCard() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray200),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.gray200.withValues(alpha: 0.85)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
+          _eyebrow('Availability'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
                   'Active Duty',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: AppColors.gray900,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  _onDuty ? 'Available for assignments' : 'Off duty',
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: _onDuty,
-            onChanged: (value) => setState(() => _onDuty = value),
-            activeColor: AppColors.primary,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPerformanceCards() {
-    return Column(
-      children: [
-        _buildPerformanceTile('Tasks Completed', '12/15', '+15%'),
-        const SizedBox(height: 10),
-        _buildPerformanceTile('Avg. Resolution', '42m', '-5%'),
-        const SizedBox(height: 10),
-        _buildPerformanceTile('Customer Rating', '4.9 ★', 'Stable'),
-      ],
-    );
-  }
-
-  Widget _buildPerformanceTile(String label, String value, String trend) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.gray900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            trend,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildJobCard(Map<String, String> job) {
-    final status = job['status'] ?? 'Queued';
-    final isActive = status.toLowerCase().contains('progress');
-
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => StaffJobDetail(job: job),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _buildLabelChip(job['label'] ?? 'Task'),
-              const SizedBox(width: 8),
-              Text(
-                job['id'] ?? '',
-                style: const TextStyle(fontSize: 12, color: AppColors.gray500),
               ),
-              const Spacer(),
-              Text(
-                job['time'] ?? '',
-                style: const TextStyle(fontSize: 11, color: AppColors.gray400),
+              Switch.adaptive(
+                value: _activeDuty,
+                onChanged: _isStatusSaving
+                    ? null
+                    : (v) => _setAvailability(
+                          v
+                              ? SupportStaffAvailability.online
+                              : SupportStaffAvailability.offline,
+                        ),
+                activeTrackColor: const Color(0xFF3B82F6),
+                activeThumbColor: AppColors.white,
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            job['title'] ?? '',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.gray900,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            job['location'] ?? '',
-            style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            job['category'] ?? '',
-            style: const TextStyle(fontSize: 11, color: AppColors.gray500),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _buildStatusChip(status),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: () => _showSnackBar(isActive ? 'Complete (mock).' : 'Start (mock).'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.white,
-                ),
-                child: Text(isActive ? 'Complete' : 'Mark as Started'),
-              ),
-            ],
-          ),
-        ],
-      ),
-      ),
-    );
-  }
-
-  Widget _buildTeamFeedCard(Map<String, String> item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.primary.withOpacity(0.1),
-            child: const Icon(Icons.person, color: AppColors.primary, size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item['name'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.gray900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item['message'] ?? '',
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            item['time'] ?? '',
-            style: const TextStyle(fontSize: 11, color: AppColors.gray400),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistoryChip(String label, int index) {
-    final isActive = _historyFilter == index;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isActive,
-      onSelected: (_) => setState(() => _historyFilter = index),
-      selectedColor: AppColors.primary,
-      backgroundColor: AppColors.gray100,
-      labelStyle: TextStyle(
-        color: isActive ? AppColors.white : AppColors.gray700,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-
-  Widget _buildInventoryChip(String label, int index) {
-    final isActive = _inventoryFilter == index;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isActive,
-      onSelected: (_) => setState(() => _inventoryFilter = index),
-      selectedColor: AppColors.primary,
-      backgroundColor: AppColors.gray100,
-      labelStyle: TextStyle(
-        color: isActive ? AppColors.white : AppColors.gray700,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-
-  Widget _buildHistoryCard(Map<String, String> item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            item['title'] ?? '',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.gray900,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            item['location'] ?? '',
-            style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              _buildStatusChip(item['status'] ?? 'Completed'),
-              const Spacer(),
-              Text(
-                item['time'] ?? '',
-                style: const TextStyle(fontSize: 11, color: AppColors.gray400),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.star, size: 14, color: Colors.amber),
-              const SizedBox(width: 4),
-              Text(
-                item['rating'] ?? 'N/A',
-                style: const TextStyle(fontSize: 12, color: AppColors.gray700),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => _showSnackBar('View details (mock).'),
-                child: const Text('View Details'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInventoryCard(Map<String, String> item) {
-    final status = item['status'] ?? 'Available';
-    Color color;
-    if (status.toLowerCase().contains('low')) {
-      color = Colors.orange;
-    } else {
-      color = Colors.green;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item['name'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.gray900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item['count'] ?? '',
-                  style: const TextStyle(fontSize: 12, color: AppColors.gray600),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              status,
+          if (_activeDuty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'When you need to pause briefly, choose a status below.',
               style: TextStyle(
-                fontSize: 11,
-                color: color,
-                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: AppColors.gray500,
+                height: 1.35,
               ),
             ),
-          ),
+            const SizedBox(height: 10),
+            _presenceRow(
+              selected: _presence == _PresenceStrip.availableForAssignments,
+              dotColor: const Color(0xFF22C55E),
+              background: const Color(0xFFF1F5F9),
+              borderColor: AppColors.gray200,
+              title: 'Available for assignments',
+              titleStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF334155),
+              ),
+              onTap: _isStatusSaving
+                  ? null
+                  : () => _setAvailability(SupportStaffAvailability.online),
+            ),
+            const SizedBox(height: 8),
+            _presenceRow(
+              selected: _presence == _PresenceStrip.onBreak,
+              dotColor: const Color(0xFFF59E0B),
+              background: const Color(0xFFF0FDF4),
+              borderColor: const Color(0xFFBBF7D0).withValues(alpha: 0.7),
+              title: 'On break',
+              titleStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF064E3B),
+              ),
+              onTap: _isStatusSaving
+                  ? null
+                  : () => _setAvailability(SupportStaffAvailability.onBreak),
+            ),
+          ] else ...[
+            const SizedBox(height: 10),
+            Text(
+              'You\'re not on active duty today. Turn on when you start work.',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.gray500,
+                height: 1.4,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildLabelChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11,
-          color: AppColors.primary,
-          fontWeight: FontWeight.w600,
+  Widget _presenceRow({
+    required bool selected,
+    required Color dotColor,
+    required Color background,
+    required Color borderColor,
+    required String title,
+    required TextStyle titleStyle,
+    required VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppColors.primary : borderColor,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: dotColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(title, style: titleStyle)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatusChip(String status) {
-    final normalized = status.toLowerCase();
-    Color color;
-    if (normalized.contains('progress')) {
-      color = Colors.orange;
-    } else if (normalized.contains('complete')) {
-      color = Colors.green;
-    } else {
-      color = AppColors.gray500;
-    }
-
+  Widget _buildEmptyJobs() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(10),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.gray200),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.inbox_outlined, size: 40, color: AppColors.gray300),
+          const SizedBox(height: 12),
+          Text(
+            'No assigned jobs',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.gray700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'New requests will show here when dispatched.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: AppColors.gray500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJobCard(SupportTicket job) {
+    final status = job.statusString;
+    final inProgress = job.status == TicketStatus.inProgress;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            Navigator.push<void>(
+              context,
+              MaterialPageRoute<void>(
+                builder: (context) => StaffJobDetail(
+                  job: _ticketToJobMap(job),
+                  staffId: _staffId,
+                  onChanged: _loadStaffPortal,
+                ),
+              ),
+            );
+          },
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border:
+                  Border.all(color: AppColors.gray200.withValues(alpha: 0.9)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabelChip('${job.type} SUPPORT'),
+                      const Spacer(),
+                      Text(
+                        _formatRelativeTime(job.createdAt),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.gray400,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    job.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.gray900,
+                      height: 1.25,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.place_outlined,
+                          size: 18, color: AppColors.gray400),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          job.location,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.gray600,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if ((job.assignedTo ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _shortStaff(job.assignedTo!),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.gray500,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    inProgress ? 'In Progress' : status,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: inProgress ? AppColors.primary : AppColors.gray600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _shortStaff(String raw) {
+    final t = raw.trim();
+    if (t.length <= 28) return t;
+    return '${t.substring(0, 25)}…';
+  }
+
+  String _formatFullDate(String iso) {
+    final date = DateTime.tryParse(iso);
+    if (date == null) return iso;
+    return _fullDateFormat.format(date.toLocal());
+  }
+
+  String _formatRelativeTime(String iso) {
+    final date = DateTime.tryParse(iso);
+    if (date == null) return '';
+    final diff = DateTime.now().difference(date.toLocal());
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return _fullDateFormat.format(date.toLocal());
+  }
+
+  Map<String, String> _ticketToJobMap(SupportTicket ticket) {
+    return {
+      if (ticket.requestId != null) 'requestId': ticket.requestId.toString(),
+      'label': '${ticket.type} SUPPORT',
+      'id': '#${ticket.id}',
+      'time': _formatRelativeTime(ticket.createdAt),
+      'title': ticket.title,
+      'location': ticket.location,
+      'category': ticket.categoryString,
+      'status': ticket.statusString,
+      'priority': ticket.priorityString,
+      'created': _formatFullDate(ticket.createdAt),
+      if (ticket.completedAt != null)
+        'completed': _formatFullDate(ticket.completedAt!),
+      if ((ticket.assignedTo ?? '').trim().isNotEmpty)
+        'assignedTo': ticket.assignedTo!,
+      'description': ticket.description,
+    };
+  }
+
+  Widget _buildLabelChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.gray100,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        status,
-        style: TextStyle(
-          fontSize: 11,
-          color: color,
-          fontWeight: FontWeight.w600,
+        label.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: AppColors.gray600,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Ticket History',
+            style: AppTextStyles.moduleAppBarTitle.copyWith(fontSize: 20),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Past tickets you\'ve completed',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.gray500,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Time period:',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.gray500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _historyPeriodChip('Last 7 days', 0),
+                const SizedBox(width: 8),
+                _historyPeriodChip('Last 30 days', 1),
+                const SizedBox(width: 8),
+                _historyPeriodChip('Last 3 months', 2),
+                const SizedBox(width: 8),
+                _historyPeriodChip('Custom range', 3),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_historyItems.isEmpty)
+            _buildEmptyHistory()
+          else
+            ..._historyItems.map(_buildHistoryTicketCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyPeriodChip(String label, int index) {
+    final active = _historyPeriod == index;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          if (index == 3) {
+            _showSnackBar('Custom range (coming soon).');
+          }
+          setState(() => _historyPeriod = index);
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? const Color(0xFF2563EB) : AppColors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: active ? const Color(0xFF2563EB) : AppColors.gray200,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: active ? AppColors.white : AppColors.gray600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyHistory() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.gray200),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.history_rounded, size: 40, color: AppColors.gray300),
+          const SizedBox(height: 12),
+          Text(
+            'No completed tickets',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.gray700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Completed tickets for this period will appear here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: AppColors.gray500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryTicketCard(SupportTicket item) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            Navigator.push<void>(
+              context,
+              MaterialPageRoute<void>(
+                builder: (context) => StaffJobDetail(
+                  job: _ticketToJobMap(item),
+                  staffId: _staffId,
+                  isHistoryTicket: true,
+                ),
+              ),
+            );
+          },
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border:
+                  Border.all(color: AppColors.gray200.withValues(alpha: 0.85)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabelChip('${item.type} SUPPORT'),
+                      const Spacer(),
+                      Text(
+                        _formatFullDate(item.completedAt ?? item.createdAt),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.gray400,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.gray900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.place_outlined,
+                          size: 18, color: AppColors.gray400),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          item.location,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.gray600,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    item.statusString,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF059669),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -724,7 +1064,7 @@ class _SupportStaffDashboardState extends State<SupportStaffDashboard> {
   void _logout() {
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
+      MaterialPageRoute<void>(builder: (context) => const LoginPage()),
       (route) => false,
     );
   }

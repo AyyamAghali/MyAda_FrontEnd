@@ -17,6 +17,8 @@ enum CallPhase {
   idle,
   connecting,
   connected,
+  /// Outbound: invite sent, waiting for server `CallRinging`.
+  calling,
   ringing,
   incoming,
   accepted,
@@ -126,6 +128,10 @@ class CallController extends ChangeNotifier {
   AudioPlayer? _ringPlayer;
   bool _ringtoneActive = false;
   bool _localAudioEnsureInFlight = false;
+  Timer? _outboundNoAnswerTimer;
+  bool _pendingNoDispatcherAvailableDialog = false;
+
+  static const Duration _outboundNoAnswerLimit = Duration(seconds: 20);
 
   // ---- Public getters -------------------------------------------------------
 
@@ -143,6 +149,21 @@ class CallController extends ChangeNotifier {
   Duration get connectingDuration => _connectingDuration;
   bool get isHubConnected => _signaling.isConnected;
 
+  /// One-shot: UI shows "no dispatcher" popup when this returns true once.
+  bool consumeNoDispatcherAvailableDialog() {
+    if (!_pendingNoDispatcherAvailableDialog) return false;
+    _pendingNoDispatcherAvailableDialog = false;
+    return true;
+  }
+
+  static String? _mergeDisplayName(String? a, String? b) {
+    for (final s in [a, b]) {
+      final t = s?.trim();
+      if (t != null && t.isNotEmpty) return t;
+    }
+    return null;
+  }
+
   /// True if an incoming call modal should be shown over any screen.
   bool get shouldShowIncoming =>
       _incomingCall != null &&
@@ -152,6 +173,7 @@ class CallController extends ChangeNotifier {
   /// True if the active call overlay (mute / speaker / hang-up) should be
   /// shown over any screen.
   bool get shouldShowActiveCall =>
+      _phase == CallPhase.calling ||
       _phase == CallPhase.ringing ||
       _phase == CallPhase.accepted ||
       _phase == CallPhase.inCall;
@@ -179,6 +201,8 @@ class CallController extends ChangeNotifier {
 
   /// Stops the hub and tears down any in-flight call. Called on logout.
   Future<void> disconnect() async {
+    _cancelOutboundNoAnswerTimer();
+    _pendingNoDispatcherAvailableDialog = false;
     await _cleanupPeer();
     await _disposeRingPlayer();
     await _signaling.disconnect();
@@ -209,14 +233,14 @@ class CallController extends ChangeNotifier {
       _peer = CallParticipant(
         connectionId: '',
         userId: trimmed,
-        displayName: dispatcherDisplayName?.trim().isNotEmpty == true
-            ? dispatcherDisplayName!.trim()
-            : trimmed,
+        displayName: _mergeDisplayName(dispatcherDisplayName, null) ?? trimmed,
       );
-      _setPhase(CallPhase.ringing);
+      _setPhase(CallPhase.calling);
+      _startOutboundNoAnswerTimer();
       unawaited(ensureLocalAudioForControls());
       await _signaling.invoke('RequestCall', args: [trimmed]);
     } catch (err) {
+      _cancelOutboundNoAnswerTimer();
       await _cleanupPeer();
       _clearCallIdentity();
       _setError(_stringify(err));
@@ -257,18 +281,21 @@ class CallController extends ChangeNotifier {
   }
 
   /// Caller-side cancel of a pending outbound call (before it is accepted).
-  Future<void> cancelOutgoingCall({String? reason}) async {
+  Future<void> cancelOutgoingCall({
+    String? reason,
+    bool showNoDispatcherAvailable = false,
+  }) async {
     final id = _callId;
-    if (id == null) {
-      _clearCallIdentity();
-      _setPhase(CallPhase.connected);
-      return;
-    }
     try {
-      await _signaling.invoke('CancelCall', args: [id, reason]);
+      if (id != null) {
+        await _signaling.invoke('CancelCall', args: [id, reason]);
+      }
     } catch (err) {
       _setError(_stringify(err));
     } finally {
+      if (showNoDispatcherAvailable) {
+        _pendingNoDispatcherAvailableDialog = true;
+      }
       _clearCallIdentity();
       _setPhase(CallPhase.connected);
     }
@@ -403,12 +430,18 @@ class CallController extends ChangeNotifier {
       if (payload == null) return;
       _callId = payload['callId']?.toString();
       _roomId = payload['roomId']?.toString();
-      _peer ??= CallParticipant(
-        connectionId: '',
-        userId: payload['dispatcherUserId']?.toString() ??
-            payload['toUserId']?.toString(),
-        displayName: payload['dispatcherDisplayName']?.toString() ??
-            payload['toDisplayName']?.toString(),
+      final existing = _peer;
+      final uid = payload['dispatcherUserId']?.toString() ??
+          payload['toUserId']?.toString() ??
+          existing?.userId ??
+          '';
+      final fromPayload = payload['dispatcherDisplayName']?.toString() ??
+          payload['toDisplayName']?.toString();
+      _peer = CallParticipant(
+        connectionId: existing?.connectionId ?? '',
+        userId: uid.isNotEmpty ? uid : existing?.userId,
+        displayName: _mergeDisplayName(fromPayload, existing?.displayName) ??
+            (uid.isNotEmpty ? uid : existing?.userId),
       );
       _setPhase(CallPhase.ringing);
       unawaited(ensureLocalAudioForControls());
@@ -417,6 +450,7 @@ class CallController extends ChangeNotifier {
     _signaling.on('CallAccepted', (args) {
       final payload = _firstMap(args);
       if (payload == null) return;
+      _cancelOutboundNoAnswerTimer();
       _callId = payload['callId']?.toString();
       _roomId = payload['roomId']?.toString();
 
@@ -458,7 +492,12 @@ class CallController extends ChangeNotifier {
         _peer = CallParticipant(
           connectionId: peerConnectionId,
           userId: acceptedPeer?.userId ?? existing?.userId,
-          displayName: acceptedPeer?.displayName ?? existing?.displayName,
+          displayName: _mergeDisplayName(
+                acceptedPeer?.displayName,
+                existing?.displayName,
+              ) ??
+              acceptedPeer?.userId ??
+              existing?.userId,
         );
       }
       CallHistoryController.instance.refreshAfterRealtimeEvent();
@@ -518,7 +557,9 @@ class CallController extends ChangeNotifier {
         _peer = CallParticipant(
           connectionId: peer.connectionId,
           userId: peer.userId ?? existing?.userId,
-          displayName: peer.displayName ?? existing?.displayName,
+          displayName: _mergeDisplayName(peer.displayName, existing?.displayName) ??
+              peer.userId ??
+              existing?.userId,
         );
       }
       _setPhase(CallPhase.inCall);
@@ -564,7 +605,12 @@ class CallController extends ChangeNotifier {
       final fromConnectionId = payload['fromConnectionId']?.toString();
       final sdp = payload['sdp']?.toString();
       if (fromConnectionId == null || sdp == null) return;
-      _peer = CallParticipant(connectionId: fromConnectionId);
+      final keep = _peer;
+      _peer = CallParticipant(
+        connectionId: fromConnectionId,
+        userId: keep?.userId,
+        displayName: keep?.displayName,
+      );
       try {
         final pc = await _ensurePeerConnection();
         await pc.setRemoteDescription(RTCSessionDescription(sdp, 'offer'));
@@ -726,6 +772,7 @@ class CallController extends ChangeNotifier {
   }
 
   Future<void> _cleanupPeer() async {
+    _cancelOutboundNoAnswerTimer();
     _stopConnectingTicker();
     _durationTicker?.cancel();
     _durationTicker = null;
@@ -787,7 +834,9 @@ class CallController extends ChangeNotifier {
   void _setPhase(CallPhase next) {
     if (_phase == next) return;
     _phase = next;
-    if (next == CallPhase.ringing) {
+    final outboundPreAnswer = _incomingCall == null &&
+        (next == CallPhase.calling || next == CallPhase.ringing);
+    if (outboundPreAnswer) {
       unawaited(_startRingingTone());
     } else {
       unawaited(_stopRingingTone());
@@ -797,7 +846,29 @@ class CallController extends ChangeNotifier {
     } else {
       _stopConnectingTicker();
     }
+    if (next != CallPhase.calling && next != CallPhase.ringing) {
+      _cancelOutboundNoAnswerTimer();
+    }
     notifyListeners();
+  }
+
+  void _startOutboundNoAnswerTimer() {
+    _outboundNoAnswerTimer?.cancel();
+    _outboundNoAnswerTimer = Timer(_outboundNoAnswerLimit, () async {
+      if (_phase != CallPhase.calling && _phase != CallPhase.ringing) return;
+      if (_incomingCall != null) return;
+      try {
+        await cancelOutgoingCall(
+          reason: 'No answer (20s).',
+          showNoDispatcherAvailable: true,
+        );
+      } catch (_) {}
+    });
+  }
+
+  void _cancelOutboundNoAnswerTimer() {
+    _outboundNoAnswerTimer?.cancel();
+    _outboundNoAnswerTimer = null;
   }
 
   void _setError(String message) {
