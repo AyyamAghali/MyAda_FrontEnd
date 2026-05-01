@@ -10,8 +10,10 @@ class ClubPublicEvent {
   final String time;
   final String? endTime;
   final String location;
+  final int? seatLimit;
+  final int? registeredCount;
 
-  /// e.g. `assets/events/esports.png`; null uses a gradient placeholder.
+  /// Absolute/relative backend image URL, or a bundled asset path for local data.
   final String? imageAsset;
 
   const ClubPublicEvent({
@@ -25,6 +27,8 @@ class ClubPublicEvent {
     required this.time,
     this.endTime,
     required this.location,
+    this.seatLimit,
+    this.registeredCount,
     this.imageAsset,
   });
 
@@ -36,6 +40,14 @@ class ClubPublicEvent {
 
     final club = json['club'] is Map<String, dynamic>
         ? json['club'] as Map<String, dynamic>
+        : json['Club'] is Map<String, dynamic>
+            ? json['Club'] as Map<String, dynamic>
+            : null;
+    final hoster = json['hoster'] is Map<String, dynamic>
+        ? json['hoster'] as Map<String, dynamic>
+        : null;
+    final host = json['host'] is Map<String, dynamic>
+        ? json['host'] as Map<String, dynamic>
         : null;
     final id =
         int.tryParse((json['id'] ?? json['eventId'] ?? 0).toString()) ?? 0;
@@ -51,7 +63,19 @@ class ClubPublicEvent {
     return ClubPublicEvent(
       id: id,
       clubId: clubId,
-      clubName: text(json['clubName']) ?? text(club?['name']) ?? 'ADA Clubs',
+      clubName: text(json['clubName']) ??
+          text(json['ClubName']) ??
+          text(json['hostedBy']) ??
+          text(json['organizerName']) ??
+          text(json['hosterName']) ??
+          text(json['hostName']) ??
+          text(hoster?['name']) ??
+          text(hoster?['Name']) ??
+          text(host?['name']) ??
+          text(host?['Name']) ??
+          text(club?['name']) ??
+          text(club?['Name']) ??
+          '',
       title: text(json['title']) ?? text(json['name']) ?? 'Untitled Event',
       category:
           text(json['category']) ?? text(json['categoryName']) ?? 'General',
@@ -60,9 +84,42 @@ class ClubPublicEvent {
       time: text(json['time']) ?? startTime ?? '',
       endTime: text(json['endTime']),
       location: text(json['location']) ?? 'Location TBA',
+      seatLimit: _optionalNonNegativeInt(json['seatLimit'] ??
+          json['SeatLimit'] ??
+          json['capacity'] ??
+          json['Capacity'] ??
+          json['attendance'] ??
+          json['Attendance'] ??
+          json['maxAttendees'] ??
+          json['seat_count']),
+      registeredCount: _optionalNonNegativeInt(json['registeredCount'] ??
+          json['RegisteredCount'] ??
+          json['registrationsCount'] ??
+          json['currentRegistrations'] ??
+          json['ticketsSold'] ??
+          json['registrationCount'] ??
+          json['bookedCount'] ??
+          json['attendeeCount'] ??
+          json['AttendeeCount']),
       imageAsset: text(json['imageUrl']) ??
           text(json['imageAsset']) ??
+          text(json['posterUrl']) ??
           text(json['coverUrl']),
     );
+  }
+
+  int get remainingSlots {
+    final limit = seatLimit ?? 0;
+    final count = registeredCount ?? 0;
+    if (limit <= 0) return 0;
+    return (limit - count).clamp(0, limit);
+  }
+
+  /// Parses capacity / headcount; `0` is kept (some APIs use 0 for unlimited — UI decides).
+  static int? _optionalNonNegativeInt(dynamic v) {
+    if (v == null) return null;
+    final n = int.tryParse(v.toString());
+    if (n == null || n < 0) return null;
+    return n;
   }
 }

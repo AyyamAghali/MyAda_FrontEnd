@@ -344,6 +344,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.2"
+  incoming_call_kit:
+    dependency: "direct main"
+    description:
+      name: incoming_call_kit
+      sha256: a2dcaf7b77f3ee0465584f2de2d3ec02c2f4b665317a03ef43336c79ec062fee
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.1"
   intl:
     dependency: "direct main"
     description:

@@ -1,13 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../models/club_vacancy.dart';
 import '../../services/club_api_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/vacancy_category_style.dart';
 import 'apply_vacancy_screen.dart';
 
-/// Accent colors (purple hero, blue icons, green checks).
-const Color _kHeroPurpleTop = Color(0xFF7C3AED);
-const Color _kHeroPurpleBottom = Color(0xFF5B21B6);
+/// Apply-by highlight (deadline urgency) — amber from previous deadline card.
+const Color _kApplyByBorder = Color(0xFFF59E0B);
+const Color _kApplyByLabel = Color(0xFFB45309);
+
+/// Brand hero + CTA: vibrant blue → app primary → app red/rose secondary.
+const LinearGradient _kBrandGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [
+    ClubUiColors.ctaBlue,
+    AppColors.primary,
+    AppColors.secondary,
+  ],
+  stops: [0.0, 0.48, 1.0],
+);
+
+const LinearGradient _kApplyByFill = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [
+    Color(0xFFFFFBEB),
+    Color(0xFFFEF3C7),
+  ],
+);
+
 const Color _kIconBlue = Color(0xFF2563EB);
 const Color _kIconBlueBg = Color(0xFFDBEAFE);
 const Color _kCheckCircleBg = Color(0xFFD1FAE5);
@@ -68,7 +90,8 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
       var reqs = List<String>.from(v.requirements);
       if (reqs.isEmpty && v.clubPositionId != null && v.clubPositionId! > 0) {
         try {
-          reqs = await _api.fetchClubPositionRequirementTexts(v.clubPositionId!);
+          reqs =
+              await _api.fetchClubPositionRequirementTexts(v.clubPositionId!);
         } catch (_) {
           // Position requirements are optional; keep empty.
         }
@@ -103,17 +126,6 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
     return null;
   }
 
-  String _deadlineShort(ClubVacancy v) {
-    final iso = v.applicationDeadlineIso;
-    if (iso != null && iso.isNotEmpty) {
-      final dt = DateTime.tryParse(iso);
-      if (dt != null) return DateFormat.yMd().format(dt.toLocal());
-    }
-    final parsed = DateTime.tryParse(v.deadline);
-    if (parsed != null) return DateFormat.yMd().format(parsed.toLocal());
-    return v.deadline;
-  }
-
   @override
   Widget build(BuildContext context) {
     final v = _vacancy;
@@ -125,19 +137,19 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
       backgroundColor: AppColors.white,
       body: RefreshIndicator(
         onRefresh: _loadDetail,
-        color: _kIconBlue,
+        color: AppColors.primary,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             if (_loading)
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: LinearProgressIndicator(
-                  minHeight: 2,
-                  color: _kHeroPurpleTop,
+                  minHeight: 3,
+                  color: AppColors.secondary,
+                  backgroundColor: AppColors.gray200,
                 ),
               ),
-            if (_error != null)
-              SliverToBoxAdapter(child: _errorBanner()),
+            if (_error != null) SliverToBoxAdapter(child: _errorBanner()),
             SliverToBoxAdapter(
               child: _heroWithCard(
                 context: context,
@@ -164,10 +176,10 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 _compactMetaInline(v),
-                                const SizedBox(height: 12),
-                                _aboutSection(v),
                                 const SizedBox(height: 16),
-                                _whatYoullGainSection(),
+                                _surfaceCard(child: _aboutSection(v)),
+                                const SizedBox(height: 16),
+                                _surfaceCard(child: _whatYoullGainSection()),
                               ],
                             ),
                           ),
@@ -177,9 +189,7 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _requirementsSection(),
-                                const SizedBox(height: 12),
-                                _deadlineBox(v),
+                                _surfaceCard(child: _requirementsSection()),
                               ],
                             ),
                           ),
@@ -188,13 +198,11 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _aboutSection(v),
-                          const SizedBox(height: 14),
-                          _whatYoullGainSection(),
-                          const SizedBox(height: 14),
-                          _requirementsSection(),
-                          const SizedBox(height: 10),
-                          _deadlineBox(v),
+                          _surfaceCard(child: _aboutSection(v)),
+                          const SizedBox(height: 20),
+                          _surfaceCard(child: _whatYoullGainSection()),
+                          const SizedBox(height: 20),
+                          _surfaceCard(child: _requirementsSection()),
                         ],
                       ),
               ),
@@ -218,36 +226,83 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
           ),
           child: SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _canApply
-                  ? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              ApplyVacancyScreen(vacancy: _vacancy),
-                        ),
-                      );
-                    }
-                  : null,
-              icon: const Icon(Icons.send_rounded, size: 18),
-              label: Text(
-                _canApply ? 'Apply Now' : 'Applications closed',
-                style: const TextStyle(
+            height: 50,
+            child: _gradientApplyButton(context),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _gradientApplyButton(BuildContext context) {
+    if (!_canApply) {
+      return SizedBox(
+        height: 50,
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: null,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.gray200,
+            foregroundColor: AppColors.gray500,
+            disabledBackgroundColor: AppColors.gray200,
+            disabledForegroundColor: AppColors.gray500,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.work_rounded, size: 20),
+              SizedBox(width: 10),
+              Text(
+                'Applications closed',
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.white,
-                disabledBackgroundColor: AppColors.gray200,
-                disabledForegroundColor: AppColors.gray500,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                elevation: 0,
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => ApplyVacancyScreen(vacancy: _vacancy),
+              ),
+            );
+          },
+          child: Ink(
+            decoration: const BoxDecoration(
+              gradient: _kBrandGradient,
+            ),
+            child: const SizedBox(
+              height: 50,
+              width: double.infinity,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.work_rounded, color: AppColors.white, size: 20),
+                  SizedBox(width: 10),
+                  Text(
+                    'Apply Now',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -294,6 +349,8 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
     const heroHeight = 132.0;
     const cardOverlap = 40.0;
     final chip = _statusChipLabel;
+    final catColor = vacancyCategoryColor(v.category);
+    final catIcon = vacancyCategoryIcon(v.category);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -306,11 +363,7 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [_kHeroPurpleTop, _kHeroPurpleBottom],
-                    ),
+                    gradient: _kBrandGradient,
                   ),
                 ),
               ),
@@ -351,18 +404,6 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
                           icon: const Icon(Icons.arrow_back_rounded, size: 22),
                         ),
                       ),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: 'Refresh',
-                        style: IconButton.styleFrom(
-                          backgroundColor:
-                              AppColors.white.withValues(alpha: 0.15),
-                          foregroundColor: AppColors.white,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: _loadDetail,
-                        icon: const Icon(Icons.refresh_rounded, size: 22),
-                      ),
                     ],
                   ),
                 ),
@@ -387,12 +428,12 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: _kIconBlueBg,
+                        color: catColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(11),
                       ),
-                      child: const Icon(
-                        Icons.send_rounded,
-                        color: _kIconBlue,
+                      child: Icon(
+                        catIcon,
+                        color: catColor,
                         size: 24,
                       ),
                     ),
@@ -452,48 +493,109 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
         decoration: BoxDecoration(
-          color: AppColors.gray50,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.gray200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            Expanded(child: _stripItem(Icons.schedule_rounded, 'Posted', v.postedAt)),
-            Container(width: 1, height: 32, color: AppColors.gray200),
-            Expanded(child: _stripItem(Icons.event_rounded, 'Apply by', v.deadline)),
+            Expanded(
+              child: _stripItem(Icons.schedule_rounded, 'Posted', v.postedAt),
+            ),
+            Container(width: 1, height: 56, color: AppColors.gray200),
+            Expanded(
+              child: _stripApplyByItem(v.deadline),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _stripItem(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+  Widget _stripApplyByItem(String deadlineText) {
+    final display = deadlineText.trim().isEmpty ? '—' : deadlineText;
+    return Container(
+      margin: const EdgeInsets.only(left: 4, right: 2),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      decoration: BoxDecoration(
+        gradient: _kApplyByFill,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _kApplyByBorder, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: _kApplyByBorder.withValues(alpha: 0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         children: [
-          Icon(icon, size: 16, color: AppColors.gray400),
+          Icon(Icons.alarm_rounded, size: 22, color: _kApplyByLabel),
+          const SizedBox(height: 6),
+          const Text(
+            'Apply by',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: _kApplyByLabel,
+              letterSpacing: 0.2,
+            ),
+          ),
           const SizedBox(height: 4),
+          Text(
+            display,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.gray900,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stripItem(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        children: [
+          Icon(icon, size: 22, color: _kIconBlue),
+          const SizedBox(height: 8),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: AppColors.gray400,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.gray600,
+              letterSpacing: 0.2,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 6),
           Text(
             value,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.gray700,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.gray900,
+              height: 1.25,
             ),
           ),
         ],
@@ -504,49 +606,122 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
   /// Desktop / tablet: single compact line (avoids duplicating full strip).
   Widget _compactMetaInline(ClubVacancy v) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(Icons.schedule_rounded, size: 15, color: AppColors.gray400),
-        const SizedBox(width: 6),
         Expanded(
-          child: Text.rich(
-            TextSpan(
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.gray600,
-                height: 1.35,
-              ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+            decoration: BoxDecoration(
+              color: AppColors.gray50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.gray200),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const TextSpan(
-                  text: 'Posted ',
-                  style: TextStyle(fontWeight: FontWeight.w500),
+                Icon(Icons.schedule_rounded, size: 22, color: _kIconBlue),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Posted',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.gray600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        v.postedAt,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.gray900,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                TextSpan(
-                  text: v.postedAt,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, color: AppColors.gray900),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+            decoration: BoxDecoration(
+              gradient: _kApplyByFill,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _kApplyByBorder, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: _kApplyByBorder.withValues(alpha: 0.12),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-                const TextSpan(text: '  ·  '),
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Icon(Icons.event_rounded,
-                      size: 14, color: AppColors.gray400),
-                ),
-                const TextSpan(text: ' '),
-                const TextSpan(
-                  text: 'Apply by ',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                TextSpan(
-                  text: v.deadline,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, color: AppColors.gray900),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.alarm_rounded, size: 22, color: _kApplyByLabel),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Apply by',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: _kApplyByLabel,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        v.deadline,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.gray900,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _surfaceCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gray200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 
@@ -577,24 +752,22 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
     );
   }
 
-  Widget _plainSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: AppColors.gray900,
-      ),
-    );
+  List<String> _meaningfulAboutParagraphs(ClubVacancy v) {
+    return v.aboutRole
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty && p != '—' && p != '-' && p != '–')
+        .toList();
   }
 
   Widget _aboutSection(ClubVacancy v) {
+    final paragraphs = _meaningfulAboutParagraphs(v);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader(icon: Icons.description_outlined, title: 'About the Role'),
-        const SizedBox(height: 10),
-        if (v.aboutRole.isEmpty)
+        _sectionHeader(
+            icon: Icons.description_outlined, title: 'About the Role'),
+        const SizedBox(height: 12),
+        if (paragraphs.isEmpty)
           Text(
             'No description was provided for this vacancy.',
             style: TextStyle(
@@ -604,13 +777,13 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
             ),
           )
         else
-          ...v.aboutRole.map(
+          ...paragraphs.map(
             (p) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 p,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   color: AppColors.gray700,
                   height: 1.55,
                 ),
@@ -625,8 +798,9 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _plainSectionTitle("What You'll Gain"),
-        const SizedBox(height: 10),
+        _sectionHeader(
+            icon: Icons.workspace_premium_outlined, title: "What You'll Gain"),
+        const SizedBox(height: 14),
         LayoutBuilder(
           builder: (context, c) {
             final tileW = (c.maxWidth - 10) / 2;
@@ -651,14 +825,14 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.only(top: 6),
                           child: Text(
                             g.text,
                             style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.gray700,
-                              height: 1.3,
+                              height: 1.35,
                             ),
                           ),
                         ),
@@ -679,7 +853,7 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionHeader(icon: Icons.fact_check_outlined, title: 'Requirements'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
         if (_requirementLines.isEmpty)
           Text(
             'No specific requirements were listed. Reach out to the club if you have questions.',
@@ -726,27 +900,6 @@ class _VacancyDetailScreenState extends State<VacancyDetailScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _deadlineBox(ClubVacancy v) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-      decoration: BoxDecoration(
-        color: AppColors.gray100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Text(
-        'Deadline: ${_deadlineShort(v)}',
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppColors.gray700,
-        ),
       ),
     );
   }

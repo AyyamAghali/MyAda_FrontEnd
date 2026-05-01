@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/club_api_service.dart';
+import '../../models/app_notification.dart';
+import '../../services/notification_controller.dart';
 import '../../utils/constants.dart';
 import '../../widgets/app_back_button.dart';
 import '../../widgets/responsive_container.dart';
@@ -23,7 +24,6 @@ class ClubNotificationsScreen extends StatefulWidget {
 }
 
 class _ClubNotificationsScreenState extends State<ClubNotificationsScreen> {
-  final ClubApiService _api = ClubApiService();
   String _tab = 'all';
   List<_Notif> _notifs = [];
   bool _isLoading = false;
@@ -40,7 +40,14 @@ class _ClubNotificationsScreenState extends State<ClubNotificationsScreen> {
   @override
   void initState() {
     super.initState();
+    NotificationController.instance.addListener(_syncFromController);
     _load();
+  }
+
+  @override
+  void dispose() {
+    NotificationController.instance.removeListener(_syncFromController);
+    super.dispose();
   }
 
   String _categorize(String raw) {
@@ -55,23 +62,38 @@ class _ClubNotificationsScreenState extends State<ClubNotificationsScreen> {
   Future<void> _load() async {
     setState(() { _isLoading = true; _error = null; });
     try {
-      final raw = await _api.fetchMyNotifications();
-      final results = <_Notif>[];
-      for (final n in raw) {
-        final typeRaw = (n['type'] ?? n['category'] ?? '').toString();
-        results.add(_Notif(
-          id: (n['id'] ?? n['notificationId'] ?? '').toString(),
-          title: (n['title'] ?? 'Notification') as String,
-          body: (n['message'] ?? n['body'] ?? n['description'] ?? '') as String,
-          tabKey: _categorize(typeRaw),
-          time: _formatTime(n['createdAt'] ?? n['timestamp']),
-          isRead: (n['isRead'] ?? n['read'] ?? false) == true,
-        ));
+      await NotificationController.instance.initialize();
+      if (mounted) {
+        setState(() {
+          _notifs = NotificationController.instance.items.map(_fromApp).toList();
+          _isLoading = false;
+        });
       }
-      if (mounted) setState(() { _notifs = results; _isLoading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
     }
+  }
+
+  void _syncFromController() {
+    if (!mounted) return;
+    final controller = NotificationController.instance;
+    setState(() {
+      _notifs = controller.items.map(_fromApp).toList();
+      _error = controller.error;
+      _isLoading = controller.loading;
+    });
+  }
+
+  _Notif _fromApp(AppNotification n) {
+    final type = n.type.trim();
+    return _Notif(
+      id: n.id,
+      title: type.isEmpty ? 'Notification' : type,
+      body: n.message,
+      tabKey: _categorize(type),
+      time: _formatTime(n.createdAt?.toIso8601String()),
+      isRead: false,
+    );
   }
 
   String _formatTime(dynamic raw) {
@@ -85,17 +107,9 @@ class _ClubNotificationsScreenState extends State<ClubNotificationsScreen> {
     return '${dt.month}/${dt.day}/${dt.year}';
   }
 
-  Future<void> _markRead(_Notif n) async {
+  Future<void> _delete(_Notif n) async {
     try {
-      await _api.markNotificationRead(n.id);
-      if (mounted) {
-        setState(() {
-          final i = _notifs.indexOf(n);
-          if (i >= 0) {
-            _notifs[i] = _Notif(id: n.id, title: n.title, body: n.body, tabKey: n.tabKey, time: n.time, isRead: true);
-          }
-        });
-      }
+      await NotificationController.instance.deleteNotification(n.id);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
@@ -241,7 +255,7 @@ class _ClubNotificationsScreenState extends State<ClubNotificationsScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: n.isRead ? null : () => _markRead(n),
+        onTap: null,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -259,6 +273,13 @@ class _ClubNotificationsScreenState extends State<ClubNotificationsScreen> {
                     Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),
                   ],
                   const Spacer(),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Delete notification',
+                    onPressed: () => _delete(n),
+                    icon: const Icon(Icons.delete_outline,
+                        size: 18, color: AppColors.gray500),
+                  ),
                   Text(n.time, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
                 ],
               ),

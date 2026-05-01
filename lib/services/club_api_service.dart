@@ -16,13 +16,15 @@ const String kGatewayOrigin = 'http://13.60.31.141:5000';
 
 /// Ordered Club Management API roots to try.
 ///
-/// Club endpoints are served behind the gateway under `/club/api/v1/...`.
+/// Some gateways mount the service at `/api/v1/...`; others use `/club/api/v1/...`.
+/// On **404**, we try the next base (root vs `/club` prefix mismatch).
 const List<String> kClubApiBaseCandidates = [
+  'http://13.60.31.141:5000',
   'http://13.60.31.141:5000/club',
 ];
 
 /// Preferred API root (first candidate), for callers that need a single string.
-const String kClubApiBase = 'http://13.60.31.141:5000/club';
+const String kClubApiBase = 'http://13.60.31.141:5000';
 
 /// Resolve a potentially relative media path to an absolute URL.
 /// If [path] is already absolute (starts with http), returns as-is.
@@ -81,17 +83,25 @@ class ClubApiService {
         m.contains('failed host lookup');
   }
 
+  /// When [hasAnotherBase] is true, also retry **404** (wrong gateway path prefix).
+  bool _shouldTryNextClubGateway(ClubApiException e, bool hasAnotherBase) {
+    if (!hasAnotherBase) return false;
+    if (_shouldRetryOnOtherClubGateway(e)) return true;
+    return e.statusCode == 404;
+  }
+
   /// GET with Bearer, trying each club gateway until one succeeds.
   Future<Object?> _clubAuthorizedGet(Uri Function(String base) buildUri) async {
     ClubApiException? last;
-    for (final base in _orderedClubBases()) {
+    final bases = _orderedClubBases();
+    for (var i = 0; i < bases.length; i++) {
       try {
-        final json = await _authorizedGet(buildUri(base));
-        _rememberClubGateway(base);
+        final json = await _authorizedGet(buildUri(bases[i]));
+        _rememberClubGateway(bases[i]);
         return json;
       } on ClubApiException catch (e) {
         last = e;
-        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        if (_shouldTryNextClubGateway(e, i < bases.length - 1)) continue;
         rethrow;
       }
     }
@@ -105,14 +115,15 @@ class ClubApiService {
     Map<String, dynamic>? body,
   }) async {
     ClubApiException? last;
-    for (final base in _orderedClubBases()) {
+    final bases = _orderedClubBases();
+    for (var i = 0; i < bases.length; i++) {
       try {
-        final json = await _authorizedPost(buildUri(base), body: body);
-        _rememberClubGateway(base);
+        final json = await _authorizedPost(buildUri(bases[i]), body: body);
+        _rememberClubGateway(bases[i]);
         return json;
       } on ClubApiException catch (e) {
         last = e;
-        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        if (_shouldTryNextClubGateway(e, i < bases.length - 1)) continue;
         rethrow;
       }
     }
@@ -126,14 +137,15 @@ class ClubApiService {
     Map<String, dynamic>? body,
   }) async {
     ClubApiException? last;
-    for (final base in _orderedClubBases()) {
+    final bases = _orderedClubBases();
+    for (var i = 0; i < bases.length; i++) {
       try {
-        final json = await _authorizedPatch(buildUri(base), body: body);
-        _rememberClubGateway(base);
+        final json = await _authorizedPatch(buildUri(bases[i]), body: body);
+        _rememberClubGateway(bases[i]);
         return json;
       } on ClubApiException catch (e) {
         last = e;
-        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        if (_shouldTryNextClubGateway(e, i < bases.length - 1)) continue;
         rethrow;
       }
     }
@@ -144,14 +156,15 @@ class ClubApiService {
 
   Future<void> _clubAuthorizedDelete(Uri Function(String base) buildUri) async {
     ClubApiException? last;
-    for (final base in _orderedClubBases()) {
+    final bases = _orderedClubBases();
+    for (var i = 0; i < bases.length; i++) {
       try {
-        await _authorizedDelete(buildUri(base));
-        _rememberClubGateway(base);
+        await _authorizedDelete(buildUri(bases[i]));
+        _rememberClubGateway(bases[i]);
         return;
       } on ClubApiException catch (e) {
         last = e;
-        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        if (_shouldTryNextClubGateway(e, i < bases.length - 1)) continue;
         rethrow;
       }
     }
@@ -166,7 +179,9 @@ class ClubApiService {
   Future<List<String>> fetchCategories() async {
     try {
       Object? decoded;
-      for (final base in _orderedClubBases()) {
+      final bases = _orderedClubBases();
+      for (var i = 0; i < bases.length; i++) {
+        final base = bases[i];
         final uri = Uri.parse('$base/api/v1/categories');
         try {
           final response = await http.get(uri, headers: {
@@ -176,6 +191,9 @@ class ClubApiService {
             decoded = jsonDecode(response.body);
             _rememberClubGateway(base);
             break;
+          }
+          if (i < bases.length - 1 && response.statusCode == 404) {
+            continue;
           }
         } on TimeoutException {
           continue;
@@ -236,7 +254,9 @@ class ClubApiService {
     XFile? portfolioFile,
   }) async {
     ClubApiException? last;
-    for (final base in _orderedClubBases()) {
+    final bases = _orderedClubBases();
+    for (var i = 0; i < bases.length; i++) {
+      final base = bases[i];
       final uri = Uri.parse('$base/api/v1/clubs/$clubId/join-applications');
       try {
         final req = http.MultipartRequest('POST', uri);
@@ -262,11 +282,11 @@ class ClubApiService {
         final err =
             ClubApiException(statusCode: response.statusCode, message: msg);
         last = err;
-        if (_shouldRetryOnOtherClubGateway(err)) continue;
+        if (_shouldTryNextClubGateway(err, i < bases.length - 1)) continue;
         throw err;
       } on ClubApiException catch (e) {
         last = e;
-        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        if (_shouldTryNextClubGateway(e, i < bases.length - 1)) continue;
         rethrow;
       } on SocketException {
         last = const ClubApiException(message: 'No internet connection.');
@@ -343,6 +363,15 @@ class ClubApiService {
       (base) => Uri.parse('$base/api/v1/events/$eventId/ticket'),
     );
     return _unwrapSingle(json);
+  }
+
+  /// `GET /api/v1/event-registrations/by-event/{eventId}`
+  Future<int> fetchEventRegistrationCount(String eventId) async {
+    final json = await _clubAuthorizedGet(
+      (base) =>
+          Uri.parse('$base/api/v1/event-registrations/by-event/$eventId'),
+    );
+    return _unwrapCount(json);
   }
 
   /// `GET /api/v1/users/me/event-registrations`
@@ -422,7 +451,9 @@ class ClubApiService {
     XFile? cvFile,
   }) async {
     ClubApiException? last;
-    for (final base in _orderedClubBases()) {
+    final bases = _orderedClubBases();
+    for (var i = 0; i < bases.length; i++) {
+      final base = bases[i];
       final uri = Uri.parse('$base/api/v1/vacancies/$vacancyId/applications');
       try {
         final req = http.MultipartRequest('POST', uri);
@@ -443,14 +474,14 @@ class ClubApiService {
         final msg = _extractMsg(response.body) ?? 'Application failed.';
         final err =
             ClubApiException(statusCode: response.statusCode, message: msg);
-        if (_shouldRetryOnOtherClubGateway(err)) {
+        if (_shouldTryNextClubGateway(err, i < bases.length - 1)) {
           last = err;
           continue;
         }
         throw err;
       } on ClubApiException catch (e) {
         last = e;
-        if (_shouldRetryOnOtherClubGateway(e)) continue;
+        if (_shouldTryNextClubGateway(e, i < bases.length - 1)) continue;
         rethrow;
       } on SocketException {
         last = const ClubApiException(message: 'No internet connection.');
@@ -494,8 +525,8 @@ class ClubApiService {
     if (clubPositionId <= 0) return [];
     final json = await _clubAuthorizedGet(
       (base) => Uri.parse('$base/api/v1/club-position-requirements').replace(
-            queryParameters: {'clubPositionId': '$clubPositionId'},
-          ),
+        queryParameters: {'clubPositionId': '$clubPositionId'},
+      ),
     );
     final rows = _unwrapList(json);
     rows.sort((a, b) {
@@ -815,6 +846,39 @@ class ClubApiService {
       return json;
     }
     return {};
+  }
+
+  int _unwrapCount(Object? json) {
+    final direct = _countFromAny(json);
+    if (direct != null) return direct;
+    return _unwrapList(json).length;
+  }
+
+  int? _countFromAny(Object? value) {
+    if (value == null) return null;
+    if (value is List) return value.length;
+    if (value is Map<String, dynamic>) {
+      for (final key in const [
+        'total',
+        'totalCount',
+        'count',
+        'registeredCount',
+        'registrationCount',
+      ]) {
+        final parsed = int.tryParse('${value[key] ?? ''}');
+        if (parsed != null && parsed >= 0) return parsed;
+      }
+      for (final nested in [
+        value['result'],
+        value['data'],
+        value['items'],
+        value['results'],
+      ]) {
+        final parsed = _countFromAny(nested);
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
   }
 
   List<Map<String, dynamic>> _extractListFromAny(Object? value) {

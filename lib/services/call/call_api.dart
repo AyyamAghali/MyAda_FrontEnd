@@ -18,6 +18,12 @@ const String kIceServersEndpoint = '$kCallGatewayBase/call/webrtc/ice-servers';
 /// REST endpoint for persisted call history.
 const String kCallHistoryEndpoint = '$kCallGatewayBase/call/api/call-history';
 
+/// Backend integration point for APNs VoIP tokens.
+///
+/// Locked/background iOS incoming calls require the backend to send PushKit
+/// VoIP pushes to this token. Adjust this path if the backend contract differs.
+const String kVoipTokenEndpoint = '$kCallGatewayBase/call/api/devices/voip-token';
+
 enum CallHistoryStatus {
   all(null, 'All'),
   pending('pending', 'Pending'),
@@ -239,6 +245,29 @@ Future<CallIceConfig?> fetchIceConfiguration() async {
 class CallApiClient {
   const CallApiClient();
 
+  Future<void> registerVoipToken({
+    required String token,
+    required String platform,
+    String? bundleId,
+  }) async {
+    final trimmed = token.trim();
+    if (trimmed.isEmpty) return;
+
+    final response = await _authorizedPost(
+      Uri.parse(kVoipTokenEndpoint),
+      body: <String, dynamic>{
+        'token': trimmed,
+        'platform': platform,
+        'provider': 'apns-voip',
+        if (bundleId != null && bundleId.trim().isNotEmpty)
+          'bundleId': bundleId.trim(),
+      },
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _buildError(response);
+    }
+  }
+
   Future<List<CallHistoryItem>> fetchCallHistory({
     CallHistoryStatus status = CallHistoryStatus.all,
     int limit = 50,
@@ -291,6 +320,25 @@ class CallApiClient {
     );
     if (response.statusCode != 200) throw _buildError(response);
     return response;
+  }
+
+  Future<http.Response> _authorizedPost(
+    Uri uri, {
+    required Map<String, dynamic> body,
+  }) async {
+    return AuthService.instance.sendAuthorized(
+      (token) => http
+          .post(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 15)),
+    );
   }
 }
 

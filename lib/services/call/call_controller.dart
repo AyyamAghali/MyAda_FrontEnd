@@ -10,6 +10,7 @@ import '../auth_service.dart';
 import 'call_api.dart';
 import 'call_history_controller.dart';
 import 'call_signaling.dart';
+import 'native_incoming_call_service.dart';
 
 /// High-level state of the in-app voice call feature. Mirrors the phases used
 /// by the web client so the UI can react in the same way on all platforms.
@@ -259,6 +260,7 @@ class CallController extends ChangeNotifier {
       await _ensurePeerConnection();
       await _signaling.invoke('AcceptCall', args: [info.callId]);
       _incomingCall = null;
+      await NativeIncomingCallService.instance.markConnected(info.callId);
       _setPhase(CallPhase.accepted);
     } catch (err) {
       _setError(_stringify(err));
@@ -270,14 +272,29 @@ class CallController extends ChangeNotifier {
     final info = _incomingCall;
     if (info == null) return;
     try {
+      await connect();
       await _signaling.invoke('RejectCall', args: [info.callId, reason]);
     } catch (err) {
       _setError(_stringify(err));
     } finally {
+      await NativeIncomingCallService.instance.dismiss(info.callId);
       _incomingCall = null;
       _clearCallIdentity();
       _setPhase(CallPhase.connected);
     }
+  }
+
+  /// Accept from Android/iOS native call UI. The native event carries the same
+  /// invite identity as the SignalR `IncomingCall` payload.
+  Future<void> acceptNativeIncomingCall(Map<String, dynamic> payload) async {
+    _hydrateIncomingFromNativePayload(payload);
+    await acceptIncomingCall();
+  }
+
+  /// Decline from Android/iOS native call UI.
+  Future<void> rejectNativeIncomingCall(Map<String, dynamic> payload) async {
+    _hydrateIncomingFromNativePayload(payload);
+    await rejectIncomingCall(reason: 'Declined from system call UI');
   }
 
   /// Caller-side cancel of a pending outbound call (before it is accepted).
@@ -293,6 +310,7 @@ class CallController extends ChangeNotifier {
     } catch (err) {
       _setError(_stringify(err));
     } finally {
+      await NativeIncomingCallService.instance.dismiss(id);
       if (showNoDispatcherAvailable) {
         _pendingNoDispatcherAvailableDialog = true;
       }
@@ -311,6 +329,7 @@ class CallController extends ChangeNotifier {
       // ignore; we still tear down locally
     }
     _errorMessage = 'Call ended.';
+    await NativeIncomingCallService.instance.dismiss(_callId);
     await _cleanupPeer();
     _clearCallIdentity();
     CallHistoryController.instance.refreshAfterRealtimeEvent();
@@ -394,6 +413,18 @@ class CallController extends ChangeNotifier {
 
   // ---- Internals ------------------------------------------------------------
 
+  void _hydrateIncomingFromNativePayload(Map<String, dynamic> payload) {
+    final callId = payload['callId']?.toString() ?? '';
+    if (callId.isEmpty) return;
+    final info = IncomingCallInfo.fromMap(payload);
+    _incomingCall = info;
+    _callId = info.callId;
+    _roomId = info.roomId;
+    if (_phase != CallPhase.inCall && _phase != CallPhase.accepted) {
+      _setPhase(CallPhase.incoming);
+    }
+  }
+
   void _attachListenersOnce() {
     if (_listenersAttached) return;
     _listenersAttached = true;
@@ -422,6 +453,17 @@ class CallController extends ChangeNotifier {
       _callId = _incomingCall?.callId;
       _roomId = _incomingCall?.roomId;
       _setPhase(CallPhase.incoming);
+      final incoming = _incomingCall;
+      if (incoming != null) {
+        unawaited(NativeIncomingCallService.instance.showIncomingCall(
+          callId: incoming.callId,
+          roomId: incoming.roomId,
+          fromUserId: incoming.fromUserId,
+          fromConnectionId: incoming.fromConnectionId,
+          callerName: incoming.fromDisplayName ?? 'MyADA Support',
+          expiresAtUtc: incoming.expiresAtUtc,
+        ));
+      }
       unawaited(ensureLocalAudioForControls());
     });
 
@@ -502,6 +544,10 @@ class CallController extends ChangeNotifier {
       }
       CallHistoryController.instance.refreshAfterRealtimeEvent();
       _setPhase(CallPhase.accepted);
+      final callId = _callId;
+      if (callId != null) {
+        unawaited(NativeIncomingCallService.instance.markConnected(callId));
+      }
     });
 
     _signaling.on('CallRejected', (args) {
@@ -512,6 +558,7 @@ class CallController extends ChangeNotifier {
           : 'Call rejected by dispatcher.';
       _setPhase(CallPhase.rejected);
       unawaited(() async {
+        await NativeIncomingCallService.instance.dismiss(_callId);
         await _cleanupPeer();
         _clearCallIdentity();
         CallHistoryController.instance.refreshAfterRealtimeEvent();
@@ -524,6 +571,7 @@ class CallController extends ChangeNotifier {
       _errorMessage = reason != null && reason.isNotEmpty
           ? reason
           : 'The call was cancelled.';
+      await NativeIncomingCallService.instance.dismiss(_callId);
       await _cleanupPeer();
       _clearCallIdentity();
       CallHistoryController.instance.refreshAfterRealtimeEvent();
@@ -536,6 +584,7 @@ class CallController extends ChangeNotifier {
       _errorMessage = reason != null && reason.isNotEmpty
           ? reason
           : 'No dispatcher response before timeout.';
+      await NativeIncomingCallService.instance.dismiss(_callId);
       await _cleanupPeer();
       _clearCallIdentity();
       CallHistoryController.instance.refreshAfterRealtimeEvent();
@@ -579,6 +628,7 @@ class CallController extends ChangeNotifier {
       _errorMessage = name != null && name.isNotEmpty
           ? '$name left or disconnected.'
           : 'The other participant left or disconnected.';
+      await NativeIncomingCallService.instance.dismiss(_callId);
       await _cleanupPeer();
       _clearCallIdentity();
       CallHistoryController.instance.refreshAfterRealtimeEvent();
@@ -586,6 +636,7 @@ class CallController extends ChangeNotifier {
     });
 
     _signaling.on('LeftRoom', (_) async {
+      await NativeIncomingCallService.instance.dismiss(_callId);
       await _cleanupPeer();
       _clearCallIdentity();
       _setPhase(CallPhase.connected);
@@ -593,6 +644,7 @@ class CallController extends ChangeNotifier {
 
     _signaling.on('CallEnded', (_) async {
       _errorMessage = 'Call ended.';
+      await NativeIncomingCallService.instance.dismiss(_callId);
       await _cleanupPeer();
       _clearCallIdentity();
       CallHistoryController.instance.refreshAfterRealtimeEvent();

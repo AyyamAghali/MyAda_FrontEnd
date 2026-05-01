@@ -50,14 +50,13 @@ class ClubsHome extends StatefulWidget {
 class _ClubsHomeState extends State<ClubsHome> {
   // ── Directory state ───────────────────────────────────────────────
   String searchQuery = '';
-  String selectedCategory = 'All';
+  final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   final ClubApiService _api = ClubApiService();
   List<Club> _clubs = [];
   bool _isLoading = false;
   String? _error;
 
-  List<String> _apiCategories = [];
   int _page = 1;
   bool _hasMore = true;
   bool _isLoadingMore = false;
@@ -104,10 +103,9 @@ class _ClubsHomeState extends State<ClubsHome> {
     unawaited(_bootstrapClubsDirectory());
   }
 
-  /// Load club list first, then categories, so two gateway calls are not in flight together.
+  /// Load club directory.
   Future<void> _bootstrapClubsDirectory() async {
     await _loadClubs();
-    if (mounted) await _loadCategories();
   }
 
   @override
@@ -116,14 +114,8 @@ class _ClubsHomeState extends State<ClubsHome> {
       widget.hubMainTabController?.removeListener(_onHubMainTabChanged);
     }
     _searchFocus.dispose();
+    _searchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadCategories() async {
-    final cats = await _api.fetchCategories();
-    if (mounted && cats.isNotEmpty) {
-      setState(() => _apiCategories = cats);
-    }
   }
 
   Future<void> _loadClubs({bool loadMore = false}) async {
@@ -139,10 +131,9 @@ class _ClubsHomeState extends State<ClubsHome> {
     }
     try {
       final page = loadMore ? _page + 1 : 1;
-      final category = selectedCategory == 'All' ? null : selectedCategory;
       final search = searchQuery.trim().isEmpty ? null : searchQuery.trim();
       final clubs = await _api.fetchClubs(
-          search: search, category: category, page: page, limit: _limit);
+          search: search, category: null, page: page, limit: _limit);
       if (mounted) {
         setState(() {
           if (loadMore) {
@@ -168,8 +159,6 @@ class _ClubsHomeState extends State<ClubsHome> {
     }
   }
 
-  List<String> get _categories => ['All', ..._apiCategories];
-
   Future<void> _onClubCardTap(BuildContext context, Club club) async {
     final opener = widget.onClubOpen;
     if (opener != null) {
@@ -186,14 +175,10 @@ class _ClubsHomeState extends State<ClubsHome> {
 
   List<Club> get filteredClubs {
     return _clubs.where((club) {
-      final matchesSearch = club.name
-              .toLowerCase()
-              .contains(searchQuery.toLowerCase()) ||
-          club.tags.any(
-              (tag) => tag.toLowerCase().contains(searchQuery.toLowerCase()));
-      final matchesCategory =
-          selectedCategory == 'All' || club.category == selectedCategory;
-      return matchesSearch && matchesCategory;
+      final q = searchQuery.toLowerCase();
+      final matchesSearch = club.name.toLowerCase().contains(q) ||
+          club.tags.any((tag) => tag.toLowerCase().contains(q));
+      return matchesSearch;
     }).toList();
   }
 
@@ -380,7 +365,6 @@ class _ClubsHomeState extends State<ClubsHome> {
   }
 
   Widget _buildCompactSearchAndCategories(BuildContext context) {
-    final hasFilter = selectedCategory != 'All';
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       color: AppColors.backgroundLight,
@@ -390,6 +374,7 @@ class _ClubsHomeState extends State<ClubsHome> {
           SizedBox(
             height: 40,
             child: TextField(
+              controller: _searchController,
               focusNode: _searchFocus,
               onChanged: (value) => setState(() => searchQuery = value),
               style: const TextStyle(fontSize: 14, color: AppColors.gray900),
@@ -401,22 +386,16 @@ class _ClubsHomeState extends State<ClubsHome> {
                     size: 20, color: AppColors.gray400),
                 prefixIconConstraints:
                     const BoxConstraints(minWidth: 40, minHeight: 0),
-                suffixIcon: GestureDetector(
-                  onTap: () => _openCategoryFilterSheet(context),
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    margin: const EdgeInsets.only(right: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.tune,
-                        size: 17, color: AppColors.primary),
-                  ),
-                ),
-                suffixIconConstraints:
-                    const BoxConstraints(minWidth: 40, minHeight: 0),
+                suffixIcon: searchQuery.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close,
+                            size: 18, color: AppColors.gray400),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => searchQuery = '');
+                        },
+                      ),
                 filled: true,
                 fillColor: AppColors.gray50,
                 contentPadding: EdgeInsets.zero,
@@ -446,143 +425,10 @@ class _ClubsHomeState extends State<ClubsHome> {
                     fontWeight: FontWeight.w500,
                     color: AppColors.gray500),
               ),
-              if (hasFilter) ...[
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () => setState(() => selectedCategory = 'All'),
-                  child: const Text(
-                    'Clear filters',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.secondary),
-                  ),
-                ),
-              ],
             ],
           ),
         ],
       ),
-    );
-  }
-
-  void _openCategoryFilterSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        var tmp = selectedCategory;
-        return StatefulBuilder(
-          builder: (ctx, setModal) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                14,
-                20,
-                MediaQuery.of(ctx).padding.bottom + 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.gray300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Filters',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.gray900,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => Navigator.pop(ctx),
-                        child: const Icon(Icons.close,
-                            size: 22, color: AppColors.gray500),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Category',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.gray600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _categories.map((c) {
-                      final sel = tmp == c;
-                      return GestureDetector(
-                        onTap: () => setModal(() => tmp = c),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: sel ? AppColors.primary : AppColors.gray100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            c,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: sel ? AppColors.white : AppColors.gray700,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() => selectedCategory = tmp);
-                        Navigator.pop(ctx);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Apply',
-                        style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
@@ -640,7 +486,7 @@ class _ClubsHomeState extends State<ClubsHome> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text(
-              'Try adjusting your search or filter criteria',
+              'Try adjusting your search',
               style: TextStyle(fontSize: 14, color: AppColors.gray500),
             ),
           ],

@@ -345,15 +345,12 @@ class VacanciesTab extends StatefulWidget {
 
 class _VacanciesTabState extends State<VacanciesTab> {
   String _searchQuery = '';
-  String _selectedCategory = '';
-  bool _savedOnly = false;
   final Set<int> _savedIds = {};
 
   final TextEditingController _searchController = TextEditingController();
 
   List<ClubVacancy> get _filtered {
     var list = mockVacancies.toList();
-    if (_savedOnly) list = list.where((v) => _savedIds.contains(v.id)).toList();
     if (_searchQuery.trim().isNotEmpty) {
       final q = _searchQuery.trim().toLowerCase();
       list = list
@@ -363,15 +360,7 @@ class _VacanciesTabState extends State<VacanciesTab> {
               v.category.toLowerCase().contains(q))
           .toList();
     }
-    if (_selectedCategory.isNotEmpty) {
-      list = list.where((v) => v.category == _selectedCategory).toList();
-    }
     return list;
-  }
-
-  List<String> get _categories {
-    final cats = mockVacancies.map((v) => v.category).toSet().toList()..sort();
-    return cats;
   }
 
   void _toggleSave(int id) {
@@ -384,35 +373,6 @@ class _VacanciesTabState extends State<VacanciesTab> {
     });
   }
 
-  void _showFilterSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => _FilterSheet(
-        categories: _categories,
-        selectedCategory: _selectedCategory,
-        savedOnly: _savedOnly,
-        onCategoryChanged: (c) {
-          setState(() => _selectedCategory = c);
-          Navigator.pop(ctx);
-        },
-        onSavedOnlyChanged: (v) {
-          setState(() => _savedOnly = v);
-          Navigator.pop(ctx);
-        },
-        onClear: () {
-          setState(() {
-            _selectedCategory = '';
-            _savedOnly = false;
-          });
-          Navigator.pop(ctx);
-        },
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -422,14 +382,13 @@ class _VacanciesTabState extends State<VacanciesTab> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filtered;
-    final hasActiveFilter = _selectedCategory.isNotEmpty || _savedOnly;
 
     return Column(
       children: [
         // ── Search + actions row ─────────────────────────────────────
         Container(
           color: AppColors.white,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Row(
             children: [
               Expanded(
@@ -470,13 +429,6 @@ class _VacanciesTabState extends State<VacanciesTab> {
                 ),
               ),
               const SizedBox(width: 8),
-              // Filter button
-              _IconActionButton(
-                icon: Icons.tune,
-                badged: hasActiveFilter,
-                onTap: _showFilterSheet,
-              ),
-              const SizedBox(width: 6),
               // My Applications button
               _IconActionButton(
                 icon: Icons.assignment_outlined,
@@ -492,8 +444,6 @@ class _VacanciesTabState extends State<VacanciesTab> {
             ],
           ),
         ),
-        // ── Category chips ───────────────────────────────────────────
-        _buildCategoryChips(),
         // ── Count row ────────────────────────────────────────────────
         Container(
           color: AppColors.backgroundLight,
@@ -508,23 +458,6 @@ class _VacanciesTabState extends State<VacanciesTab> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              if (hasActiveFilter) ...[
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _selectedCategory = '';
-                    _savedOnly = false;
-                  }),
-                  child: const Text(
-                    'Clear filters',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.secondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -558,32 +491,6 @@ class _VacanciesTabState extends State<VacanciesTab> {
     );
   }
 
-  Widget _buildCategoryChips() {
-    return Container(
-      color: AppColors.white,
-      height: 48,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        children: [
-          _CategoryChip(
-            label: 'All',
-            selected: _selectedCategory.isEmpty,
-            onTap: () => setState(() => _selectedCategory = ''),
-          ),
-          ..._categories.map((cat) => _CategoryChip(
-                label: cat,
-                selected: _selectedCategory == cat,
-                color: _metaFor(cat).color,
-                onTap: () => setState(() {
-                  _selectedCategory = _selectedCategory == cat ? '' : cat;
-                }),
-              )),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmpty() {
     return Center(
       child: Column(
@@ -595,7 +502,7 @@ class _VacanciesTabState extends State<VacanciesTab> {
               style:
                   TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          const Text('Try adjusting your search or filters',
+          const Text('Try adjusting your search',
               style: TextStyle(fontSize: 13, color: AppColors.gray500)),
         ],
       ),
@@ -763,48 +670,6 @@ class _MiniTag extends StatelessWidget {
   }
 }
 
-class _CategoryChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final Color? color;
-  final VoidCallback onTap;
-
-  const _CategoryChip({
-    required this.label,
-    required this.selected,
-    this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final activeColor = color ?? AppColors.primary;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        decoration: BoxDecoration(
-          color: selected ? activeColor : AppColors.gray100,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? activeColor : AppColors.gray200,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? AppColors.white : AppColors.gray600,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _IconActionButton extends StatelessWidget {
   final IconData icon;
   final bool badged;
@@ -846,168 +711,6 @@ class _IconActionButton extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════════
-// Filter bottom sheet
-// ════════════════════════════════════════════════════════════════════
-
-class _FilterSheet extends StatelessWidget {
-  final List<String> categories;
-  final String selectedCategory;
-  final bool savedOnly;
-  final ValueChanged<String> onCategoryChanged;
-  final ValueChanged<bool> onSavedOnlyChanged;
-  final VoidCallback onClear;
-
-  const _FilterSheet({
-    required this.categories,
-    required this.selectedCategory,
-    required this.savedOnly,
-    required this.onCategoryChanged,
-    required this.onSavedOnlyChanged,
-    required this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Handle
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: AppColors.gray300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Filter Vacancies',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.gray900,
-                  ),
-                ),
-                if (selectedCategory.isNotEmpty || savedOnly)
-                  TextButton(
-                    onPressed: onClear,
-                    child: const Text(
-                      'Clear all',
-                      style: TextStyle(color: AppColors.secondary),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'SHOW',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: AppColors.gray500,
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _FilterRow(
-              label: 'All vacancies',
-              selected: !savedOnly,
-              onTap: () => onSavedOnlyChanged(false),
-            ),
-            _FilterRow(
-              label: 'Saved only',
-              selected: savedOnly,
-              onTap: () => onSavedOnlyChanged(true),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'CATEGORY',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: AppColors.gray500,
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...categories.map(
-              (cat) => _FilterRow(
-                label: cat,
-                selected: selectedCategory == cat,
-                onTap: () => onCategoryChanged(cat),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterRow extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _FilterRow({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-        child: Row(
-          children: [
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected ? AppColors.secondary : AppColors.gray300,
-                  width: 2,
-                ),
-                color: selected ? AppColors.secondary : Colors.transparent,
-              ),
-              child: selected
-                  ? const Icon(Icons.check, size: 12, color: AppColors.white)
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                color:
-                    selected ? AppColors.gray900 : AppColors.gray700,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

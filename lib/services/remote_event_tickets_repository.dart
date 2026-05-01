@@ -113,7 +113,10 @@ class RemoteEventTicketsRepository implements EventTicketsRepository {
   @override
   Future<EventSnapshot> getEventSnapshot(String eventId) async {
     final json = await _api.getTicket(eventId);
-    return _snapshotFromJson(json, eventId);
+    final eventJson = json['event'] is Map<String, dynamic>
+        ? json['event'] as Map<String, dynamic>
+        : json;
+    return _snapshotFromJson(eventJson, eventId);
   }
 
   RegistrationTicket _ticketFromJson(Map<String, dynamic> json, String eventId) {
@@ -162,7 +165,11 @@ class RemoteEventTicketsRepository implements EventTicketsRepository {
       endTime: (json['endTime'] ?? json['eventEndTimeSnapshot']) as String?,
       location: (json['location'] ?? json['eventLocationSnapshot']) as String?,
       seatLimit: int.tryParse((json['seatLimit'] ?? json['eventSeatLimitSnapshot'] ?? 0).toString()) ?? 0,
-      registeredCount: int.tryParse((json['registeredCount'] ?? 0).toString()) ?? 0,
+      registeredCount: int.tryParse((json['registeredCount'] ??
+              json['eventRegistrationCountSnapshot'] ??
+              json['currentRegistrations'] ??
+              0)
+          .toString()) ?? 0,
     );
   }
 }

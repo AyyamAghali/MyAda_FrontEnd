@@ -30,14 +30,11 @@ class ClubVacanciesScreen extends StatefulWidget {
 
 class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
   String _search = '';
-  String? _categoryFilter;
   final _searchFocus = FocusNode();
   final ClubApiService _api = ClubApiService();
   List<ClubVacancy> _vacancies = [];
   bool _isLoading = false;
   String? _error;
-
-  late List<String> _allCategories;
 
   bool _embeddedHubFetchStarted = false;
 
@@ -47,7 +44,6 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
   @override
   void initState() {
     super.initState();
-    _allCategories = [];
     if (_deferHubEmbeddedFetch) {
       widget.hubMainTabController!.addListener(_onHubMainTabChanged);
       WidgetsBinding.instance
@@ -97,27 +93,21 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
     });
     try {
       final vacancies = await _api.fetchVacancies(clubId: widget.filterClubId);
-      final cats = <String>{};
-      for (final v in vacancies) {
-        cats.add(v.categoryTag);
-      }
       if (mounted) {
         setState(() {
           _vacancies = vacancies;
-          _allCategories = cats.toList()..sort();
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString();
           _isLoading = false;
         });
+      }
     }
   }
-
-  bool get _hasFilter => _categoryFilter != null;
 
   List<ClubVacancy> get _filtered {
     var list = List<ClubVacancy>.from(_vacancies);
@@ -134,122 +124,7 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
             v.categoryTag.toLowerCase().contains(q);
       }).toList();
     }
-    if (_categoryFilter != null) {
-      list = list.where((v) => v.categoryTag == _categoryFilter).toList();
-    }
     return list;
-  }
-
-  void _openFilterSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        var tmp = _categoryFilter;
-        return StatefulBuilder(
-          builder: (ctx, setModal) {
-            Widget chip(String? value, String label) {
-              final sel = tmp == value;
-              return GestureDetector(
-                onTap: () => setModal(() => tmp = value),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: sel ? AppColors.primary : AppColors.gray100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: sel ? AppColors.white : AppColors.gray700,
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                  20, 14, 20, MediaQuery.of(ctx).padding.bottom + 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                          color: AppColors.gray300,
-                          borderRadius: BorderRadius.circular(2)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Filters',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.gray900)),
-                      GestureDetector(
-                        onTap: () => Navigator.pop(ctx),
-                        child: const Icon(Icons.close,
-                            size: 22, color: AppColors.gray500),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Text('Category',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.gray600)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      chip(null, 'All'),
-                      ..._allCategories.map(
-                          (c) => chip(c, c[0] + c.substring(1).toLowerCase())),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() => _categoryFilter = tmp);
-                        Navigator.pop(ctx);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        elevation: 0,
-                      ),
-                      child: const Text('Apply',
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
   }
 
   @override
@@ -271,19 +146,6 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                     fontWeight: FontWeight.w500,
                     color: AppColors.gray500),
               ),
-              if (_hasFilter) ...[
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () => setState(() => _categoryFilter = null),
-                  child: const Text(
-                    'Clear filters',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.secondary),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -337,7 +199,7 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                                           fontWeight: FontWeight.w600,
                                           color: AppColors.gray700)),
                                   SizedBox(height: 4),
-                                  Text('Try adjusting your search or filters',
+                                  Text('Try adjusting your search',
                                       style: TextStyle(
                                           fontSize: 13,
                                           color: AppColors.gray500)),
@@ -440,22 +302,13 @@ class _ClubVacanciesScreenState extends State<ClubVacanciesScreen> {
                 const Icon(Icons.search, size: 20, color: AppColors.gray400),
             prefixIconConstraints:
                 const BoxConstraints(minWidth: 40, minHeight: 0),
-            suffixIcon: GestureDetector(
-              onTap: _openFilterSheet,
-              child: Container(
-                width: 34,
-                height: 34,
-                margin: const EdgeInsets.only(right: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child:
-                    const Icon(Icons.tune, size: 17, color: AppColors.primary),
-              ),
-            ),
-            suffixIconConstraints:
-                const BoxConstraints(minWidth: 40, minHeight: 0),
+            suffixIcon: _search.trim().isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close,
+                        size: 18, color: AppColors.gray400),
+                    onPressed: () => setState(() => _search = ''),
+                  ),
             filled: true,
             fillColor: AppColors.gray50,
             contentPadding: EdgeInsets.zero,
@@ -504,7 +357,7 @@ class _VacancyListItem extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: catColor.withValues(alpha: 0.1),
+                    color: catColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(vacancyCategoryIcon(vacancy.category),
@@ -535,25 +388,28 @@ class _VacancyListItem extends StatelessWidget {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: catColor.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(5),
+                          if (!vacancyListTagIsStatusOnly(
+                              vacancy.categoryTag)) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: catColor.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Text(
+                                vacancy.categoryTag[0] +
+                                    vacancy.categoryTag
+                                        .substring(1)
+                                        .toLowerCase(),
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: catColor),
+                              ),
                             ),
-                            child: Text(
-                              vacancy.categoryTag[0] +
-                                  vacancy.categoryTag
-                                      .substring(1)
-                                      .toLowerCase(),
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: catColor),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
+                            const SizedBox(width: 8),
+                          ],
                           Icon(Icons.schedule,
                               size: 13, color: AppColors.gray400),
                           const SizedBox(width: 3),

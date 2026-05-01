@@ -12,7 +12,7 @@ import 'auth_service.dart';
 
 /// Controls which data source the Lost & Found module uses.
 ///
-///   [false] → live backend (API gateway at `http://13.60.31.141:5000/lostfound`).
+///   [false] → live backend (API gateway at `https://myada.site/lostfound`).
 ///   [true]  → local mock data only; no network calls are made.
 ///
 /// Flip this single constant to switch between modes.
@@ -33,7 +33,7 @@ class LostFoundException implements Exception {
 // ── Service ───────────────────────────────────────────────────────────────────
 
 class LostFoundService {
-  static const String _base = 'http://13.60.31.141:5000/lostfound';
+  static const String _base = 'https://myada.site/lostfound';
 
   // ── Mock data (used when kLostFoundUseMockData == true) ───────────────────
 
@@ -184,19 +184,24 @@ class LostFoundService {
         if (decoded is List) {
           list = decoded;
         } else if (decoded is Map) {
-          list = (decoded['data'] ?? decoded['categories'] ?? decoded['items'] ?? [])
-              as List<dynamic>;
+          list = (decoded['data'] ??
+              decoded['categories'] ??
+              decoded['items'] ??
+              []) as List<dynamic>;
         } else {
           list = [];
         }
         if (list.isNotEmpty) {
-          return list.map((e) {
-            final m = e as Map<String, dynamic>;
-            return <String, dynamic>{
-              'id': m['id'] ?? m['categoryId'] ?? 0,
-              'name': (m['name'] ?? m['categoryName'] ?? '').toString(),
-            };
-          }).where((c) => (c['name'] as String).isNotEmpty).toList();
+          return list
+              .map((e) {
+                final m = e as Map<String, dynamic>;
+                return <String, dynamic>{
+                  'id': m['id'] ?? m['categoryId'] ?? 0,
+                  'name': (m['name'] ?? m['categoryName'] ?? '').toString(),
+                };
+              })
+              .where((c) => (c['name'] as String).isNotEmpty)
+              .toList();
         }
       }
     } catch (_) {
@@ -268,28 +273,15 @@ class LostFoundService {
     required String title,
     required int categoryId,
     required String description,
-    required String locationType,
-    String? building,
-    bool? isRoom,
-    String? roomArea,
-    String? campusLocation,
-    String? location,
-    String? collectionPlace,
+    required String location,
     List<XFile> imageFiles = const [],
   }) async {
     if (kLostFoundUseMockData) return;
-    await _submitReport(
-      path: '/api/lost-and-found/reports/lost',
+    await _submitLostReport(
       title: title,
       categoryId: categoryId,
       description: description,
-      locationType: locationType,
-      building: building,
-      isRoom: isRoom,
-      roomArea: roomArea,
-      campusLocation: campusLocation,
       location: location,
-      collectionPlace: collectionPlace,
       imageFiles: imageFiles,
     );
   }
@@ -304,23 +296,26 @@ class LostFoundService {
     required String description,
     required String locationType,
     String? building,
+    int? buildingId,
     bool? isRoom,
     String? roomArea,
+    int? roomId,
     String? campusLocation,
     String? location,
     required String collectionPlace,
     List<XFile> imageFiles = const [],
   }) async {
     if (kLostFoundUseMockData) return;
-    await _submitReport(
-      path: '/api/lost-and-found/reports/found',
+    await _submitFoundReport(
       title: title,
       categoryId: categoryId,
       description: description,
       locationType: locationType,
       building: building,
+      buildingId: buildingId,
       isRoom: isRoom,
       roomArea: roomArea,
+      roomId: roomId,
       campusLocation: campusLocation,
       location: location,
       collectionPlace: collectionPlace,
@@ -376,100 +371,201 @@ class LostFoundService {
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
-  Future<void> _submitReport({
-    required String path,
+  Map<String, String> _optionalAuthHeaders() {
+    final t = AuthService.instance.accessToken;
+    if (t != null && t.isNotEmpty) {
+      return {'Authorization': 'Bearer $t'};
+    }
+    return {};
+  }
+
+  void _applyOptionalAuth(http.BaseRequest request) {
+    for (final e in _optionalAuthHeaders().entries) {
+      request.headers[e.key] = e.value;
+    }
+  }
+
+  /// Lost user report: only accepts the documented whitelist fields; images use
+  /// multipart part name `files` (not `imageFile`). See LOSTFOUND_API.md §4.
+  Future<void> _submitLostReport({
     required String title,
     required int categoryId,
     required String description,
-    required String locationType,
-    String? building,
-    bool? isRoom,
-    String? roomArea,
-    String? campusLocation,
-    String? location,
-    String? collectionPlace,
+    required String location,
     List<XFile> imageFiles = const [],
   }) async {
-    final uri = Uri.parse('$_base$path');
+    final uri = Uri.parse('$_base/api/lost-and-found/reports/lost');
     try {
+      await AuthService.instance.loadSession();
+
+      var contactName = AuthService.instance.username?.trim() ?? '';
+      if (contactName.isEmpty) contactName = 'Guest';
+      var contactPhone = '';
+
+      final sid = AuthService.instance.studentId;
+      if (AuthService.instance.hasSession &&
+          sid != null &&
+          sid.trim().isNotEmpty) {
+        try {
+          final p = await AuthService.instance.fetchUserById(sid.trim());
+          final full =
+              '${p.firstName ?? ''} ${p.lastName ?? ''}'.trim();
+          if (full.isNotEmpty) {
+            contactName = full;
+          } else if (p.userName.trim().isNotEmpty) {
+            contactName = p.userName.trim();
+          }
+          contactPhone = p.phoneNumber?.trim() ?? '';
+        } catch (_) {
+          /* use username fallback */
+        }
+      }
+
+      final now = DateTime.now();
+      final dateLost =
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final timeLost =
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
       final http.Response response;
 
       if (imageFiles.isNotEmpty) {
         final req = http.MultipartRequest('POST', uri)
+          ..fields['type'] = 'lost'
           ..fields['itemName'] = title
           ..fields['categoryId'] = categoryId.toString()
           ..fields['description'] = description
-          ..fields['locationType'] = locationType;
-
-        if (locationType == 'building') {
-          if (building != null && building.isNotEmpty) {
-            req.fields['building'] = building;
-          }
-          if (isRoom != null) req.fields['isRoom'] = isRoom.toString();
-          if (roomArea != null && roomArea.isNotEmpty) {
-            req.fields['roomArea'] = roomArea;
-          }
-        } else if (locationType == 'campus') {
-          if (campusLocation != null && campusLocation.isNotEmpty) {
-            req.fields['campusLocation'] = campusLocation;
-          }
-        } else {
-          if (location != null && location.isNotEmpty) {
-            req.fields['location'] = location;
-          }
-        }
-
-        final cp = collectionPlace?.trim();
-        if (cp != null && cp.isNotEmpty) {
-          req.fields['collectionPlace'] = cp;
-        }
+          ..fields['location'] = location
+          ..fields['dateLost'] = dateLost
+          ..fields['timeLost'] = timeLost
+          ..fields['contactName'] = contactName
+          ..fields['contactPhone'] = contactPhone
+          ..fields['status'] = 'pending';
+        _applyOptionalAuth(req);
+        req.headers['Accept'] = 'application/json';
 
         for (final file in imageFiles) {
           req.files.add(
-              await http.MultipartFile.fromPath('imageFile', file.path));
+            await http.MultipartFile.fromPath('files', file.path),
+          );
         }
         final streamed = await req.send().timeout(const Duration(seconds: 40));
         response = await http.Response.fromStream(streamed);
       } else {
-        final body = <String, dynamic>{
-          'itemName': title,
-          'categoryId': categoryId,
-          'description': description,
-          'locationType': locationType,
-        };
-
-        if (locationType == 'building') {
-          if (building != null && building.isNotEmpty) {
-            body['building'] = building;
-          }
-          if (isRoom != null) body['isRoom'] = isRoom;
-          if (roomArea != null && roomArea.isNotEmpty) {
-            body['roomArea'] = roomArea;
-          }
-        } else if (locationType == 'campus') {
-          if (campusLocation != null && campusLocation.isNotEmpty) {
-            body['campusLocation'] = campusLocation;
-          }
-        } else {
-          if (location != null && location.isNotEmpty) {
-            body['location'] = location;
-          }
-        }
-
-        final cp = collectionPlace?.trim();
-        if (cp != null && cp.isNotEmpty) body['collectionPlace'] = cp;
-
         response = await http
             .post(
               uri,
               headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                ..._optionalAuthHeaders(),
               },
-              body: jsonEncode(body),
+              body: jsonEncode(<String, dynamic>{
+                'type': 'lost',
+                'itemName': title,
+                'categoryId': categoryId,
+                'description': description,
+                'location': location,
+                'dateLost': dateLost,
+                'timeLost': timeLost,
+                'contactName': contactName,
+                'contactPhone': contactPhone,
+                'status': 'pending',
+              }),
             )
             .timeout(const Duration(seconds: 20));
       }
+
+      if (response.statusCode == 200 || response.statusCode == 201) return;
+      final msg = _extractMsg(response.body) ?? 'Submission failed.';
+      throw LostFoundException(statusCode: response.statusCode, message: msg);
+    } on LostFoundException {
+      rethrow;
+    } on SocketException {
+      throw const LostFoundException(
+          message: 'No internet connection. Check your network and try again.');
+    } on TimeoutException {
+      throw const LostFoundException(
+          message: 'Request timed out. Please try again.');
+    } catch (e) {
+      if (e is LostFoundException) rethrow;
+      throw LostFoundException(
+          message: 'Unexpected error (${e.runtimeType}). Please try again.');
+    }
+  }
+
+  /// Found user report: requires at least one file part named `files` (or
+  /// `files[]`); `imageUrl` / `imageUrls` are rejected. See LOSTFOUND_API.md §5.
+  Future<void> _submitFoundReport({
+    required String title,
+    required int categoryId,
+    required String description,
+    required String locationType,
+    String? building,
+    int? buildingId,
+    bool? isRoom,
+    String? roomArea,
+    int? roomId,
+    String? campusLocation,
+    String? location,
+    required String collectionPlace,
+    List<XFile> imageFiles = const [],
+  }) async {
+    if (imageFiles.isEmpty) {
+      throw const LostFoundException(
+        message:
+            'Found items require at least one photo. Please add a picture.',
+      );
+    }
+
+    final uri = Uri.parse('$_base/api/lost-and-found/reports/found');
+    try {
+      await AuthService.instance.loadSession();
+
+      final req = http.MultipartRequest('POST', uri)
+        ..fields['itemName'] = title
+        ..fields['categoryId'] = categoryId.toString()
+        ..fields['description'] = description
+        ..fields['locationType'] = locationType;
+
+      if (locationType == 'building') {
+        if (building != null && building.isNotEmpty) {
+          req.fields['building'] = building;
+        }
+        if (buildingId != null) {
+          req.fields['buildingId'] = buildingId.toString();
+        }
+        if (isRoom != null) req.fields['isRoom'] = isRoom.toString();
+        if (roomArea != null && roomArea.isNotEmpty) {
+          req.fields['roomArea'] = roomArea;
+        }
+        if (roomId != null) {
+          req.fields['roomId'] = roomId.toString();
+        }
+      } else if (locationType == 'campus') {
+        if (campusLocation != null && campusLocation.isNotEmpty) {
+          req.fields['campusLocation'] = campusLocation;
+        }
+      } else {
+        if (location != null && location.isNotEmpty) {
+          req.fields['location'] = location;
+        }
+      }
+
+      final cp = collectionPlace.trim();
+      if (cp.isNotEmpty) req.fields['collectionPlace'] = cp;
+
+      for (final file in imageFiles) {
+        req.files.add(
+          await http.MultipartFile.fromPath('files', file.path),
+        );
+      }
+
+      _applyOptionalAuth(req);
+      req.headers['Accept'] = 'application/json';
+
+      final streamed = await req.send().timeout(const Duration(seconds: 40));
+      final response = await http.Response.fromStream(streamed);
 
       if (response.statusCode == 200 || response.statusCode == 201) return;
       final msg = _extractMsg(response.body) ?? 'Submission failed.';

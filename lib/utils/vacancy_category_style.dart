@@ -41,3 +41,22 @@ IconData vacancyCategoryIcon(String category) {
       return Icons.work_outline;
   }
 }
+
+/// Hide list/card chips that only reflect vacancy workflow status (not a real category).
+bool vacancyListTagIsStatusOnly(String raw) {
+  final t = raw.trim().toUpperCase();
+  switch (t) {
+    case 'ACTIVE':
+    case 'DRAFT':
+    case 'CLOSED':
+    case 'INACTIVE':
+    case 'PENDING':
+    case 'PUBLISHED':
+    case 'OPEN':
+    case 'FILLED':
+    case 'CLUB POSITION':
+      return true;
+    default:
+      return false;
+  }
+}

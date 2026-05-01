@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../utils/constants.dart';
 import '../widgets/responsive_container.dart';
 import '../services/auth_service.dart';
 import '../services/call/call_controller.dart';
+import '../services/notification_controller.dart';
 import 'master_home_page.dart';
 import 'auth/forgot_password_screen.dart';
 
@@ -66,9 +66,9 @@ class _LoginPageState extends State<LoginPage>
                 begin: Alignment(-1.0 + t * 0.4, -1.0),
                 end: Alignment(1.0, 1.0 - t * 0.4),
                 colors: const [
-                  Color(0xFF2A4F61),
-                  Color(0xFF336178),
-                  Color(0xFF3D7A96),
+                  Color(0xFF75AFC0),
+                  Color(0xFF3E7890),
+                  Color(0xFF25566D),
                 ],
                 stops: [0.0, 0.5 + t * 0.1, 1.0],
               ),
@@ -146,46 +146,53 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Widget _buildLogoSection() {
+    final w = MediaQuery.sizeOf(context).width;
+    final logoWidth = (w * 0.48).clamp(150.0, 230.0);
+    final logoHeight = logoWidth * 0.64;
+
     return Column(
       children: [
-        Container(
-          width: 96,
-          height: 96,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.15),
-                blurRadius: 30,
-                offset: const Offset(0, 12),
+        SizedBox(
+          width: logoWidth + 88,
+          height: logoHeight + 64,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.72),
+                        const Color(0xFFE8F4F7).withValues(alpha: 0.38),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.56, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+              RepaintBoundary(
+                child: Image.asset(
+                  'assets/images/ada_login_logo.png',
+                  width: logoWidth,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  gaplessPlayback: true,
+                ),
               ),
             ],
           ),
-          padding: const EdgeInsets.all(14),
-          child: SvgPicture.asset(
-            'assets/images/brand_ada_logo.svg',
-            fit: BoxFit.contain,
-          ),
         ),
-        const SizedBox(height: 20),
-        const Text(
-          'ADA University',
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 12),
         Text(
           'Student Portal',
           style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w400,
-            color: Colors.white.withOpacity(0.75),
-            letterSpacing: 0.5,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.white.withValues(alpha: 0.88),
+            letterSpacing: 0.8,
           ),
         ),
       ],
@@ -514,6 +521,7 @@ class _LoginPageState extends State<LoginPage>
       );
 
       unawaited(CallController.instance.connect().catchError((_) {}));
+      unawaited(NotificationController.instance.initialize().catchError((_) {}));
 
       if (!mounted) return;
 

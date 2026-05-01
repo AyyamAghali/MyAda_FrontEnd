@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../services/location_api_service.dart';
 import '../../services/lost_found_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/app_back_button.dart';
@@ -24,6 +25,7 @@ class ReportItemForm extends StatefulWidget {
 class _ReportItemFormState extends State<ReportItemForm> {
   final _formKey = GlobalKey<FormState>();
   final _service = LostFoundService();
+  final _locationService = LocationApiService();
   final _picker = ImagePicker();
 
   String _itemName = '';
@@ -36,49 +38,24 @@ class _ReportItemFormState extends State<ReportItemForm> {
   List<XFile> _pickedImages = [];
 
   String _locationType = 'building';
-  String? _selectedBuilding;
+  List<LocationBuilding> _buildings = [];
+  final Map<int, List<LocationRoom>> _roomsByBuilding = {};
+  LocationBuilding? _selectedBuilding;
   String? _isRoomSelection;
-  String? _selectedRoom;
+  LocationRoom? _selectedRoom;
   String _locationDetails = '';
   String _campusLocation = '';
+  bool _isLoadingBuildings = true;
+  bool _isLoadingRooms = false;
+  String? _locationLoadError;
 
   bool _isSubmitting = false;
-
-  static const List<String> _buildings = [
-    'Main Building',
-    'Library',
-    'Sports Complex',
-    'Building C',
-    'Cafeteria',
-  ];
-
-  static const Map<String, List<String>> _buildingRooms = {
-    'Main Building': [
-      '101', '102', '103',
-      '201', '202', '203',
-      '301', '302', '303',
-      'A101', 'A102', 'A201', 'A301',
-    ],
-    'Library': [
-      'L1', 'L2', 'L3',
-      'Reading Hall', 'Study Room 1', 'Study Room 2', 'Study Room 3',
-    ],
-    'Sports Complex': [
-      'Gym', 'Pool Area', 'S101', 'S102', 'S201',
-      'Locker Room A', 'Locker Room B',
-    ],
-    'Building C': [
-      'C101', 'C102', 'C103',
-      'C201', 'C202', 'C203',
-      'C301', 'C302',
-    ],
-    'Cafeteria': ['Main Hall', 'Kitchen', 'Storage'],
-  };
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    _loadBuildings();
   }
 
   Future<void> _loadCategories() async {
@@ -100,14 +77,75 @@ class _ReportItemFormState extends State<ReportItemForm> {
     }
   }
 
+  Future<void> _loadBuildings() async {
+    try {
+      final buildings = await _locationService.fetchBuildings();
+      if (!mounted) return;
+      setState(() {
+        _buildings = buildings;
+        _isLoadingBuildings = false;
+        _locationLoadError = null;
+      });
+    } on LocationApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingBuildings = false;
+        _locationLoadError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingBuildings = false;
+        _locationLoadError = 'Could not load buildings.';
+      });
+    }
+  }
+
+  Future<List<LocationRoom>> _roomsForSelectedBuilding() async {
+    final building = _selectedBuilding;
+    if (building == null) return [];
+
+    final cached = _roomsByBuilding[building.id];
+    if (cached != null) return cached;
+
+    setState(() => _isLoadingRooms = true);
+    try {
+      final rooms = await _locationService.fetchRoomsByBuilding(building.id);
+      if (mounted) {
+        setState(() {
+          _roomsByBuilding[building.id] = rooms;
+          _isLoadingRooms = false;
+          _locationLoadError = null;
+        });
+      }
+      return rooms;
+    } on LocationApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingRooms = false;
+          _locationLoadError = e.message;
+        });
+      }
+      return [];
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingRooms = false;
+          _locationLoadError = 'Could not load rooms.';
+        });
+      }
+      return [];
+    }
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────
 
   String get _resolvedLocation {
     if (_locationType == 'campus') return _campusLocation.trim();
     final parts = <String>[];
-    if (_selectedBuilding != null) parts.add(_selectedBuilding!);
+    if (_selectedBuilding != null) parts.add(_selectedBuilding!.name);
     if (_isRoomSelection == 'yes' && _selectedRoom != null) {
-      parts.add('Room $_selectedRoom');
+      parts.add('Room ${_selectedRoom!.displayName}');
     } else if (_isRoomSelection == 'no' && _locationDetails.isNotEmpty) {
       parts.add(_locationDetails.trim());
     }
@@ -246,35 +284,32 @@ class _ReportItemFormState extends State<ReportItemForm> {
     try {
       final catId = _selectedCategory!['id'] as int;
       final buildingVal =
-          _locationType == 'building' ? _selectedBuilding : null;
+          _locationType == 'building' ? _selectedBuilding?.name : null;
+      final buildingIdVal =
+          _locationType == 'building' ? _selectedBuilding?.id : null;
       final isRoom = _locationType == 'building' && _isRoomSelection != null
           ? _isRoomSelection == 'yes'
           : null;
       final roomAreaVal = _locationType == 'building'
           ? (_isRoomSelection == 'yes'
-              ? _selectedRoom
+              ? _selectedRoom?.displayName
               : (_locationDetails.trim().isNotEmpty
                   ? _locationDetails.trim()
                   : null))
           : null;
+      final roomIdVal = _locationType == 'building' && _isRoomSelection == 'yes'
+          ? _selectedRoom?.id
+          : null;
       final campusVal =
           _locationType == 'campus' ? _campusLocation.trim() : null;
-      final locationVal = _locationType == 'other'
-          ? _resolvedLocation
-          : null;
+      final locationVal = _locationType == 'other' ? _resolvedLocation : null;
 
       if (widget.isLostItem) {
         await _service.reportLost(
           title: _itemName.trim(),
           categoryId: catId,
           description: _description.trim(),
-          locationType: _locationType,
-          building: buildingVal,
-          isRoom: isRoom,
-          roomArea: roomAreaVal,
-          campusLocation: campusVal,
-          location: locationVal,
-          collectionPlace: 'Security Desk',
+          location: _resolvedLocation.trim(),
           imageFiles: _pickedImages,
         );
       } else {
@@ -284,8 +319,10 @@ class _ReportItemFormState extends State<ReportItemForm> {
           description: _description.trim(),
           locationType: _locationType,
           building: buildingVal,
+          buildingId: buildingIdVal,
           isRoom: isRoom,
           roomArea: roomAreaVal,
+          roomId: roomIdVal,
           campusLocation: campusVal,
           location: locationVal,
           collectionPlace: 'Security Desk',
@@ -400,8 +437,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
                                   .toList(),
                             );
                             if (result != null) {
-                              final cat = _categories.firstWhere(
-                                  (c) => c['id'] == result);
+                              final cat = _categories
+                                  .firstWhere((c) => c['id'] == result);
                               setState(() => _selectedCategory = cat);
                             }
                           },
@@ -413,8 +450,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.keyboard_arrow_down_rounded,
                                   color: AppColors.gray400, size: 22),
@@ -559,38 +596,64 @@ class _ReportItemFormState extends State<ReportItemForm> {
         const SizedBox(height: 14),
         if (_locationType == 'building') ...[
           GestureDetector(
-            onTap: () async {
-              final result = await showModernSelectSheet<String>(
-                context: context,
-                title: 'Select Building',
-                selectedValue: _selectedBuilding,
-                options: _buildings
-                    .map((b) => SelectOption(value: b, label: b))
-                    .toList(),
-              );
-              if (result != null) {
-                setState(() {
-                  _selectedBuilding = result;
-                  _isRoomSelection = null;
-                  _selectedRoom = null;
-                  _locationDetails = '';
-                });
-              }
-            },
+            onTap: _isLoadingBuildings || _buildings.isEmpty
+                ? null
+                : () async {
+                    final result = await showModernSelectSheet<int>(
+                      context: context,
+                      title: 'Select Building',
+                      selectedValue: _selectedBuilding?.id,
+                      options: _buildings
+                          .map((b) => SelectOption(value: b.id, label: b.name))
+                          .toList(),
+                    );
+                    if (result != null) {
+                      final building =
+                          _buildings.firstWhere((b) => b.id == result);
+                      setState(() {
+                        _selectedBuilding = building;
+                        _isRoomSelection = null;
+                        _selectedRoom = null;
+                        _locationDetails = '';
+                      });
+                    }
+                  },
             child: AbsorbPointer(
               child: TextFormField(
                 controller:
-                    TextEditingController(text: _selectedBuilding ?? ''),
+                    TextEditingController(text: _selectedBuilding?.name ?? ''),
                 decoration: _field(
                   label: 'Building',
-                  hint: 'Select building',
-                  suffix: const Icon(Icons.keyboard_arrow_down_rounded,
-                      color: AppColors.gray400, size: 22),
+                  hint: _isLoadingBuildings
+                      ? 'Loading buildings...'
+                      : 'Select building',
+                  suffix: _isLoadingBuildings
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.gray400, size: 22),
                 ),
                 style: const TextStyle(fontSize: 15, color: AppColors.gray900),
+                validator: (_) {
+                  if (_locationType != 'building') return null;
+                  if (_selectedBuilding == null) {
+                    return 'Please select a building';
+                  }
+                  return null;
+                },
               ),
             ),
           ),
+          if (_locationLoadError != null && _buildings.isEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              _locationLoadError!,
+              style: TextStyle(fontSize: 12, color: Colors.red.shade600),
+            ),
+          ],
           if (_selectedBuilding != null) ...[
             const SizedBox(height: 14),
             GestureDetector(
@@ -629,6 +692,13 @@ class _ReportItemFormState extends State<ReportItemForm> {
                   ),
                   style:
                       const TextStyle(fontSize: 15, color: AppColors.gray900),
+                  validator: (_) {
+                    if (_locationType == 'building' &&
+                        _isRoomSelection == null) {
+                      return 'Please select an option';
+                    }
+                    return null;
+                  },
                 ),
               ),
             ),
@@ -636,31 +706,64 @@ class _ReportItemFormState extends State<ReportItemForm> {
           if (_isRoomSelection == 'yes') ...[
             const SizedBox(height: 14),
             GestureDetector(
-              onTap: () async {
-                final rooms = _buildingRooms[_selectedBuilding] ?? [];
-                final result = await showModernSelectSheet<String>(
-                  context: context,
-                  title: 'Select Room',
-                  selectedValue: _selectedRoom,
-                  options: rooms
-                      .map((r) => SelectOption(value: r, label: r))
-                      .toList(),
-                );
-                if (result != null) {
-                  setState(() => _selectedRoom = result);
-                }
-              },
+              onTap: _isLoadingRooms
+                  ? null
+                  : () async {
+                      final rooms = await _roomsForSelectedBuilding();
+                      if (!mounted) return;
+                      if (rooms.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(_locationLoadError ??
+                                'No rooms found for this building.'),
+                            backgroundColor: Colors.red.shade600,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        );
+                        return;
+                      }
+                      final result = await showModernSelectSheet<int>(
+                        context: context,
+                        title: 'Select Room',
+                        selectedValue: _selectedRoom?.id,
+                        options: rooms
+                            .map((r) =>
+                                SelectOption(value: r.id, label: r.displayName))
+                            .toList(),
+                      );
+                      if (result != null) {
+                        final room = rooms.firstWhere((r) => r.id == result);
+                        setState(() => _selectedRoom = room);
+                      }
+                    },
               child: AbsorbPointer(
                 child: TextFormField(
-                  controller: TextEditingController(text: _selectedRoom ?? ''),
+                  controller: TextEditingController(
+                      text: _selectedRoom?.displayName ?? ''),
                   decoration: _field(
                     label: 'Room',
-                    hint: 'Select room',
-                    suffix: const Icon(Icons.keyboard_arrow_down_rounded,
-                        color: AppColors.gray400, size: 22),
+                    hint: _isLoadingRooms ? 'Loading rooms...' : 'Select room',
+                    suffix: _isLoadingRooms
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.keyboard_arrow_down_rounded,
+                            color: AppColors.gray400, size: 22),
                   ),
                   style:
                       const TextStyle(fontSize: 15, color: AppColors.gray900),
+                  validator: (_) {
+                    if (_locationType == 'building' &&
+                        _isRoomSelection == 'yes' &&
+                        _selectedRoom == null) {
+                      return 'Please select a room';
+                    }
+                    return null;
+                  },
                 ),
               ),
             ),
@@ -672,6 +775,14 @@ class _ReportItemFormState extends State<ReportItemForm> {
                   label: 'Location details', hint: 'e.g. Lobby near reception'),
               style: const TextStyle(fontSize: 15, color: AppColors.gray900),
               onChanged: (v) => setState(() => _locationDetails = v),
+              validator: (v) {
+                if (_locationType == 'building' &&
+                    _isRoomSelection == 'no' &&
+                    (v == null || v.trim().isEmpty)) {
+                  return 'Please describe the area';
+                }
+                return null;
+              },
             ),
           ],
         ],
@@ -685,6 +796,13 @@ class _ReportItemFormState extends State<ReportItemForm> {
             minLines: 1,
             maxLines: 3,
             onChanged: (v) => setState(() => _campusLocation = v),
+            validator: (v) {
+              if (_locationType == 'campus' &&
+                  (v == null || v.trim().isEmpty)) {
+                return 'Please describe the campus location';
+              }
+              return null;
+            },
           ),
       ],
     );
@@ -848,7 +966,6 @@ class _ReportItemFormState extends State<ReportItemForm> {
       ),
     );
   }
-
 }
 
 // ══════════════════════════════════════════════════════════════════════

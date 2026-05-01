@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../rbac/app_home_access.dart';
 import '../services/auth_service.dart';
 import '../services/call/call_controller.dart';
+import '../services/notification_controller.dart';
 import '../utils/constants.dart';
 import '../utils/responsive.dart';
 import '../widgets/id_card.dart';
 import 'lost_found/home_screen.dart';
 import 'clubs/club_management_hub.dart';
+import 'clubs/club_module_nav.dart';
 import 'support/support_module.dart';
 import 'attendance/attendance_home.dart';
 import 'account_page.dart';
@@ -34,6 +38,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
   Future<AuthUserProfile?> _loadSignedInProfile() async {
     final auth = AuthService.instance;
     await auth.loadSession();
+    unawaited(NotificationController.instance.initialize());
     final userId = auth.studentId;
     if (userId == null || userId.trim().isEmpty) return null;
     return auth.fetchUserById(userId);
@@ -216,7 +221,12 @@ class _MasterHomePageState extends State<MasterHomePage> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                Stack(
+                AnimatedBuilder(
+                  animation: NotificationController.instance,
+                  builder: (context, _) {
+                    final notificationCount =
+                        NotificationController.instance.count;
+                    return Stack(
                   clipBehavior: Clip.none,
                   children: [
                     Material(
@@ -227,26 +237,28 @@ class _MasterHomePageState extends State<MasterHomePage> {
                         icon: Icon(Icons.notifications_none_rounded,
                             color: AppColors.gray700, size: iconSize - 2),
                         onPressed: () {
-                          _showSnackBar(context,
-                              'Notifications are mocked in this prototype.');
+                          ClubModuleNav.openNotifications(context);
                         },
                         padding: const EdgeInsets.all(10),
                         constraints: const BoxConstraints(),
                       ),
                     ),
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.secondary,
-                          shape: BoxShape.circle,
+                    if (notificationCount > 0)
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.secondary,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
-                    ),
                   ],
+                );
+                  },
                 ),
                 SizedBox(width: isMobile ? 8 : 10),
                 Material(
@@ -257,6 +269,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
                     icon: Icon(Icons.logout_rounded,
                         color: AppColors.primary, size: iconSize - 2),
                     onPressed: () async {
+                      await NotificationController.instance.disconnect();
                       await CallController.instance.disconnect();
                       await AuthService.instance.clearSession();
                       if (!context.mounted) return;
@@ -846,12 +859,6 @@ class _MasterHomePageState extends State<MasterHomePage> {
     setState(() {
       _selectedIndex = index;
     });
-  }
-
-  void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
   }
 }
 

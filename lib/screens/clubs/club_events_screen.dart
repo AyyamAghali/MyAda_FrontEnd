@@ -13,16 +13,6 @@ import 'club_hub_deep_link.dart';
 import 'entrance_scan_flow.dart';
 import 'event_ticket_screen.dart';
 
-const _kCategories = [
-  'All',
-  'Technology',
-  'Social',
-  'Academic',
-  'Sports',
-  'Arts',
-  'Business'
-];
-
 String _formatClubEventTime(String? t) {
   if (t == null || t.isEmpty) return '';
   final parsed = DateTime.tryParse(t);
@@ -49,8 +39,7 @@ bool _isHttpUrl(String s) =>
     s.startsWith('http://') || s.startsWith('https://');
 
 /// Poster for ticket cards: HTTPS/http, gateway-relative paths, or asset keys.
-Widget _eventTicketThumbnail(String? rawUrl) {
-  const size = 62.0;
+Widget _eventTicketThumbnail(String? rawUrl, {double size = 62}) {
   Widget placeholder() => Container(
         width: size,
         height: size,
@@ -123,9 +112,9 @@ enum _EventsPane { discover, myRegistrations }
 
 class _ClubEventsScreenState extends State<ClubEventsScreen> {
   String _search = '';
-  String _category = 'All';
   _EventsPane _pane = _EventsPane.discover;
   final _searchFocus = FocusNode();
+  final _searchController = TextEditingController();
   final ClubApiService _api = ClubApiService();
   List<ClubPublicEvent> _events = [];
   bool _isLoading = false;
@@ -178,6 +167,7 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
       widget.hubMainTabController?.removeListener(_onHubMainTabChanged);
     }
     _searchFocus.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -204,16 +194,9 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
     }
   }
 
-  bool get _hasFilter => _category != 'All';
-
   List<ClubPublicEvent> get _filtered {
     if (_pane == _EventsPane.myRegistrations) return const [];
     var list = List<ClubPublicEvent>.from(_events);
-    if (_category != 'All') {
-      list = list
-          .where((e) => e.category.toLowerCase() == _category.toLowerCase())
-          .toList();
-    }
     final q = _search.trim().toLowerCase();
     if (q.isNotEmpty) {
       list = list.where((e) {
@@ -237,108 +220,6 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
     return _formatClubEventTime(t);
   }
 
-  void _openFilterSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        var tmp = _category;
-        return StatefulBuilder(
-          builder: (ctx, setModal) {
-            Widget chip(String value, String label) {
-              final sel = tmp == value;
-              return GestureDetector(
-                onTap: () => setModal(() => tmp = value),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: sel ? AppColors.primary : AppColors.gray100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(label,
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: sel ? AppColors.white : AppColors.gray700)),
-                ),
-              );
-            }
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                  20, 14, 20, MediaQuery.of(ctx).padding.bottom + 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                      child: Container(
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                              color: AppColors.gray300,
-                              borderRadius: BorderRadius.circular(2)))),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Filters',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.gray900)),
-                      GestureDetector(
-                          onTap: () => Navigator.pop(ctx),
-                          child: const Icon(Icons.close,
-                              size: 22, color: AppColors.gray500)),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Text('Category',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.gray600)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _kCategories.map((c) => chip(c, c)).toList(),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() => _category = tmp);
-                        Navigator.pop(ctx);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        elevation: 0,
-                      ),
-                      child: const Text('Apply',
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final list = _filtered;
@@ -360,20 +241,6 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
                     color: AppColors.gray500,
                   ),
                 ),
-                if (_hasFilter) ...[
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: () => setState(() => _category = 'All'),
-                    child: const Text(
-                      'Clear filters',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.secondary,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -427,7 +294,7 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.gray700)),
                                     SizedBox(height: 4),
-                                    Text('Try adjusting your search or filters',
+                                    Text('Try adjusting your search',
                                         style: TextStyle(
                                             fontSize: 13,
                                             color: AppColors.gray500)),
@@ -451,9 +318,9 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
                                         context,
                                         MaterialPageRoute<void>(
                                           builder: (_) => ClubEventDetailScreen(
-                                                eventId: list[i].id,
-                                                initialEvent: list[i],
-                                              ),
+                                            eventId: list[i].id,
+                                            initialEvent: list[i],
+                                          ),
                                         ),
                                       );
                                     },
@@ -566,6 +433,7 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
       child: SizedBox(
         height: 40,
         child: TextField(
+          controller: _searchController,
           focusNode: _searchFocus,
           onChanged: (v) => setState(() => _search = v),
           style: const TextStyle(fontSize: 14, color: AppColors.gray900),
@@ -576,21 +444,16 @@ class _ClubEventsScreenState extends State<ClubEventsScreen> {
                 const Icon(Icons.search, size: 20, color: AppColors.gray400),
             prefixIconConstraints:
                 const BoxConstraints(minWidth: 40, minHeight: 0),
-            suffixIcon: GestureDetector(
-              onTap: _openFilterSheet,
-              child: Container(
-                width: 34,
-                height: 34,
-                margin: const EdgeInsets.only(right: 4),
-                decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8)),
-                child:
-                    const Icon(Icons.tune, size: 17, color: AppColors.primary),
-              ),
-            ),
-            suffixIconConstraints:
-                const BoxConstraints(minWidth: 40, minHeight: 0),
+            suffixIcon: _search.trim().isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close,
+                        size: 18, color: AppColors.gray400),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _search = '');
+                    },
+                  ),
             filled: true,
             fillColor: AppColors.gray50,
             contentPadding: EdgeInsets.zero,
@@ -899,15 +762,9 @@ class _EventListItem extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.event,
-                      color: AppColors.primary, size: 24),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: _eventTicketThumbnail(event.imageAsset, size: 50),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -921,12 +778,24 @@ class _EventListItem extends StatelessWidget {
                               color: AppColors.gray900),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 3),
-                      Text(event.clubName,
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.gray500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                      if (event.clubName.trim().isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Icon(Icons.groups_outlined,
+                                size: 13, color: AppColors.gray400),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(event.clubName,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.gray500),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       Row(
                         children: [

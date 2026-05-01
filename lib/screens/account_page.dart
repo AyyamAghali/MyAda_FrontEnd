@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/user_role.dart';
 import '../services/auth_service.dart';
 import '../services/call/call_controller.dart';
+import '../services/notification_controller.dart';
 import '../utils/constants.dart';
 import '../utils/responsive.dart';
 import 'login_page.dart';
@@ -603,6 +604,7 @@ class _AccountPageState extends State<AccountPage> {
             TextButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
+                await NotificationController.instance.disconnect();
                 await CallController.instance.disconnect();
                 await AuthService.instance.clearSession();
                 if (!context.mounted) return;

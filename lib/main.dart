@@ -1,13 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_navigator_key.dart';
 import 'screens/login_page.dart';
+import 'services/call/call_controller.dart';
+import 'services/call/native_incoming_call_service.dart';
+import 'services/notification_controller.dart';
 import 'utils/constants.dart';
 import 'widgets/call_overlay_host.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NativeIncomingCallService.instance.initialize(
+    onAccept: CallController.instance.acceptNativeIncomingCall,
+    onDecline: CallController.instance.rejectNativeIncomingCall,
+    onTimeout: CallController.instance.rejectNativeIncomingCall,
+  );
+  unawaited(NotificationController.instance.initialize());
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
