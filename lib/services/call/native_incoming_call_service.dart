@@ -22,7 +22,8 @@ Future<void> nativeIncomingCallBackgroundHandler(CallKitEvent event) async {
 class NativeIncomingCallService {
   NativeIncomingCallService._();
 
-  static final NativeIncomingCallService instance = NativeIncomingCallService._();
+  static final NativeIncomingCallService instance =
+      NativeIncomingCallService._();
 
   final IncomingCallKit _callKit = IncomingCallKit.instance;
   final CallApiClient _api = const CallApiClient();
@@ -88,7 +89,8 @@ class NativeIncomingCallService {
         callerName: callerName.trim().isEmpty ? 'MyADA Support' : callerName,
         callerNumber: 'MyADA',
         type: 0,
-        duration: duration.inSeconds > 0 ? duration : const Duration(seconds: 30),
+        duration:
+            duration.inSeconds > 0 ? duration : const Duration(seconds: 30),
         textAccept: 'Accept',
         textDecline: 'Decline',
         extra: payload,

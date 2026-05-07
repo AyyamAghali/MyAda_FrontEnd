@@ -543,6 +543,61 @@ class AuthService {
     }
   }
 
+  /// Changes password when the user knows their current password.
+  ///
+  /// `PUT /api/auth/change-password` — see AUTH_API_DOC.md §8.
+  Future<void> changePassword({
+    required String email,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final uri = Uri.parse('$_authBaseUrl/change-password');
+    final response = await http
+        .put(
+          uri,
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'email': email,
+            'oldPassword': oldPassword,
+            'newPassword': newPassword,
+          }),
+        )
+        .timeout(const Duration(seconds: 25));
+
+    if (response.statusCode == 404) {
+      throw Exception('Account not found.');
+    }
+
+    if (response.statusCode == 200) {
+      return;
+    }
+
+    String detail = '';
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is List && decoded.isNotEmpty) {
+        final first = decoded.first;
+        if (first is Map<String, dynamic>) {
+          detail = first['description']?.toString() ??
+              first['message']?.toString() ??
+              '';
+        }
+      } else if (decoded is Map<String, dynamic>) {
+        detail = (decoded['message'] ??
+                decoded['error'] ??
+                decoded['detail'] ??
+                '')
+            .toString();
+      } else if (decoded is String) {
+        detail = decoded;
+      }
+    } catch (_) {}
+
+    throw Exception(detail.isNotEmpty
+        ? detail
+        : 'Could not change password (${response.statusCode}).');
+  }
+
   Future<void> clearSession() async {
     _studentId = null;
     _accessToken = null;

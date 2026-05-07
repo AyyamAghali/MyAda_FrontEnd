@@ -53,30 +53,50 @@ class _LoginPageState extends State<LoginPage>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final bottomPad = MediaQuery.paddingOf(context).bottom +
+        MediaQuery.viewInsetsOf(context).bottom;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: AnimatedBuilder(
         animation: _bgAnim,
         builder: (context, child) {
           final t = _bgAnim.value;
+          final cyan = Color.lerp(
+            const Color(0xFF5EEAD4),
+            const Color(0xFF2DD4BF),
+            t,
+          )!;
+          final mid = Color.lerp(
+            const Color(0xFF3FB8D0),
+            AppColors.primary,
+            Curves.easeInOut.transform(t),
+          )!;
+          final deep = Color.lerp(
+            AppColors.primaryDark,
+            const Color(0xFF0C3D4D),
+            t * 0.5,
+          )!;
           return Container(
             width: size.width,
             height: size.height,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment(-1.0 + t * 0.4, -1.0),
-                end: Alignment(1.0, 1.0 - t * 0.4),
-                colors: const [
-                  Color(0xFF75AFC0),
-                  Color(0xFF3E7890),
-                  Color(0xFF25566D),
+                begin: Alignment(-1.0 + t * 0.35, -1.1),
+                end: Alignment(1.05 - t * 0.2, 1.15),
+                colors: [
+                  cyan,
+                  mid,
+                  deep,
+                  const Color(0xFF082F3A),
                 ],
-                stops: [0.0, 0.5 + t * 0.1, 1.0],
+                stops: [0.0, 0.28 + t * 0.08, 0.72 - t * 0.06, 1.0],
               ),
             ),
             child: child,
           );
         },
         child: Stack(
+          clipBehavior: Clip.none,
           children: [
             // Decorative shapes
             ..._buildDecoShapes(size),
@@ -87,12 +107,16 @@ class _LoginPageState extends State<LoginPage>
                 backgroundColor: Colors.transparent,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
+                    final minH = constraints.maxHeight.isFinite
+                        ? constraints.maxHeight
+                        : 0.0;
                     return SingleChildScrollView(
                       physics: const ClampingScrollPhysics(),
+                      padding: EdgeInsets.only(bottom: 24 + bottomPad),
                       child: ConstrainedBox(
-                        constraints:
-                            BoxConstraints(minHeight: constraints.maxHeight),
+                        constraints: BoxConstraints(minHeight: minH),
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const SizedBox(height: 32),
@@ -119,27 +143,27 @@ class _LoginPageState extends State<LoginPage>
   List<Widget> _buildDecoShapes(Size size) {
     return [
       Positioned(
-        top: -size.height * 0.12,
-        right: -size.width * 0.15,
+        top: -size.height * 0.14,
+        right: -size.width * 0.12,
         child: _DecoCircle(
-          size: size.width * 0.65,
-          color: Colors.white.withOpacity(0.04),
+          size: size.width * 0.72,
+          color: Colors.white.withValues(alpha: 0.07),
         ),
       ),
       Positioned(
-        bottom: -size.height * 0.08,
-        left: -size.width * 0.2,
+        bottom: size.height * 0.02,
+        left: -size.width * 0.22,
         child: _DecoCircle(
-          size: size.width * 0.55,
-          color: AppColors.secondary.withOpacity(0.08),
+          size: size.width * 0.58,
+          color: AppColors.secondary.withValues(alpha: 0.12),
         ),
       ),
       Positioned(
-        top: size.height * 0.35,
-        left: -40,
+        top: size.height * 0.52,
+        right: -28,
         child: _DecoCircle(
-          size: 80,
-          color: Colors.white.withOpacity(0.03),
+          size: 96,
+          color: Colors.white.withValues(alpha: 0.05),
         ),
       ),
     ];
@@ -147,52 +171,66 @@ class _LoginPageState extends State<LoginPage>
 
   Widget _buildLogoSection() {
     final w = MediaQuery.sizeOf(context).width;
-    final logoWidth = (w * 0.48).clamp(150.0, 230.0);
+    final logoWidth = (w * 0.46).clamp(148.0, 220.0);
     final logoHeight = logoWidth * 0.64;
 
     return Column(
       children: [
-        SizedBox(
-          width: logoWidth + 88,
-          height: logoHeight + 64,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    gradient: RadialGradient(
-                      colors: [
-                        Colors.white.withValues(alpha: 0.72),
-                        const Color(0xFFE8F4F7).withValues(alpha: 0.38),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 0.56, 1.0],
-                    ),
-                  ),
-                ),
-              ),
-              RepaintBoundary(
-                child: Image.asset(
-                  'assets/images/ada_login_logo.png',
-                  width: logoWidth,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  gaplessPlayback: true,
-                ),
+        // Crisp logo in a soft frosted frame — no circular "spotlight" blob.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.28),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
               ),
             ],
+          ),
+          child: RepaintBoundary(
+            child: Image.asset(
+              'assets/images/ada_login_logo.png',
+              width: logoWidth,
+              height: logoHeight,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              gaplessPlayback: true,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+          ),
+          child: Text(
+            'ADA UNIVERSITY',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 2.2,
+              color: Colors.white.withValues(alpha: 0.92),
+            ),
           ),
         ),
         const SizedBox(height: 12),
         Text(
-          'Student Portal',
+          'Sign in to campus tools & services',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: Colors.white.withValues(alpha: 0.88),
-            letterSpacing: 0.8,
+            color: Colors.white.withValues(alpha: 0.78),
+            letterSpacing: 0.2,
           ),
         ),
       ],
@@ -201,103 +239,153 @@ class _LoginPageState extends State<LoginPage>
 
   Widget _buildCard(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
+      margin: const EdgeInsets.symmetric(horizontal: 22),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 40,
-            offset: const Offset(0, 16),
+            color: AppColors.primary.withValues(alpha: 0.22),
+            blurRadius: 36,
+            offset: const Offset(0, 18),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Accent bar
             Container(
-              height: 4,
+              width: double.infinity,
+              height: 5,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppColors.primary, AppColors.secondary],
+                  colors: [
+                    Color(0xFF2DD4BF),
+                    AppColors.primary,
+                    AppColors.secondary,
+                  ],
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Welcome back',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.gray900,
+            Container(
+              color: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 26, 24, 26),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppColors.primary.withValues(alpha: 0.12),
+                                  const Color(0xFF2DD4BF)
+                                      .withValues(alpha: 0.12),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.login_rounded,
+                              color: AppColors.primary,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Welcome back',
+                                  style: TextStyle(
+                                    fontSize: 23,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.4,
+                                    color: AppColors.gray900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Use your ADA username & password',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 1.3,
+                                    color: AppColors.gray600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Sign in with your ADA credentials',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.gray500,
+                      const SizedBox(height: 26),
+                      _buildField(
+                        controller: _usernameController,
+                        focusNode: _usernameFocus,
+                        label: 'Username',
+                        hint: 'Enter your username',
+                        icon: Icons.person_outline_rounded,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.username],
+                        onSubmitted: (_) => _passwordFocus.requestFocus(),
+                        validator: (v) =>
+                            (v == null || v.isEmpty) ? 'Required' : null,
                       ),
-                    ),
-                    const SizedBox(height: 28),
-                    _buildField(
-                      controller: _usernameController,
-                      focusNode: _usernameFocus,
-                      label: 'Username',
-                      hint: 'Enter your username',
-                      icon: Icons.person_outline_rounded,
-                      textInputAction: TextInputAction.next,
-                      autofillHints: const [AutofillHints.username],
-                      onSubmitted: (_) => _passwordFocus.requestFocus(),
-                      validator: (v) =>
-                          (v == null || v.isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildField(
-                      controller: _passwordController,
-                      focusNode: _passwordFocus,
-                      label: 'Password',
-                      hint: 'Enter your password',
-                      icon: Icons.lock_outline_rounded,
-                      obscure: _obscurePassword,
-                      textInputAction: TextInputAction.done,
-                      autofillHints: const [AutofillHints.password],
-                      onSubmitted: (_) => _submit(),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Required';
-                        if (v.length < 6) return 'At least 6 characters';
-                        return null;
-                      },
-                      suffix: GestureDetector(
-                        onTap: () => setState(
-                            () => _obscurePassword = !_obscurePassword),
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            size: 20,
-                            color: AppColors.gray400,
+                      const SizedBox(height: 16),
+                      _buildField(
+                        controller: _passwordController,
+                        focusNode: _passwordFocus,
+                        label: 'Password',
+                        hint: 'Enter your password',
+                        icon: Icons.lock_outline_rounded,
+                        obscure: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.password],
+                        onSubmitted: (_) => _submit(),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Required';
+                          if (v.length < 6) return 'At least 6 characters';
+                          return null;
+                        },
+                        suffix: GestureDetector(
+                          onTap: () => setState(
+                              () => _obscurePassword = !_obscurePassword),
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              size: 20,
+                              color: AppColors.gray400,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _buildOptionsRow(),
-                    const SizedBox(height: 22),
-                    _buildSignInButton(),
-                  ],
+                      const SizedBox(height: 14),
+                      _buildOptionsRow(),
+                      const SizedBox(height: 24),
+                      _buildSignInButton(),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -346,7 +434,8 @@ class _LoginPageState extends State<LoginPage>
             hintStyle: TextStyle(fontSize: 14, color: AppColors.gray400),
             prefixIcon: Padding(
               padding: const EdgeInsets.only(left: 14, right: 10),
-              child: Icon(icon, size: 20, color: AppColors.gray400),
+              child: Icon(icon,
+                  size: 20, color: AppColors.primary.withValues(alpha: 0.65)),
             ),
             prefixIconConstraints:
                 const BoxConstraints(minWidth: 0, minHeight: 0),
@@ -358,25 +447,24 @@ class _LoginPageState extends State<LoginPage>
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(color: AppColors.gray200),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(color: AppColors.gray200),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: AppColors.primary, width: 1.5),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               borderSide:
                   const BorderSide(color: AppColors.secondary, width: 1.5),
             ),
             focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               borderSide:
                   const BorderSide(color: AppColors.secondary, width: 1.5),
             ),
@@ -388,6 +476,7 @@ class _LoginPageState extends State<LoginPage>
 
   Widget _buildOptionsRow() {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
           width: 22,
@@ -404,27 +493,52 @@ class _LoginPageState extends State<LoginPage>
             visualDensity: VisualDensity.compact,
           ),
         ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: () => setState(() => _rememberMe = !_rememberMe),
-          child: Text(
-            'Remember me',
-            style: TextStyle(fontSize: 13, color: AppColors.gray600),
+        const SizedBox(width: 6),
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _rememberMe = !_rememberMe),
+            child: Text(
+              'Remember me',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.gray600,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
-        const Spacer(),
-        GestureDetector(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const ForgotPasswordScreen()),
-          ),
-          child: Text(
-            'Forgot password?',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const ForgotPasswordScreen()),
+                ),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  child: Text(
+                    'Forgot password?',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -435,22 +549,35 @@ class _LoginPageState extends State<LoginPage>
   Widget _buildSignInButton() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      height: 52,
+      height: 54,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         gradient: _isSubmitting
             ? null
             : const LinearGradient(
-                colors: [AppColors.primary, Color(0xFF3D7A96)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0xFF0F766E),
+                  AppColors.primary,
+                  Color(0xFF256C84),
+                ],
+                stops: [0.0, 0.48, 1.0],
               ),
         color: _isSubmitting ? AppColors.gray300 : null,
         boxShadow: _isSubmitting
             ? null
             : [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+                  color: AppColors.primary.withValues(alpha: 0.45),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                  spreadRadius: -2,
+                ),
+                BoxShadow(
+                  color: const Color(0xFF2DD4BF).withValues(alpha: 0.25),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
                 ),
               ],
       ),
@@ -458,7 +585,7 @@ class _LoginPageState extends State<LoginPage>
         color: Colors.transparent,
         child: InkWell(
           onTap: _isSubmitting ? null : _submit,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Center(
             child: _isSubmitting
                 ? const SizedBox(
@@ -476,14 +603,14 @@ class _LoginPageState extends State<LoginPage>
                         'Sign In',
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                           color: Colors.white,
-                          letterSpacing: 0.3,
+                          letterSpacing: 0.4,
                         ),
                       ),
-                      SizedBox(width: 8),
+                      SizedBox(width: 10),
                       Icon(Icons.arrow_forward_rounded,
-                          size: 20, color: Colors.white),
+                          size: 22, color: Colors.white),
                     ],
                   ),
           ),
@@ -500,8 +627,10 @@ class _LoginPageState extends State<LoginPage>
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 12,
-          height: 1.5,
-          color: Colors.white.withOpacity(0.55),
+          height: 1.55,
+          fontWeight: FontWeight.w500,
+          color: Colors.white.withValues(alpha: 0.72),
+          letterSpacing: 0.15,
         ),
       ),
     );
@@ -521,7 +650,8 @@ class _LoginPageState extends State<LoginPage>
       );
 
       unawaited(CallController.instance.connect().catchError((_) {}));
-      unawaited(NotificationController.instance.initialize().catchError((_) {}));
+      unawaited(
+          NotificationController.instance.initialize().catchError((_) {}));
 
       if (!mounted) return;
 

@@ -317,9 +317,8 @@ class _ClubEventDetailScreenState extends State<ClubEventDetailScreen> {
   Widget _registrationCta(ClubPublicEvent event) {
     final enabled = !_loading && (_registered || !_full);
     final borderRadius = BorderRadius.circular(12);
-    final label = _registered
-        ? 'View Ticket'
-        : (_full ? 'Event Full' : 'Register');
+    final label =
+        _registered ? 'View Ticket' : (_full ? 'Event Full' : 'Register');
 
     if (!enabled) {
       return Material(

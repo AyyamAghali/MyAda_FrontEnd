@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io' show SocketException;
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/lost_item.dart';
+import '../models/user_role.dart';
 import 'auth_service.dart';
 
 // ── Toggle ────────────────────────────────────────────────────────────────────
@@ -218,17 +220,49 @@ class LostFoundService {
     {'id': 5, 'name': 'Other'},
   ];
 
+  /// Whether the viewer should see **found** reports that are still
+  /// `pending_verification` (staff see the same list the API returns).
+  static bool _viewerSeesPendingFoundReports() {
+    final roles = AuthService.instance.roles;
+    return roles.contains(UserRole.admin) ||
+        roles.contains(UserRole.lostFoundLeader);
+  }
+
+  /// Hides unapproved **found** items from the public catalog; **lost** posts
+  /// still show while pending (see API: public `status` includes
+  /// `pending_verification` until staff set `active`).
+  static List<LostItem> _filterFoundPendingForPublicCatalog(
+    List<LostItem> items,
+  ) {
+    if (_viewerSeesPendingFoundReports()) return items;
+    return items
+        .where((item) =>
+            item.isLostItem || item.status != ItemStatus.pendingVerification)
+        .toList();
+  }
+
   /// Returns all items.
   ///
   /// When [kLostFoundUseMockData] is `true`, returns the static mock list.
   /// When `false`, fetches from `GET /lostfound/api/lost-and-found/items`.
+  ///
+  /// **Found** items with `pending_verification` are omitted for students until
+  /// staff approve (API `status` becomes `active`). [UserRole.admin] and
+  /// [UserRole.lostFoundLeader] get the unfiltered list.
   Future<List<LostItem>> fetchItems() async {
-    if (kLostFoundUseMockData) return List.unmodifiable(mockItems);
+    if (kLostFoundUseMockData) {
+      return List.unmodifiable(
+        _filterFoundPendingForPublicCatalog(List<LostItem>.from(mockItems)),
+      );
+    }
 
     try {
+      await AuthService.instance.loadSession();
+
       final uri = Uri.parse('$_base/api/lost-and-found/items');
       final response = await http.get(uri, headers: {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        ..._optionalAuthHeaders(),
       }).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -244,9 +278,11 @@ class LostFoundService {
         } else {
           list = [];
         }
-        return list
+        var items = list
             .map((e) => LostItem.fromJson(e as Map<String, dynamic>))
             .toList();
+        items = _filterFoundPendingForPublicCatalog(items);
+        return items;
       }
 
       final msg = _extractMsg(response.body) ?? 'Could not load items.';
@@ -296,10 +332,8 @@ class LostFoundService {
     required String description,
     required String locationType,
     String? building,
-    int? buildingId,
     bool? isRoom,
     String? roomArea,
-    int? roomId,
     String? campusLocation,
     String? location,
     required String collectionPlace,
@@ -312,10 +346,8 @@ class LostFoundService {
       description: description,
       locationType: locationType,
       building: building,
-      buildingId: buildingId,
       isRoom: isRoom,
       roomArea: roomArea,
-      roomId: roomId,
       campusLocation: campusLocation,
       location: location,
       collectionPlace: collectionPlace,
@@ -385,6 +417,53 @@ class LostFoundService {
     }
   }
 
+  /// Appends binary photo parts as `files` (API rejects `imageUrl` / `imageUrls`).
+  /// Uses bytes from the picker so paths / platform edge cases do not yield empty parts.
+  Future<void> _appendReportImages(
+    http.MultipartRequest req,
+    List<XFile> imageFiles,
+  ) async {
+    for (final file in imageFiles) {
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) {
+        throw const LostFoundException(
+          message:
+              'Could not read a selected photo. Try taking or choosing the picture again.',
+        );
+      }
+
+      var filename = file.name.trim();
+      if (filename.isEmpty) {
+        filename = 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      }
+      final lower = filename.toLowerCase();
+      if (!lower.endsWith('.jpg') &&
+          !lower.endsWith('.jpeg') &&
+          !lower.endsWith('.png')) {
+        filename = '$filename.jpg';
+      }
+
+      MediaType contentType = MediaType('image', 'jpeg');
+      final mime = file.mimeType?.trim();
+      if (mime != null && mime.isNotEmpty) {
+        try {
+          contentType = MediaType.parse(mime);
+        } catch (_) {
+          // keep default
+        }
+      }
+
+      req.files.add(
+        http.MultipartFile.fromBytes(
+          'files',
+          bytes,
+          filename: filename,
+          contentType: contentType,
+        ),
+      );
+    }
+  }
+
   /// Lost user report: only accepts the documented whitelist fields; images use
   /// multipart part name `files` (not `imageFile`). See LOSTFOUND_API.md §4.
   Future<void> _submitLostReport({
@@ -444,11 +523,7 @@ class LostFoundService {
         _applyOptionalAuth(req);
         req.headers['Accept'] = 'application/json';
 
-        for (final file in imageFiles) {
-          req.files.add(
-            await http.MultipartFile.fromPath('files', file.path),
-          );
-        }
+        await _appendReportImages(req, imageFiles);
         final streamed = await req.send().timeout(const Duration(seconds: 40));
         response = await http.Response.fromStream(streamed);
       } else {
@@ -494,18 +569,16 @@ class LostFoundService {
     }
   }
 
-  /// Found user report: requires at least one file part named `files` (or
-  /// `files[]`); `imageUrl` / `imageUrls` are rejected. See LOSTFOUND_API.md §5.
+  /// Found user report: at least one multipart file part `files`; do not send
+  /// `imageUrl` / `imageUrls`. Stick to documented form keys. See LOSTFOUND_API.md §5.
   Future<void> _submitFoundReport({
     required String title,
     required int categoryId,
     required String description,
     required String locationType,
     String? building,
-    int? buildingId,
     bool? isRoom,
     String? roomArea,
-    int? roomId,
     String? campusLocation,
     String? location,
     required String collectionPlace,
@@ -523,6 +596,7 @@ class LostFoundService {
       await AuthService.instance.loadSession();
 
       final req = http.MultipartRequest('POST', uri)
+        ..fields['type'] = 'found'
         ..fields['itemName'] = title
         ..fields['categoryId'] = categoryId.toString()
         ..fields['description'] = description
@@ -532,15 +606,11 @@ class LostFoundService {
         if (building != null && building.isNotEmpty) {
           req.fields['building'] = building;
         }
-        if (buildingId != null) {
-          req.fields['buildingId'] = buildingId.toString();
+        if (isRoom != null) {
+          req.fields['isRoom'] = isRoom ? 'true' : 'false';
         }
-        if (isRoom != null) req.fields['isRoom'] = isRoom.toString();
         if (roomArea != null && roomArea.isNotEmpty) {
           req.fields['roomArea'] = roomArea;
-        }
-        if (roomId != null) {
-          req.fields['roomId'] = roomId.toString();
         }
       } else if (locationType == 'campus') {
         if (campusLocation != null && campusLocation.isNotEmpty) {
@@ -555,9 +625,11 @@ class LostFoundService {
       final cp = collectionPlace.trim();
       if (cp.isNotEmpty) req.fields['collectionPlace'] = cp;
 
-      for (final file in imageFiles) {
-        req.files.add(
-          await http.MultipartFile.fromPath('files', file.path),
+      await _appendReportImages(req, imageFiles);
+      if (req.files.isEmpty) {
+        throw const LostFoundException(
+          message:
+              'Photos did not attach correctly. Please re-add your pictures and try again.',
         );
       }
 

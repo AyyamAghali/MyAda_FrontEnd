@@ -368,8 +368,7 @@ class ClubApiService {
   /// `GET /api/v1/event-registrations/by-event/{eventId}`
   Future<int> fetchEventRegistrationCount(String eventId) async {
     final json = await _clubAuthorizedGet(
-      (base) =>
-          Uri.parse('$base/api/v1/event-registrations/by-event/$eventId'),
+      (base) => Uri.parse('$base/api/v1/event-registrations/by-event/$eventId'),
     );
     return _unwrapCount(json);
   }

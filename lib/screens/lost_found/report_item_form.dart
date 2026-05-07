@@ -28,6 +28,11 @@ class _ReportItemFormState extends State<ReportItemForm> {
   final _locationService = LocationApiService();
   final _picker = ImagePicker();
 
+  late final TextEditingController _categoryDisplayController;
+  late final TextEditingController _buildingDisplayController;
+  late final TextEditingController _roomChoiceDisplayController;
+  late final TextEditingController _roomDisplayController;
+
   String _itemName = '';
   String _description = '';
 
@@ -54,8 +59,21 @@ class _ReportItemFormState extends State<ReportItemForm> {
   @override
   void initState() {
     super.initState();
+    _categoryDisplayController = TextEditingController();
+    _buildingDisplayController = TextEditingController();
+    _roomChoiceDisplayController = TextEditingController();
+    _roomDisplayController = TextEditingController();
     _loadCategories();
     _loadBuildings();
+  }
+
+  @override
+  void dispose() {
+    _categoryDisplayController.dispose();
+    _buildingDisplayController.dispose();
+    _roomChoiceDisplayController.dispose();
+    _roomDisplayController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCategories() async {
@@ -285,8 +303,6 @@ class _ReportItemFormState extends State<ReportItemForm> {
       final catId = _selectedCategory!['id'] as int;
       final buildingVal =
           _locationType == 'building' ? _selectedBuilding?.name : null;
-      final buildingIdVal =
-          _locationType == 'building' ? _selectedBuilding?.id : null;
       final isRoom = _locationType == 'building' && _isRoomSelection != null
           ? _isRoomSelection == 'yes'
           : null;
@@ -296,9 +312,6 @@ class _ReportItemFormState extends State<ReportItemForm> {
               : (_locationDetails.trim().isNotEmpty
                   ? _locationDetails.trim()
                   : null))
-          : null;
-      final roomIdVal = _locationType == 'building' && _isRoomSelection == 'yes'
-          ? _selectedRoom?.id
           : null;
       final campusVal =
           _locationType == 'campus' ? _campusLocation.trim() : null;
@@ -319,10 +332,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
           description: _description.trim(),
           locationType: _locationType,
           building: buildingVal,
-          buildingId: buildingIdVal,
           isRoom: isRoom,
           roomArea: roomAreaVal,
-          roomId: roomIdVal,
           campusLocation: campusVal,
           location: locationVal,
           collectionPlace: 'Security Desk',
@@ -439,7 +450,11 @@ class _ReportItemFormState extends State<ReportItemForm> {
                             if (result != null) {
                               final cat = _categories
                                   .firstWhere((c) => c['id'] == result);
-                              setState(() => _selectedCategory = cat);
+                              setState(() {
+                                _selectedCategory = cat;
+                                _categoryDisplayController.text =
+                                    cat['name'] as String;
+                              });
                             }
                           },
                     child: AbsorbPointer(
@@ -456,9 +471,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
                               : const Icon(Icons.keyboard_arrow_down_rounded,
                                   color: AppColors.gray400, size: 22),
                         ),
-                        controller: TextEditingController(
-                          text: _selectedCategory?['name'] as String? ?? '',
-                        ),
+                        controller: _categoryDisplayController,
                         style: const TextStyle(
                             fontSize: 15, color: AppColors.gray900),
                         validator: (_) => _selectedCategory == null
@@ -579,6 +592,8 @@ class _ReportItemFormState extends State<ReportItemForm> {
                 onTap: () => setState(() {
                       _locationType = 'building';
                       _campusLocation = '';
+                      _buildingDisplayController.text =
+                          _selectedBuilding?.name ?? '';
                     })),
             const SizedBox(width: 24),
             _LocationRadio(
@@ -590,12 +605,16 @@ class _ReportItemFormState extends State<ReportItemForm> {
                       _isRoomSelection = null;
                       _selectedRoom = null;
                       _locationDetails = '';
+                      _buildingDisplayController.clear();
+                      _roomChoiceDisplayController.clear();
+                      _roomDisplayController.clear();
                     })),
           ],
         ),
         const SizedBox(height: 14),
         if (_locationType == 'building') ...[
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: _isLoadingBuildings || _buildings.isEmpty
                 ? null
                 : () async {
@@ -612,16 +631,18 @@ class _ReportItemFormState extends State<ReportItemForm> {
                           _buildings.firstWhere((b) => b.id == result);
                       setState(() {
                         _selectedBuilding = building;
+                        _buildingDisplayController.text = building.name;
                         _isRoomSelection = null;
                         _selectedRoom = null;
                         _locationDetails = '';
+                        _roomChoiceDisplayController.clear();
+                        _roomDisplayController.clear();
                       });
                     }
                   },
             child: AbsorbPointer(
               child: TextFormField(
-                controller:
-                    TextEditingController(text: _selectedBuilding?.name ?? ''),
+                controller: _buildingDisplayController,
                 decoration: _field(
                   label: 'Building',
                   hint: _isLoadingBuildings
@@ -657,6 +678,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
           if (_selectedBuilding != null) ...[
             const SizedBox(height: 14),
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () async {
                 final result = await showModernSelectSheet<String>(
                   context: context,
@@ -672,18 +694,16 @@ class _ReportItemFormState extends State<ReportItemForm> {
                     _isRoomSelection = result;
                     _selectedRoom = null;
                     _locationDetails = '';
+                    _roomChoiceDisplayController.text = result == 'yes'
+                        ? 'Yes, it is a room'
+                        : 'No, another area';
+                    _roomDisplayController.clear();
                   });
                 }
               },
               child: AbsorbPointer(
                 child: TextFormField(
-                  controller: TextEditingController(
-                    text: _isRoomSelection == 'yes'
-                        ? 'Yes, it is a room'
-                        : _isRoomSelection == 'no'
-                            ? 'No, another area'
-                            : '',
-                  ),
+                  controller: _roomChoiceDisplayController,
                   decoration: _field(
                     label: 'Is it a room?',
                     hint: 'Select...',
@@ -706,6 +726,7 @@ class _ReportItemFormState extends State<ReportItemForm> {
           if (_isRoomSelection == 'yes') ...[
             const SizedBox(height: 14),
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: _isLoadingRooms
                   ? null
                   : () async {
@@ -735,13 +756,15 @@ class _ReportItemFormState extends State<ReportItemForm> {
                       );
                       if (result != null) {
                         final room = rooms.firstWhere((r) => r.id == result);
-                        setState(() => _selectedRoom = room);
+                        setState(() {
+                          _selectedRoom = room;
+                          _roomDisplayController.text = room.displayName;
+                        });
                       }
                     },
               child: AbsorbPointer(
                 child: TextFormField(
-                  controller: TextEditingController(
-                      text: _selectedRoom?.displayName ?? ''),
+                  controller: _roomDisplayController,
                   decoration: _field(
                     label: 'Room',
                     hint: _isLoadingRooms ? 'Loading rooms...' : 'Select room',

@@ -26,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Bluetooth access is used to route audio to paired headsets during in-app calls.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Bluetooth access is used to route audio to paired headsets during in-app calls.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app uses the camera to scan attendance QR codes.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app uses the microphone for in-app support voice calls.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -49,6 +57,11 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>voip</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -65,19 +78,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>This app uses the camera to scan attendance QR codes.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app uses the microphone for in-app support voice calls.</string>
-	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Bluetooth access is used to route audio to paired headsets during in-app calls.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Bluetooth access is used to route audio to paired headsets during in-app calls.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-		<string>voip</string>
 	</array>
 </dict>
 </plist>

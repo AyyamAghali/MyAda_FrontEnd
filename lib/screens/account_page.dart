@@ -6,6 +6,7 @@ import '../services/call/call_controller.dart';
 import '../services/notification_controller.dart';
 import '../utils/constants.dart';
 import '../utils/responsive.dart';
+import 'auth/change_password_screen.dart';
 import 'login_page.dart';
 
 class AccountPage extends StatefulWidget {
@@ -124,7 +125,7 @@ class _AccountPageState extends State<AccountPage> {
                 const SizedBox(height: 20),
                 _buildPersonalInfoSection(profile),
                 const SizedBox(height: 16),
-                _buildSettingsSection(context),
+                _buildSettingsSection(context, profile),
                 const SizedBox(height: 16),
                 _buildSupportSection(context),
                 const SizedBox(height: 16),
@@ -342,7 +343,10 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  Widget _buildSettingsSection(BuildContext context) {
+  Widget _buildSettingsSection(
+    BuildContext context,
+    AuthUserProfile profile,
+  ) {
     return _buildSection(
       title: 'Settings',
       children: [
@@ -356,11 +360,24 @@ class _AccountPageState extends State<AccountPage> {
         ),
         const Divider(height: 1, thickness: 1),
         _buildSettingTile(
-          icon: Icons.lock_outlined,
-          title: 'Privacy & Security',
-          subtitle: 'Password, privacy settings',
+          icon: Icons.lock_reset_rounded,
+          title: 'Password',
+          subtitle: 'Change password or reset by email',
           onTap: () {
-            _showSnackBar(context, 'Privacy settings are mocked.');
+            Navigator.push<void>(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) {
+                  final name =
+                      '${profile.displayFirstName} ${profile.displayLastName}'
+                          .trim();
+                  return ChangePasswordScreen(
+                    email: profile.email?.trim() ?? '',
+                    accountLabel: name.isEmpty ? null : name,
+                  );
+                },
+              ),
+            );
           },
         ),
       ],

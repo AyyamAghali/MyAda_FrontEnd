@@ -14,7 +14,7 @@ import 'clubs/club_module_nav.dart';
 import 'support/support_module.dart';
 import 'attendance/attendance_home.dart';
 import 'account_page.dart';
-import 'admin/module_admin_screen.dart';
+import 'admin/support_admin_screen.dart';
 import 'admin/support_staff_dashboard.dart';
 import 'login_page.dart';
 
@@ -514,8 +514,6 @@ class _MasterHomePageState extends State<MasterHomePage> {
           },
         ),
     ];
-    final roleTools = _adminToolsFor(access);
-
     return Container(
       width: double.infinity,
       margin: EdgeInsets.only(
@@ -532,7 +530,7 @@ class _MasterHomePageState extends State<MasterHomePage> {
             subtitle: 'Campus tools',
           ),
           const SizedBox(height: 10),
-          if (services.isEmpty && roleTools.isEmpty)
+          if (services.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
@@ -544,62 +542,10 @@ class _MasterHomePageState extends State<MasterHomePage> {
                 ),
               ),
             )
-          else ...[
+          else
             _buildActionGrid(context, services),
-            if (roleTools.isNotEmpty) ...[
-              const SizedBox(height: 22),
-              _buildSectionHeading(
-                context,
-                title: 'Role tools',
-                subtitle: 'Administration',
-              ),
-              const SizedBox(height: 10),
-              _buildActionGrid(context, roleTools),
-            ],
-          ],
         ],
       ),
-    );
-  }
-
-  List<_HomeAction> _adminToolsFor(AppHomeAccess access) {
-    final tools = <_HomeAction>[];
-    if (access.showSupportAdminModule) {
-      tools.add(
-        _adminAction(
-          label: 'Support\nAdmin',
-          icon: Icons.support_agent_outlined,
-          module: AdminModule.support,
-        ),
-      );
-    }
-    if (access.showLostFoundAdmin) {
-      tools.add(
-        _adminAction(
-          label: 'Lost & Found\nAdmin',
-          icon: Icons.manage_search_outlined,
-          module: AdminModule.lostFound,
-        ),
-      );
-    }
-    return tools;
-  }
-
-  _HomeAction _adminAction({
-    required String label,
-    required IconData icon,
-    required AdminModule module,
-  }) {
-    return _HomeAction(
-      label: label,
-      icon: icon,
-      onTap: (context) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => ModuleAdminScreen(module: module)),
-        );
-      },
     );
   }
 

@@ -4,8 +4,8 @@ import 'dart:io' show SocketException;
 
 import 'package:http/http.dart' as http;
 
+/// Base URL for the separate Location service (buildings / rooms).
 const List<String> kLocationApiBaseCandidates = [
-  'http://13.60.31.141:500/location',
   'http://13.60.31.141:5000/location',
 ];
 
@@ -85,59 +85,103 @@ class LocationApiService {
   }
 
   Future<List<Map<String, dynamic>>> _getList(String path) async {
-    LocationApiException? last;
-    for (final base in _orderedBases()) {
+    if (_sessionBase != null) {
       try {
-        final uri = Uri.parse('$base$path');
-        final response = await http.get(uri, headers: {
-          'Accept': 'application/json',
-        }).timeout(const Duration(seconds: 15));
-
-        if (response.statusCode == 200) {
-          _sessionBase = base;
-          final decoded = jsonDecode(response.body);
-          final List<dynamic> list;
-          if (decoded is List) {
-            list = decoded;
-          } else if (decoded is Map) {
-            list = (decoded['data'] ??
-                decoded['items'] ??
-                decoded['results'] ??
-                decoded['buildings'] ??
-                decoded['rooms'] ??
-                []) as List<dynamic>;
-          } else {
-            list = [];
-          }
-          return list.cast<Map<String, dynamic>>();
-        }
-
-        last = LocationApiException(
-          statusCode: response.statusCode,
-          message: _extractMsg(response.body) ?? 'Could not load locations.',
-        );
-      } on TimeoutException {
-        last = const LocationApiException(message: 'Request timed out.');
-      } on SocketException {
-        last = const LocationApiException(message: 'No internet connection.');
-      } catch (e) {
-        last = LocationApiException(
-          message: 'Unexpected location error (${e.runtimeType}).',
-        );
+        return await _getListFromBase(_sessionBase!, path);
+      } on LocationApiException {
+        _sessionBase = null;
       }
     }
 
-    throw last ??
-        const LocationApiException(message: 'Could not load locations.');
+    if (kLocationApiBaseCandidates.length == 1) {
+      final base = kLocationApiBaseCandidates.single;
+      final list = await _getListFromBase(base, path);
+      _sessionBase = base;
+      return list;
+    }
+
+    return _raceFirstSuccessfulList(kLocationApiBaseCandidates, path);
   }
 
-  List<String> _orderedBases() {
-    final out = <String>[];
-    if (_sessionBase != null) out.add(_sessionBase!);
-    for (final base in kLocationApiBaseCandidates) {
-      if (!out.contains(base)) out.add(base);
+  /// Picks the first base that returns HTTP 200 so a slow/dead URL does not block others.
+  Future<List<Map<String, dynamic>>> _raceFirstSuccessfulList(
+    List<String> bases,
+    String path,
+  ) async {
+    final completer = Completer<List<Map<String, dynamic>>>();
+    var finished = 0;
+    LocationApiException? lastError;
+
+    for (final base in bases) {
+      unawaited(() async {
+        try {
+          final list = await _getListFromBase(base, path);
+          if (!completer.isCompleted) {
+            _sessionBase = base;
+            completer.complete(list);
+          }
+        } on LocationApiException catch (e) {
+          lastError = e;
+          finished++;
+          if (finished >= bases.length && !completer.isCompleted) {
+            completer.completeError(
+              lastError ??
+                  const LocationApiException(
+                      message: 'Could not load locations.'),
+            );
+          }
+        } catch (e) {
+          lastError = LocationApiException(
+            message: 'Unexpected location error (${e.runtimeType}).',
+          );
+          finished++;
+          if (finished >= bases.length && !completer.isCompleted) {
+            completer.completeError(lastError!);
+          }
+        }
+      }());
     }
-    return out;
+
+    return completer.future;
+  }
+
+  Future<List<Map<String, dynamic>>> _getListFromBase(
+    String base,
+    String path,
+  ) async {
+    try {
+      final uri = Uri.parse('$base$path');
+      final response = await http.get(uri, headers: {
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final List<dynamic> list;
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map) {
+          list = (decoded['data'] ??
+              decoded['items'] ??
+              decoded['results'] ??
+              decoded['buildings'] ??
+              decoded['rooms'] ??
+              []) as List<dynamic>;
+        } else {
+          list = [];
+        }
+        return list.cast<Map<String, dynamic>>();
+      }
+
+      throw LocationApiException(
+        statusCode: response.statusCode,
+        message: _extractMsg(response.body) ?? 'Could not load locations.',
+      );
+    } on TimeoutException {
+      throw const LocationApiException(message: 'Request timed out.');
+    } on SocketException {
+      throw const LocationApiException(message: 'No internet connection.');
+    }
   }
 }
 

@@ -11,9 +11,7 @@ class AppHomeAccess {
     required this.showEventScanner,
     required this.showSupportDispatcherConsole,
     required this.showStaffPortal,
-    required this.showLostFoundAdmin,
     required this.showClubAdminModule,
-    required this.showSupportAdminModule,
     required this.showRoomAdmin,
     required this.showAttendanceAdmin,
   });
@@ -26,9 +24,7 @@ class AppHomeAccess {
   final bool showSupportDispatcherConsole;
   final bool showStaffPortal;
 
-  final bool showLostFoundAdmin;
   final bool showClubAdminModule;
-  final bool showSupportAdminModule;
   final bool showRoomAdmin;
   final bool showAttendanceAdmin;
 
@@ -40,9 +36,7 @@ class AppHomeAccess {
     showEventScanner: false,
     showSupportDispatcherConsole: false,
     showStaffPortal: false,
-    showLostFoundAdmin: false,
     showClubAdminModule: false,
-    showSupportAdminModule: false,
     showRoomAdmin: false,
     showAttendanceAdmin: false,
   );
@@ -55,9 +49,7 @@ class AppHomeAccess {
     showEventScanner: false,
     showSupportDispatcherConsole: true,
     showStaffPortal: true,
-    showLostFoundAdmin: true,
     showClubAdminModule: false,
-    showSupportAdminModule: true,
     showRoomAdmin: false,
     showAttendanceAdmin: false,
   );
@@ -72,9 +64,7 @@ class AppHomeAccess {
       showSupportDispatcherConsole:
           showSupportDispatcherConsole || o.showSupportDispatcherConsole,
       showStaffPortal: showStaffPortal || o.showStaffPortal,
-      showLostFoundAdmin: showLostFoundAdmin || o.showLostFoundAdmin,
       showClubAdminModule: showClubAdminModule || o.showClubAdminModule,
-      showSupportAdminModule: showSupportAdminModule || o.showSupportAdminModule,
       showRoomAdmin: showRoomAdmin || o.showRoomAdmin,
       showAttendanceAdmin: showAttendanceAdmin || o.showAttendanceAdmin,
     );
@@ -104,9 +94,7 @@ class AppHomeAccess {
           showEventScanner: false,
           showSupportDispatcherConsole: false,
           showStaffPortal: false,
-          showLostFoundAdmin: false,
           showClubAdminModule: false,
-          showSupportAdminModule: false,
           showRoomAdmin: false,
           showAttendanceAdmin: false,
         );
@@ -120,9 +108,7 @@ class AppHomeAccess {
           showEventScanner: false,
           showSupportDispatcherConsole: false,
           showStaffPortal: false,
-          showLostFoundAdmin: false,
           showClubAdminModule: false,
-          showSupportAdminModule: false,
           showRoomAdmin: false,
           showAttendanceAdmin: false,
         );
@@ -135,9 +121,7 @@ class AppHomeAccess {
           showEventScanner: false,
           showSupportDispatcherConsole: false,
           showStaffPortal: false,
-          showLostFoundAdmin: true,
           showClubAdminModule: false,
-          showSupportAdminModule: false,
           showRoomAdmin: false,
           showAttendanceAdmin: false,
         );
@@ -150,9 +134,7 @@ class AppHomeAccess {
           showEventScanner: false,
           showSupportDispatcherConsole: false,
           showStaffPortal: false,
-          showLostFoundAdmin: false,
           showClubAdminModule: false,
-          showSupportAdminModule: false,
           showRoomAdmin: false,
           showAttendanceAdmin: false,
         );
@@ -165,9 +147,7 @@ class AppHomeAccess {
           showEventScanner: false,
           showSupportDispatcherConsole: true,
           showStaffPortal: false,
-          showLostFoundAdmin: false,
           showClubAdminModule: false,
-          showSupportAdminModule: false,
           showRoomAdmin: false,
           showAttendanceAdmin: false,
         );
@@ -181,9 +161,7 @@ class AppHomeAccess {
           showEventScanner: false,
           showSupportDispatcherConsole: false,
           showStaffPortal: true,
-          showLostFoundAdmin: false,
           showClubAdminModule: false,
-          showSupportAdminModule: false,
           showRoomAdmin: false,
           showAttendanceAdmin: false,
         );
@@ -197,9 +175,7 @@ class AppHomeAccess {
           showEventScanner: false,
           showSupportDispatcherConsole: false,
           showStaffPortal: true,
-          showLostFoundAdmin: false,
           showClubAdminModule: false,
-          showSupportAdminModule: false,
           showRoomAdmin: false,
           showAttendanceAdmin: false,
         );
@@ -213,9 +189,7 @@ class AppHomeAccess {
           showEventScanner: false,
           showSupportDispatcherConsole: false,
           showStaffPortal: false,
-          showLostFoundAdmin: false,
           showClubAdminModule: false,
-          showSupportAdminModule: false,
           showRoomAdmin: false,
           showAttendanceAdmin: false,
         );
